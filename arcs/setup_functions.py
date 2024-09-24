@@ -352,7 +352,8 @@ class GraphGenerator:
         self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
 
     def _cost_function(self,gibbs,T,reactants):
-        '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf'''
+        '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf
+        this is normalised per reactant atom'''
 
         comps = []
         for r,n in reactants.items():
