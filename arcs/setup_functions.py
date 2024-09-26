@@ -262,6 +262,7 @@ class ReactionGibbsandEquilibrium:
         return(float(prod_sum - reac_sum))
     
     def equilibrium_constant(self):
+        '''double check this...values can be enormously large...'''
         K = np.exp(-(self.reaction_energy()*e)/(Boltzmann*self.temperature))
         return(K)
     
