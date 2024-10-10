@@ -11,17 +11,18 @@ from dash import ctx
 from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
-import numpy as np
 from monty.serialization import loadfn
 from arcs.setup_functions import GenerateInitialConcentrations
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import Traversal
 import pickle
 import warnings
-
+from dash.exceptions import PreventUpdate
 
 def start_dash(host: str, port: int, server_is_started: Condition, file_location):
+
     terminate_when_parent_process_dies()
+
     external_stylesheets = [dbc.themes.QUARTZ]
 
     load_figure_template("QUARTZ")
@@ -49,7 +50,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             try:
                 int(i)
                 md.append("<sub>{}</sub>".format(int(i)))
-            except:
+            except Exception:
                 md.append(i)
         return "".join(md)
 
@@ -401,7 +402,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         [
                             dbc.CardBody(arcs_settings),
                             dbc.CardFooter("ARCS Settings")
-                        ]
+                        ],
 
                     ),
                     dbc.Card(
@@ -605,6 +606,8 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     def add_row(n_clicks,rows,columns):
         if n_clicks > 0:
             rows.append({c['id']: '' for c in columns})
+        else:
+            raise PreventUpdate
         return(rows)
     #update the concentrations
     @app.callback(
@@ -936,12 +939,12 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             )
 
             return [
-                metadata_table,
-                stats_table,
-                paths_table,
-                diff_table,
-                resultsgraph,
-                None,
+                [metadata_table],
+                [stats_table],
+                [paths_table],
+                [diff_table],
+                [resultsgraph],
+                [None],
             ]
 
     with server_is_started:
