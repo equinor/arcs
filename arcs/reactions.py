@@ -285,7 +285,7 @@ class MappingtoReaction:
                 for j in rs:
                     try:
                         int(j)
-                    except:
+                    except Exception:
                         c.append(j)
         
             dr = set(dict.fromkeys(c))
@@ -296,7 +296,7 @@ class MappingtoReaction:
                 for j in ps:
                     try:
                         int(j)
-                    except:
+                    except Exception:
                         c.append(j)
         
             dp = set(dict.fromkeys(c))
@@ -331,7 +331,7 @@ class MappingtoReaction:
             try:
                 reacs = {k:int(re[k]) for k in re}
                 prods = {k:int(pr[k]) for k in pr}
-            except:
+            except Exception:
                 warnings.warn('\n error with {}'.format(r))
             return(reacs,prods)
     
@@ -343,7 +343,7 @@ class MappingtoReaction:
                     screened.append(Equilibrium(re,pr))
                 except:
                     pass
-            except:
+            except Exception :
                 pass
         return(screened)    
     

@@ -1,23 +1,19 @@
-import os,gzip
-from ase.io import read,write
+import os
+import gzip
+from ase.io import read
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from ase.thermochemistry import IdealGasThermo
 from scipy.constants import Boltzmann, e
 from monty.serialization import loadfn
 import numpy as np 
-import itertools as it
-import numpy as np 
-from chempy import balance_stoichiometry
-from chempy import Reaction
-from chempy.equilibria import Equilibrium
 from chempy.reactionsystem import Substance
 from tqdm import tqdm
 import networkx as nx
 from pathos.helpers import mp as pmp
 import math
-import copy
 import pickle
+from ase.atoms import Atoms
 
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
@@ -119,7 +115,7 @@ class GetEnergyandVibrationsVASP:
         frequencies = []
         for line in outcar:
             if 'THz' in line:
-                if not 'f/i' in line: # we ignore imaginary modes
+                if 'f/i' not in line: # we ignore imaginary modes
                     ev = float(line.split()[-2]) / 1000
                     frequencies.append(ev)
         return(frequencies)      
@@ -210,7 +206,6 @@ class GetEnergyandVibrationsDalton:
     
     def get_vibrations(self):
         daltonout = open('{}/output.out'.format(self.vibrations),'r').readlines()
-        frequencies = []
         datalines = []
         for i,line in enumerate(daltonout):
             if 'frequency' in line and 'mode' in line:
@@ -230,30 +225,41 @@ class GetEnergyandVibrationsDalton:
 
 class ReactionGibbsandEquilibrium:
     
-    def __init__(self,reaction,temperature,pressure,reaction_input):
-        self.reaction = reaction
+    def __init__(self,
+                 #reaction,
+                 temperature,
+                 pressure,
+                 reaction_input):
+        #self.reaction = reaction
         self.temperature = temperature
         self.pressure = pressure*100000 #pressure in bar -> Pa
         self.reaction_input = reaction_input
         
     def Gibbs(self,c):
         data = self.reaction_input[c]
-        igt = IdealGasThermo(vib_energies=data.get_vibrations(),
-                                        geometry=data.islinear(),
-                                        potentialenergy=data.energy(),
-                                        atoms=data.atoms(),
-                                        symmetrynumber=data.rotation_num(),
-                                        spin=data.spin(),
-                                        natoms=data.atoms().get_global_number_of_atoms())
+        #igt = IdealGasThermo(vib_energies=data.get_vibrations(),
+        #                                geometry=data.islinear(),
+        #                                potentialenergy=data.energy(),
+        #                                atoms=data.atoms(),
+        #                                symmetrynumber=data.rotation_num(),
+        #                                spin=data.spin(),
+        #                                natoms=data.atoms().get_global_number_of_atoms())
+        igt = IdealGasThermo(vib_energies=data['vibrations'],
+                                        geometry=data['islinear'],
+                                        potentialenergy=data['energy'],
+                                        atoms=Atoms.fromdict(data['atoms']),
+                                        symmetrynumber=data['rotation_num'],
+                                        spin=data['spin'],
+                                        natoms=Atoms.fromdict(data['atoms']).get_global_number_of_atoms())
         G = igt.get_gibbs_energy(self.temperature,self.pressure,verbose=False)
         H = igt.get_enthalpy(self.temperature,verbose=False)
         S = igt.get_entropy(self.temperature,self.pressure,verbose=False) 
         Z = igt.get_entropy(self.temperature,self.pressure,verbose=False)
         return({'G':G,'H':H,'S':S,'Z':Z})
     
-    def reaction_energy(self):
-        prod = self.reaction.prod
-        reac = self.reaction.reac
+    def reaction_energy(self,reaction):
+        prod = reaction.prod
+        reac = reaction.reac
         reaction_compounds = list(prod)+list(reac)
         # need to add a charge neutrality condition and mass balance violation
         gibbs = {c:self.Gibbs(c) for c in reaction_compounds}
@@ -261,13 +267,13 @@ class ReactionGibbsandEquilibrium:
         reac_sum = np.sum([self.Gibbs(c)['G']*reac[c] for c in gibbs if c in reac])
         return(float(prod_sum - reac_sum))
     
-    def equilibrium_constant(self):
+    def equilibrium_constant(self,reaction):
         '''double check this...values can be enormously large...'''
-        K = np.exp(-(self.reaction_energy()*e)/(Boltzmann*self.temperature))
+        K = np.exp(-(self.reaction_energy(reaction)*e)/(Boltzmann*self.temperature))
         return(K)
     
-    def as_dict(self):
-        return({'G_react':self.reaction_energy(),'K_react':self.equilibrium_constant()})
+    def as_dict(self,reaction):
+        return({'e':reaction,'g':self.reaction_energy(reaction),'k':self.equilibrium_constant(reaction)})
 
 
 class ApplyDataToReaction:
@@ -278,16 +284,24 @@ class ApplyDataToReaction:
     def __init__(self,trange,prange,reactions,compound_data,nprocs):
         self.trange = trange
         self.prange = prange
-        self.reactions = {i:r for i,r in enumerate(pickle.load(open(reactions,'rb')))}
+        try:
+            self.reactions = {i:r for i,r in enumerate(pickle.load(open(reactions,'rb')))}
+        except Exception:
+            self.reactions = {i:r for i,r in enumerate(reactions)} 
         self.compound_data = compound_data
         self.nprocs = nprocs
         self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
         
-    def _generate_data_serial(self,t,p): #serial
-        reactions = {i:{'e':r,
-            'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant(),
-            'g':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).reaction_energy()} 
-                     for i,r in tqdm(self.reactions.items())}
+#    def _generate_data_serial(self,t,p): #serial
+#        reactions = {i:{'e':r,
+#            'k':ReactionGibbsandEquilibrium(t,p,self.compound_data).#equilibrium_constant(r),
+#            'g':ReactionGibbsandEquilibrium(t,p,self.compound_data).#reaction_energy(r)} 
+#                     for i,r in self.reactions.items()}
+#        return(reactions)
+    
+    def _generate_data_serial(self,t,p):
+        rge = ReactionGibbsandEquilibrium(t,p,self.compound_data)
+        reactions = {i:rge.as_dict(r) for i,r in self.reactions.items()}
         return(reactions)
 
     def generate_data(self,t,p): #multiprocessed
@@ -299,10 +313,8 @@ class ApplyDataToReaction:
 
             data = {}
             for r in reaction_keys:
-                rge = ReactionGibbsandEquilibrium(self.reactions[r],t,p,self.compound_data)
-                data[r] = {'e':self.reactions[r],
-                        'k':rge.equilibrium_constant(),
-                        'g':rge.reaction_energy()}
+                rge = ReactionGibbsandEquilibrium(t,p,self.compound_data)
+                data[r] = rge.as_dict(self.reactions[r])
             out_q.put(data)
 
         resultdict = {}
@@ -326,16 +338,14 @@ class ApplyDataToReaction:
         
     def apply(self,serial=False):
         data = {}
-        with tqdm(total=len(self.trange)*len(self.prange),bar_format=self.barformat) as pbar:
-            for t in self.trange:
-                pdat = {}
-                for p in self.prange:
-                    if serial == True:
-                        pdat[p] = self._generate_data_serial(t,p)
-                    else:
-                        pdat[p] = self.generate_data(t,p)
-                    pbar.update(1)
-                data[t] = pdat
+        for t in self.trange:
+            pdat = {}
+            for p in self.prange:
+                if serial:
+                    pdat[p] = self._generate_data_serial(t,p)
+                else:
+                    pdat[p] = self.generate_data(t,p)
+            data[t] = pdat
         self.data = data
         return(self.data) 
     
@@ -347,10 +357,12 @@ class ApplyDataToReaction:
 class GraphGenerator:    
     
     def __init__(self,applied_reactions):
-        self.applied_reactions = pickle.load(open(applied_reactions,'rb'))
+        try:
+            self.applied_reactions = pickle.load(open(applied_reactions,'rb'))
+        except Exception:
+            self.applied_reactions = applied_reactions 
         self.trange = list(self.applied_reactions)
         self.prange = list(self.applied_reactions[self.trange[0]])
-        self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
 
     def _cost_function(self,gibbs,T,reactants):
         '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf
@@ -370,7 +382,7 @@ class GraphGenerator:
     def multidigraph_cost(self,T,P):
         ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
         t = nx.MultiDiGraph(directed=True)
-        for i,reac in self.applied_reactions[T][P].items():
+        for i,reac in tqdm(self.applied_reactions[T][P].items()):
             f_cost = self._cost_function(reac['g'],T,reac['e'].reac) #forward cost
             b_cost = self._cost_function(-reac['g'],T,reac['e'].prod) #backward cost
             r = list(reac['e'].reac)
@@ -401,17 +413,14 @@ class GraphGenerator:
 
     def generatemultidigraph(self,cost_function=True):
         graphs = {}
-        with tqdm(total=len(self.trange)*len(self.prange),bar_format=self.barformat) as pbar:
-            pbar.set_description('generating graph')
-            for T in self.trange:
-                pdict = {}
-                for P in self.prange:
-                    if cost_function == True:
-                        pdict[P] = self.multidigraph_cost(T,P)
-                    elif cost_function == False:
-                        pdict[P] = self.multidigraph(T,P)                        
-                    pbar.update(1)
-                graphs[T] = pdict
+        for T in self.trange:
+            pdict = {}
+            for P in self.prange:
+                if cost_function:
+                    pdict[P] = self.multidigraph_cost(T, P)
+                else:
+                    pdict[P] = self.multidigraph(T, P)
+            graphs[T] = pdict
         self.graph = graphs
     
     def save(self,filename='graph.p'):
@@ -436,10 +445,10 @@ class GenerateInitialConcentrations:
         try:
             hasattr(self.compounds,'compounds')
             compounds = self.compounds
-        except:
+        except Exception:
             compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
         ic = {c:np.random.random()/1e5 for c in compounds}
-        if not include_co2==True:
+        if not include_co2:
             ic['CO2'] = 1
         self.ic = ic
     
@@ -447,18 +456,17 @@ class GenerateInitialConcentrations:
         try:
             hasattr(self.compounds,'compounds')
             compounds = self.compounds
-        except:
+        except Exception:
             compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
         ic = {c:0 for c in compounds}
-        if not include_co2==True:
+        if not include_co2:
             ic['CO2'] = 1
         self.ic = ic
 
     def specific_random(self,compounds=None):
         try:
             hasattr(self.compounds,'compounds')
-            compounds = self.compounds
-        except:
+        except Exception:
             full_list = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
         ic = {}
         for c in full_list:
@@ -473,11 +481,10 @@ class GenerateInitialConcentrations:
         ''' update dict = {'CO2':1e-6,'H2O':300e-5} etc.'''
         try:
             hasattr(self.ic,'ic')
-        except:
+        except Exception:
             self.all_zero(include_co2=include_co2)
         for k,v in update_dict.items():
             self.ic[k] = v
-        
 
     def from_file(self,file_name):
         nodes = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
