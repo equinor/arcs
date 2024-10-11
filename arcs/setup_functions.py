@@ -11,9 +11,11 @@ from chempy.reactionsystem import Substance
 from tqdm import tqdm
 import networkx as nx
 from pathos.helpers import mp as pmp
+import pathos 
 import math
 import pickle
 from ase.atoms import Atoms
+from chempy import Equilibrium
 
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
@@ -281,14 +283,13 @@ class ApplyDataToReaction:
     # 1. interpolation - should speed things up
     ''' this class applies the gibbs data to a specific reaction'''
     
-    def __init__(self,trange,prange,reactions,compound_data,nprocs):
+    def __init__(self,trange,prange,data,nprocs):
         self.trange = trange
         self.prange = prange
-        try:
-            self.reactions = {i:r for i,r in enumerate(pickle.load(open(reactions,'rb')))}
-        except Exception:
-            self.reactions = {i:r for i,r in enumerate(reactions)} 
-        self.compound_data = compound_data
+        reactions = data['reactions']
+        self.reactions = {i:Equilibrium.from_string(r) for i,r in enumerate(reactions)}
+        del data['reactions']
+        self.compound_data = data
         self.nprocs = nprocs
         self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
         
@@ -356,13 +357,14 @@ class ApplyDataToReaction:
         
 class GraphGenerator:    
     
-    def __init__(self,applied_reactions):
+    def __init__(self,applied_reactions,ncores=4):
         try:
             self.applied_reactions = pickle.load(open(applied_reactions,'rb'))
         except Exception:
             self.applied_reactions = applied_reactions 
         self.trange = list(self.applied_reactions)
         self.prange = list(self.applied_reactions[self.trange[0]])
+        self.ncores = ncores
 
     def _cost_function(self,gibbs,T,reactants):
         '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf
@@ -392,6 +394,31 @@ class GraphGenerator:
             t.add_weighted_edges_from([i,c,f_cost] for c in p) #reaction -> products
             t.add_weighted_edges_from([c,i,b_cost] for c in p) #products -> reaction
         return(t)
+    
+    def multidigraph_cost_mp(self,T,P):
+
+        def mp_func(rr,t):
+            i,reac = rr
+            f_cost = self._cost_function(reac['g'],T,reac['e'].reac) #forward cost
+            b_cost = self._cost_function(-reac['g'],T,reac['e'].prod) #backward cost
+            r = list(reac['e'].reac)
+            p = list(reac['e'].prod)
+            t.add_weighted_edges_from([c,i,f_cost] for c in r) #reactants -> reaction
+            t.add_weighted_edges_from([i,c,b_cost] for c in r) #reaction -> reactants
+            t.add_weighted_edges_from([i,c,f_cost] for c in p) #reaction -> products
+            t.add_weighted_edges_from([c,i,b_cost] for c in p) #products -> reaction
+        
+        import tqdm_pathos as ptqdm
+
+        t = nx.MultiDiGraph(directed=True)
+
+        rr = list(self.applied_reactions[T][P].items())
+
+        ptqdm.map(mp_func, rr,t=t,tqdm_kwargs={'disable':True},**{'n_cpus':self.ncores})
+        #from pathos.pools import ProcessPool 
+        #ProcessPool(ncores).map(mp_func,rr,t=t)
+        return(t)
+
 
     def multidigraph(self,T,P):
         t = nx.MultiDiGraph(directed=True)
@@ -411,13 +438,16 @@ class GraphGenerator:
                 t.add_weighted_edges_from([c,i,k] for c in p)
         return(t)
 
-    def generatemultidigraph(self,cost_function=True):
+    def generatemultidigraph(self,cost_function=True,mp = False):
         graphs = {}
         for T in self.trange:
             pdict = {}
             for P in self.prange:
                 if cost_function:
-                    pdict[P] = self.multidigraph_cost(T, P)
+                    if mp:
+                        pdict[P] = self.multidigraph_cost_mp(T,P)
+                    else:
+                        pdict[P] = self.multidigraph_cost(T, P)
                 else:
                     pdict[P] = self.multidigraph(T, P)
             graphs[T] = pdict
