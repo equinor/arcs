@@ -374,6 +374,22 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 className="btn btn-success",
                 style={'float': 'left',"margin-right":"1rem"}
             )
+    
+    upload_button = dcc.Upload(
+        dls.Rotate(dbc.Button([" Upload File"],
+                   id='upload-val',
+                   n_clicks=0,
+                   className="btn btn-primary",
+                   style={'float':'left','margin-right':'1rem'})
+        ))
+#        dbc.Button(
+#            children="Upload File",
+#            id="upload-val",
+#            n_clicks=0,
+#            className="btn btn-success",
+#            style={'float': 'left',"margin-right":"1rem"}
+#            )
+#        ),
 
 
     metadatatable = html.Div(
@@ -476,7 +492,9 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     html.H3(["Automated Reactions for ","C", "O", html.Sub(2), " Conversion (ARCS)"]),
                     html.Div(
                         [offcanvas,
-                         submit_button]
+                         upload_button,
+                         submit_button,
+                         ]
                     ),
                     html.Div(
                         # for updating the concentrations to be used in ARCS (no need for displaying)
