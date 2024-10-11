@@ -4,15 +4,9 @@ from chempy import Substance
 import copy
 import networkx as nx
 import itertools as it
-from tqdm.notebook import tqdm
 from tqdm import tqdm
-from collections import defaultdict
 from numpy.random import choice
-import platform,psutil
-
-import os
 import warnings
-
 import pathos.multiprocessing as multiprocessing
 from pathos.pools import ProcessPool
 from pathos.pp import ParallelPool
@@ -108,9 +102,9 @@ class Traversal:
                     try:
                         c2 = np.random.choice(available)
                         choices[c2] = p_3[c2]
-                    except:
+                    except Exception:
                         pass
-                except:
+                except Exception:
                     pass
                     
         return(choices)
@@ -154,7 +148,7 @@ class Traversal:
 
     def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        if force_direct == True:
+        if force_direct:
             pstring = [0,1,2]
             while len(pstring) > 2:
                 source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=None) 
@@ -171,7 +165,7 @@ class Traversal:
         if previous_index == None:
             raise ValueError('no previous compound selected')
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        if force_direct == True:
+        if force_direct:
             pstring = [0,1,2]
             while len(pstring) > 2:
                 present = [c for c in list(self.reactions[T][P][previous_index]['e'].reac) + list(self.reactions[T][P][previous_index]['e'].prod) ] # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
@@ -202,7 +196,7 @@ class Traversal:
         eql = Equilibrium(reac=r,prod=p,param=k)
         try:
             return(EqSystem([eql],substances)) # might not just be able to try a return...
-        except:
+        except Exception:
             return(None)
         
         
@@ -217,7 +211,7 @@ class Traversal:
                     
             concs = fc
             eq = eq.string()
-        except:
+        except Exception:
             concs = fc
             eq = None
         return(concs,eq)
@@ -246,7 +240,7 @@ class Traversal:
                                                               co2=co2,
                                                               scale_highest=scale_highest,
                                                               ceiling=ceiling)
-            except:
+            except Exception:
                 path_depth = ip+1
                 break
             if len(choices) <= 1: # not sure this is necessary....
@@ -461,7 +455,7 @@ version:1.2
             self.final_concs[T] = final_concs_2
             self.initfinaldiff[T] = initfinaldiff            
                 
-        if save == True:
+        if save:
             from monty.serialization import dumpfn
             if not savename:
                 from datetime import date

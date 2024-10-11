@@ -11,7 +11,6 @@ from chempy.reactionsystem import Substance
 from tqdm import tqdm
 import networkx as nx
 from pathos.helpers import mp as pmp
-import pathos 
 import math
 import pickle
 from ase.atoms import Atoms
