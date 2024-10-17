@@ -103,9 +103,9 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     g = pickle.load(open(file_location+"SCAN_graph.p", "rb"))
     t = Traversal(graph=g, reactions=file_location+"SCAN_reactions.p")
 
-    graph = dbc.Alert("No Data", color="light")  # None #html.P('None')
-    table4 = dbc.Alert("No Data", color="light")  # None #html.P('None')
-    table5 = dbc.Alert("No Data", color="light")  # None #html.P('None')
+    graph = dbc.Alert("No Data", color="dark")  # None #html.P('None')
+    table4 = dbc.Alert("No Data", color="dark")  # None #html.P('None')
+    table5 = dbc.Alert("No Data", color="dark")  # None #html.P('None')
     
     
     meta = dbc.Alert("Data Shown When Run", color="secondary")  # None #html.P('None')
@@ -117,7 +117,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     concs = gic.ic
     settings = {
         "nprocs": 1,
-        "sample_length": 320,
+        "sample_length": 100,
         "max_rank": 10,
         "max_compounds": 5,
         "probability_threshold": 0.1,
@@ -403,13 +403,16 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                             dbc.CardBody(arcs_settings),
                             dbc.CardFooter("ARCS Settings")
                         ],
+                        color='dark'
 
                     ),
                     dbc.Card(
                         [
                             dbc.CardBody(metadatatable),
                             dbc.CardFooter("System Data")
-                        ]
+                        ],
+                        color='dark'
+
                     )
                         ],
                         gap=3
@@ -512,13 +515,17 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                             children=[
                                                 dbc.CardHeader('Input Concentrations'),
                                                 dbc.CardBody(concentrations_table),
-                                            ]
+                                            ],
+                                            color='dark'
+
                                         ),
                                         dbc.Card(
                                             children=[
                                                 dbc.CardHeader('Conditions'),
                                                 dbc.CardBody(sliders),
-                                            ]
+                                            ],
+                                            color='dark'
+
                                         )
                                     ]
                                 )
@@ -547,7 +554,9 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                                     ],
                                                 )
                                             ),
-                                        ]
+                                        ],
+                                        color='dark'
+
                                     ),
                                 ]
                             )
@@ -561,19 +570,28 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                 children=[
                                     dbc.Card(
                                         children=[
-                                            dbc.CardBody(
-                                                most_frequent_reactions),
                                             dbc.CardHeader(
-                                                'Most Frequent Reactions')
-                                        ]
+                                                'Most Frequent Reactions'
+                                                ),
+                                            dbc.CardBody(
+                                                most_frequent_reactions
+                                                ),
+
+                                        ],
+                                        color='dark'
+
                                     ),
                                     dbc.Card(
                                         children=[
-                                            dbc.CardBody(
-                                                most_frequent_paths),
                                             dbc.CardHeader(
-                                                'Most Frequent Paths (alpha)')
-                                        ]
+                                                'Most Frequent Paths (alpha)'
+                                                ),
+                                            dbc.CardBody(
+                                                most_frequent_paths
+                                                ),
+
+                                        ],
+                                        color='dark'
                                     )
                                 ]
                             )
@@ -776,10 +794,9 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             analyse.reaction_statistics()
             analyse.mean_sampling()
             analyse.reaction_paths()
-
+   
             mean=analyse.mean_data[ambient_settings["T"]
                 ][ambient_settings["P"]]
-            
             paths=pd.DataFrame(
                 analyse.common_paths[ambient_settings["T"]
                     ][ambient_settings["P"]]

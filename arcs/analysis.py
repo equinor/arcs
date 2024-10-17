@@ -25,7 +25,7 @@ class AnalyseSampling:
                 try:
                     int(i)
                     reacs_adjusted.append(i)
-                except:
+                except Exception:
                     if i == '+':
                         reacs_adjusted.append(' + ')
                     else:
@@ -33,11 +33,11 @@ class AnalyseSampling:
                         for x in i:
                             try:
                                 x = int(x)
-                                if self.markdown==True:
+                                if self.markdown:
                                     new_i.append('<sub>{}</sub>'.format(x))
                                 else:
                                     new_i.append('$_{}$'.format(x))
-                            except:
+                            except Exception:
                                 new_i.append(x)
                         reacs_adjusted.append(''.join(new_i))
             return(''.join(reacs_adjusted)) 
@@ -64,7 +64,7 @@ class AnalyseSampling:
         equation_statistics = {}
         for equation,frequency in appearances.items():
             eq,k = equation.split(';')
-            if self.cancel_markdown == True:
+            if self.cancel_markdown:
                 equation_statistics[eq] = {'k':k.split('\n')[0],'frequency':frequency}
             else: 
                 equation_statistics[self._latex_equation(eq)] = {'k':k.split('\n')[0],'frequency':frequency}
@@ -73,7 +73,7 @@ class AnalyseSampling:
             d = d.reset_index()
             d.T['index'] = 'reaction'
             d = d.to_dict()
-        except:
+        except Exception:
             d = {}
         return(d)
             
@@ -90,7 +90,7 @@ class AnalyseSampling:
                 try:
                     
                     eqp[float(P)] = self._get_stats(equations)
-                except:
+                except Exception:
                     eqp[float(P)] = []
             eqt[float(T)] = eqp
             
@@ -164,7 +164,7 @@ class AnalyseSampling:
                     self.cancel_markdown=True
                     self.reaction_statistics()
                     tr = str(self.stats[float(T)][float(P)]['index'][index])
-                except:
+                except Exception:
                     tr = None
     
                 vs = []
@@ -187,7 +187,7 @@ class AnalyseSampling:
                                     r2 = self._latex_equation(stats[x][y+1]['reaction'])
                                     #p2l.append(stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0]+':'+stats[x][y+1]['reaction']+' ; k='+stats[x][y+1]['k'].split('\n')[0])
                                     p2l.append(r1+' ; k='+stats[x][y]['k'].split('\n')[0]+':'+r2+' ; k='+stats[x][y+1]['k'].split('\n')[0])
-                                except:
+                                except Exception:
                                     r1 = self._latex_equation(stats[x][y-1]['reaction'])
                                     r2 = self._latex_equation(stats[x][y]['reaction'])
                                     #p2l.append(stats[x][y-1]['reaction']+' ; k='+stats[x][y-1]['k'].split('\n')[0]+':'+stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0])
@@ -202,7 +202,7 @@ class AnalyseSampling:
                     df.set_index('frequency')
                     dict_ = df.to_dict()
                     df2[float(P)] = _eqpath(dict_)
-                except:
+                except Exception:
                     df2[float(P)] = {'frequency':[None],'paths':[None],'k':[None]}
 
             df1[float(T)] = df2

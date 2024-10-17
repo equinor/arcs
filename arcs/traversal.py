@@ -7,7 +7,6 @@ import itertools as it
 from tqdm.notebook import tqdm
 from tqdm import tqdm
 from collections import defaultdict
-from numpy.random import choice
 import platform,psutil
 
 import os
@@ -18,7 +17,6 @@ from pathos.pools import ProcessPool
 from pathos.pp import ParallelPool
 from pathos.serial import SerialPool
 from datetime import datetime
-import random
 import math
 import numpy as np
 import pandas as pd 
@@ -108,9 +106,9 @@ class Traversal:
                     try:
                         c2 = np.random.choice(available)
                         choices[c2] = p_3[c2]
-                    except:
+                    except Exception:
                         pass
-                except:
+                except Exception:
                     pass
                     
         return(choices)
@@ -154,16 +152,16 @@ class Traversal:
 
     def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        if force_direct == True:
+        if force_direct:
             pstring = [0,1,2]
             while len(pstring) > 2:
                 source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=None) 
-                target = random.choice(nodes)
+                target = np.random.choice(nodes)
                 p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
                 pstring = [n for n in p if isinstance(p,str)]
         else:
                 source = self._get_weighted_random_compound(T,P)
-                target = random.choice(nodes)
+                target = np.random.choice(nodes)
                 p = nx.shortest_path(self.graph[T][P],source,target)
         return(p)
 
@@ -171,17 +169,17 @@ class Traversal:
         if previous_index == None:
             raise ValueError('no previous compound selected')
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        if force_direct == True:
+        if force_direct:
             pstring = [0,1,2]
             while len(pstring) > 2:
                 present = [c for c in list(self.reactions[T][P][previous_index]['e'].reac) + list(self.reactions[T][P][previous_index]['e'].prod) ] # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
                 source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=present)
-                target = random.choice(nodes) # the next path will be random 
+                target = np.random.choice(nodes) # the next path will be random 
                 p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
                 pstring = [n for n in p if isinstance(p,str)]
         else:
                 source = self._get_weighted_random_compound(T,P)
-                target = random.choice(nodes)
+                target = np.random.choice(nodes)
                 p = nx.shortest_path(self.graph[T][P],source,target)
         return(p)
     
@@ -202,7 +200,7 @@ class Traversal:
         eql = Equilibrium(reac=r,prod=p,param=k)
         try:
             return(EqSystem([eql],substances)) # might not just be able to try a return...
-        except:
+        except Exception:
             return(None)
         
         
@@ -217,7 +215,7 @@ class Traversal:
                     
             concs = fc
             eq = eq.string()
-        except:
+        except Exception:
             concs = fc
             eq = None
         return(concs,eq)
@@ -246,7 +244,7 @@ class Traversal:
                                                               co2=co2,
                                                               scale_highest=scale_highest,
                                                               ceiling=ceiling)
-            except:
+            except Exception:
                 path_depth = ip+1
                 break
             if len(choices) <= 1: # not sure this is necessary....
@@ -260,13 +258,13 @@ class Traversal:
                 break
             weights = {k:1/rankings[k]['weight'] for k in rankings}
             probabilities = {k:v/sum(weights.values()) for k,v in weights.items()}
-            chosen_reaction = random.choice([choice(list(probabilities.keys()),
+            chosen_reaction = np.random.choice([np.random.choice(list(probabilities.keys()),
                                 len(probabilities),
                                 p=list(probabilities.values()))][0])
             
             eqsyst = self.generate_eqsystem(chosen_reaction,T,P)
             # if reaction was previous reaction then break
-            path_available = [r for r in reactionstats.values() if not r==None]
+            path_available = [r for r in reactionstats.values() if r is not None]
             if path_available:
                 if eqsyst.string() == path_available[-1] and eqsyst.string() == path_available[-1]:
                     break   # extra break
@@ -274,8 +272,8 @@ class Traversal:
             final_concs[ip],reactionstats[ip] = self.equilibrium_concentrations(fcs,eqsyst)
             
         return({'data':final_concs[list(final_concs)[-1]],
-                'equation_statistics':[r for r in reactionstats.values() if not r==None],
-                'path_length':len([r for r in reactionstats.values() if not r==None])})  
+                'equation_statistics':[r for r in reactionstats.values() if r is not None],
+                'path_length':len([r for r in reactionstats.values() if r is not None])})  
     
     
     def _queue_function(self,
@@ -370,7 +368,7 @@ class Traversal:
         
         
     def run(self,trange,prange,ic=None,save=False,savename=None,ignore_warnings=True,logging=False,**kw):
-        if ignore_warnings==True:
+        if ignore_warnings:
             warnings.filterwarnings("ignore")
 
         '''
