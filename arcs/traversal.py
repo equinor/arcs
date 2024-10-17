@@ -5,7 +5,6 @@ import copy
 import networkx as nx
 import itertools as it
 from tqdm import tqdm
-from numpy.random import choice
 import warnings
 import pathos.multiprocessing as multiprocessing
 from pathos.pools import ProcessPool
@@ -13,7 +12,6 @@ from pathos.pp import ParallelPool
 from pathos.serial import SerialPool
 import platform
 from datetime import datetime
-import random
 import math
 import numpy as np
 import pandas as pd 
@@ -153,12 +151,12 @@ class Traversal:
             pstring = [0,1,2]
             while len(pstring) > 2:
                 source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=None) 
-                target = random.choice(nodes)
+                target = np.random.choice(nodes)
                 p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
                 pstring = [n for n in p if isinstance(p,str)]
         else:
                 source = self._get_weighted_random_compound(T,P)
-                target = random.choice(nodes)
+                target = np.random.choice(nodes)
                 p = nx.shortest_path(self.graph[T][P],source,target)
         return(p)
 
@@ -171,7 +169,7 @@ class Traversal:
             while len(pstring) > 2:
                 present = [c for c in list(self.reactions[T][P][previous_index]['e'].reac) + list(self.reactions[T][P][previous_index]['e'].prod) ] # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
                 source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=present)
-                target = random.choice(nodes) # the next path will be random 
+                target = np.random.choice(nodes) # the next path will be random 
                 p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
                 pstring = [n for n in p if isinstance(p,str)]
         else:
@@ -255,7 +253,7 @@ class Traversal:
                 break
             weights = {k:1/rankings[k]['weight'] for k in rankings}
             probabilities = {k:v/sum(weights.values()) for k,v in weights.items()}
-            chosen_reaction = random.choice([choice(list(probabilities.keys()),
+            chosen_reaction = np.random.choice([np.random.choice(list(probabilities.keys()),
                                 len(probabilities),
                                 p=list(probabilities.values()))][0])
             
