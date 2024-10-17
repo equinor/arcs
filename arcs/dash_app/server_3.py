@@ -418,8 +418,6 @@ def start_dash(host: str,
                             dbc.CardFooter("ARCS Settings")
                         ],
                         color='dark',
-
-    
                     ),
                     dbc.Card(
                         [
@@ -536,8 +534,7 @@ def start_dash(host: str,
                                                 dbc.CardHeader('Input Concentrations'),
                                                 dbc.CardBody(concentrations_table),
                                             ],
-                                            #color='dark'
-                                            className="border-0 bg-transparent"
+                                            color='dark'
                                         ),
                                         dbc.Card(
                                             children=[
@@ -635,7 +632,6 @@ def start_dash(host: str,
             State('concentrations_table','data'),
             State('concentrations_table','columns'))
     def add_row(n_clicks,rows,columns):
-        print('table works') # DEBUG
         if n_clicks > 0:
             rows.append({c['id']: '' for c in columns})
         else:
@@ -648,7 +644,6 @@ def start_dash(host: str,
             Input('concentrations_table','columns')
     )
     def update_concentrations(rows,columns):
-        print('updating_concs works') #DEBUG
         for k,v in concs.items(): # reset values
             if not k == 'CO2':
                 concs[k] = 0
@@ -692,7 +687,6 @@ def start_dash(host: str,
         print(inputs[0])
         print(functional_choice_dict[inputs[0]])
         default_data = load_data(functional_choice_dict[inputs[0]])
-        print('updating settings worked') #DEBUG
     
     #update T and P
     @app.callback(
@@ -705,7 +699,6 @@ def start_dash(host: str,
     def update_t_and_p(*inputs):
         ambient_settings["T"]=int(inputs[0])
         ambient_settings["P"]=int(inputs[1])
-        print('updating_t_and_p worked') #DEBUG
     
     @app.callback(
         [
