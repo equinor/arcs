@@ -11,6 +11,7 @@ import pathos.multiprocessing as multiprocessing
 from pathos.pools import ProcessPool
 from pathos.pp import ParallelPool
 from pathos.serial import SerialPool
+import platform
 from datetime import datetime
 import random
 import math
@@ -19,6 +20,7 @@ import pandas as pd
 from pathos.helpers import mp as pmp
 import queue
 import warnings
+import psutil
 import time
 import pickle
 import datetime
@@ -145,7 +147,6 @@ class Traversal:
         else:
             return(None)
         
-
     def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
         if force_direct:

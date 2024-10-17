@@ -278,9 +278,7 @@ class ReactionGibbsandEquilibrium:
 
 
 class ApplyDataToReaction:
-    # future functionality:
-    # 1. interpolation - should speed things up
-    ''' this class applies the gibbs data to a specific reaction'''
+    ''' this class applies the Gibbs data to a specific reaction'''
     
     def __init__(self,trange,prange,data,nprocs):
         self.trange = trange
@@ -413,9 +411,8 @@ class GraphGenerator:
 
         rr = list(self.applied_reactions[T][P].items())
 
-        ptqdm.map(mp_func, rr,t=t,tqdm_kwargs={'disable':True},**{'n_cpus':self.ncores})
-        #from pathos.pools import ProcessPool 
-        #ProcessPool(ncores).map(mp_func,rr,t=t)
+        ptqdm.map(mp_func, rr,t, tqdm_kwargs={'disable':False},**{'n_cpus':self.ncores}) # this currently doesn't work...
+
         return(t)
 
 
