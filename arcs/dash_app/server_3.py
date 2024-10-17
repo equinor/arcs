@@ -28,11 +28,12 @@ def start_dash(host: str,
     terminate_when_parent_process_dies()
 
     external_stylesheets = [dbc.themes.QUARTZ]
-
+    
     load_figure_template("QUARTZ")
-
+    
+    file_location = '/Users/badw/github-projects/arcs/app/data/'
     # data and sliders
-
+    
     def load_data(filename,split_data=False):  # has to be a .json file in dict format
         data = loadfn(filename)
         if split_data:
@@ -41,7 +42,7 @@ def start_dash(host: str,
             return(dft_data,reactions)
         else:
             return(data)
-
+    
     def keys_by_depth(dict_, depth=0, output=None):
         if output is None:
             output = {}
@@ -52,7 +53,7 @@ def start_dash(host: str,
             if isinstance(dict_[key], dict):
                 keys_by_depth(dict_[key], depth + 1, output)
         return(output)
-
+    
     def _markdown_compound(_string):
         md = []
         for i in _string:
@@ -62,20 +63,20 @@ def start_dash(host: str,
             except Exception:
                 md.append(i)
         return("".join(md))
-
+    
     # run data fields
     #g = pickle.load(open(file_location+"SCAN_graph.p", "rb"))
     #t = Traversal(graph=g, reactions=file_location+"SCAN_reactions.p")
-
-    graph = dbc.Alert("No Data", color="light")  # None #html.P('None')
-    table4 = dbc.Alert("No Data", color="light")  # None #html.P('None')
-    table5 = dbc.Alert("No Data", color="light")  # None #html.P('None')
+    
+    graph = html.P('None') #dbc.Alert("No Data", color="light")  # None #html.P('None')
+    table4 =html.P('None') # dbc.Alert("No Data", color="light")  # None #html.P('None')
+    table5 =html.P('None') # dbc.Alert("No Data", color="light")  # None #html.P('None')
     
     meta = dbc.Alert("Data Shown When Run", color="secondary")  # None #html.P('None')
-
+    
     functional_choice_dict = {'HSE06':file_location+'hse06_dft_data.json',
                               'SCAN':file_location+'scan_dft_data.json'}
-
+    
     default_data,reactions = load_data(file_location+'hse06_dft_data.json',split_data=True)
     compounds = [x for x in list(default_data) if not x == 'reactions']
     gic = GenerateInitialConcentrations(compounds=compounds)
@@ -94,12 +95,11 @@ def start_dash(host: str,
         "rank_small_reactions_higher":True
     }
     ambient_settings = {"T": None, "P": None}
-
-#    default_data,reactions = load_data(file_location+'hse06_dft_data.json')
-
+    
+    default_data = load_data(file_location+'hse06_dft_data.json')
     ###################### layout of DASH template########################
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
+    
     loading_spinner = dls.Rotate(
         id="loading-1",
         width=150,
@@ -110,7 +110,7 @@ def start_dash(host: str,
         children=html.Div(id="loading-output-1"),
         fullscreen_style={"background-color": "rgba(0.1,0.1,0.1,0.2)"},
     )
-
+    
     temperature_input = html.Div(
         [
             dbc.Label("Temperature (K)"),
@@ -138,7 +138,7 @@ def start_dash(host: str,
             )
         ]
     )
-
+    
     concentrations_table = dbc.Stack(
         style={
             'textAlign': 'justified',
@@ -186,7 +186,7 @@ def start_dash(host: str,
     dbc.Button('add compound', id='addrows', n_clicks=0)
         ]
     )
-
+    
     arcs_settings = dbc.Accordion(
         start_collapsed=True,
         children=[
@@ -202,7 +202,7 @@ def start_dash(host: str,
                             {"label": "HSE06", "value": "HSE06"},
                             {"label": "SCAN", "value": "SCAN"},
                         ],
-                        value="Dijkstra",
+                        value="SCAN",
                     )
                 ],
             ),
@@ -256,7 +256,7 @@ def start_dash(host: str,
                         className="form-label mt-4",
                     ),
                 ],
-
+    
             ),
             dbc.AccordionItem(
                 title="Concentration % Ceiling",
@@ -379,7 +379,7 @@ def start_dash(host: str,
             ),
         ],
     ),
-
+    
     submit_button = dbc.Button(
                 children="Run",
                 id="submit-val",
@@ -388,8 +388,8 @@ def start_dash(host: str,
                 style={'float': 'left',"margin-right":"1rem"}
             )
     
-
-
+    
+    
     metadatatable = html.Div(
                         id="metadata",
                         style={
@@ -398,7 +398,7 @@ def start_dash(host: str,
                         children=meta,
                         #className="table table-secondary",
                     )
-
+    
     offcanvas = html.Div(
         style={
             'textAlign': 'justified',
@@ -417,13 +417,16 @@ def start_dash(host: str,
                             dbc.CardBody(arcs_settings),
                             dbc.CardFooter("ARCS Settings")
                         ],
+                        color='dark',
 
+    
                     ),
                     dbc.Card(
                         [
                             dbc.CardBody(metadatatable),
                             dbc.CardFooter("System Data")
-                        ]
+                        ],
+                        color='dark'
                     )
                         ],
                         gap=3
@@ -436,14 +439,14 @@ def start_dash(host: str,
             )
         ]
     )
-
+    
     most_frequent_reactions = html.Div(
         id="reaction-stats",
         style={"align": "center"},
         children=table4,
         #className="table table-primary",
     )
-
+    
     most_frequent_paths = html.Div(
         id="reaction-paths",
         style={"align": "center"},
@@ -466,20 +469,20 @@ def start_dash(host: str,
             ),
         ],
     ),
-
+    
     results_concentration_graph = html.Div(
         id="final_concs",
         children=None,
     ),
-
+    
     finalgraph = html.Div(
                     id="output-graph",
                     children=graph
                 ),
     
-
-################################### layout
-
+    
+    ############################### layout
+    
     app.layout = html.Div(
         style={'padding': '5rem'},
         children=[
@@ -492,7 +495,7 @@ def start_dash(host: str,
                         [offcanvas,
                          submit_button,
                          ]
-                    ),
+                        ),
                     html.Div(
                         # for updating the concentrations to be used in ARCS (no need for displaying)
                         id="placeholder1",
@@ -532,7 +535,9 @@ def start_dash(host: str,
                                             children=[
                                                 dbc.CardHeader('Input Concentrations'),
                                                 dbc.CardBody(concentrations_table),
-                                            ]
+                                            ],
+                                            #color='dark'
+                                            className="border-0 bg-transparent"
                                         ),
                                         dbc.Card(
                                             children=[
@@ -540,7 +545,8 @@ def start_dash(host: str,
                                                 dbc.CardBody([temperature_input,
                                                               pressure_input])
                                                 #dbc.CardBody(sliders),
-                                            ]
+                                            ],
+                                            color='dark'
                                         )
                                     ]
                                 )
@@ -569,7 +575,8 @@ def start_dash(host: str,
                                                     ],
                                                 )
                                             ),
-                                        ]
+                                        ],
+                                        color='dark'
                                     ),
                                 ]
                             )
@@ -583,31 +590,33 @@ def start_dash(host: str,
                                 children=[
                                     dbc.Card(
                                         children=[
+                                            dbc.CardHeader(
+                                                'Most Frequent Reactions'),
                                             dbc.CardBody(
                                                 most_frequent_reactions),
-                                            dbc.CardHeader(
-                                                'Most Frequent Reactions')
-                                        ]
+                                        ],
+                                        color='dark'
                                     ),
                                     dbc.Card(
                                         children=[
+                                            dbc.CardHeader(
+                                                'Most Frequent Paths (alpha)'),
                                             dbc.CardBody(
                                                 most_frequent_paths),
-                                            dbc.CardHeader(
-                                                'Most Frequent Paths (alpha)')
-                                        ]
+                                        ],
+                                        color='dark'
                                     )
                                 ]
                             )
                         ]
                         ),
                         ]
-
+    
                         ),
                         ]
                     )
-
-#####################app callbacks
+    
+    #################app callbacks
     #off canvas
     @app.callback(
         Output("offcanvas", "is_open"),
@@ -626,6 +635,7 @@ def start_dash(host: str,
             State('concentrations_table','data'),
             State('concentrations_table','columns'))
     def add_row(n_clicks,rows,columns):
+        print('table works') # DEBUG
         if n_clicks > 0:
             rows.append({c['id']: '' for c in columns})
         else:
@@ -638,6 +648,7 @@ def start_dash(host: str,
             Input('concentrations_table','columns')
     )
     def update_concentrations(rows,columns):
+        print('updating_concs works') #DEBUG
         for k,v in concs.items(): # reset values
             if not k == 'CO2':
                 concs[k] = 0
@@ -648,7 +659,7 @@ def start_dash(host: str,
                 concs[spec] = float(num) * 1e-6
             else:
                 pass
-
+    
     # update settings
     @app.callback(
         Output("placeholder2", "children"),
@@ -677,9 +688,12 @@ def start_dash(host: str,
         settings["method"]=str(inputs[8])
         settings["include_co2"]=bool(inputs[9])
         settings["rank_small_reactions_higher"]=bool(inputs[10])
-
-        default_data,reactions= load_data(functional_choice_dict[inputs[0]])
-
+        
+        print(inputs[0])
+        print(functional_choice_dict[inputs[0]])
+        default_data = load_data(functional_choice_dict[inputs[0]])
+        print('updating settings worked') #DEBUG
+    
     #update T and P
     @app.callback(
         Output("placeholder3", "children"),
@@ -691,7 +705,8 @@ def start_dash(host: str,
     def update_t_and_p(*inputs):
         ambient_settings["T"]=int(inputs[0])
         ambient_settings["P"]=int(inputs[1])
-
+        print('updating_t_and_p worked') #DEBUG
+    
     @app.callback(
         [
             Output("metadata", "children"),
@@ -722,11 +737,11 @@ def start_dash(host: str,
                 ic=concs,
                 **settings,
             )
-
+    
             metadata=t.metadata
             metadata=pd.Series(metadata).reset_index()
             metadata=metadata.rename(columns={0: "value"})
-
+    
             metadata_table=dash_table.DataTable(
                 columns=[{"name": i,
                            "id": i,
@@ -770,7 +785,7 @@ def start_dash(host: str,
                     "change": "change (ppm)",
                 }
             )
-
+    
             diff_table=dash_table.DataTable(
                 columns=[
                     {"name": i, 
@@ -813,7 +828,7 @@ def start_dash(host: str,
             analyse.reaction_statistics()
             analyse.mean_sampling()
             analyse.reaction_paths()
-
+    
             mean=analyse.mean_data[ambient_settings["T"]
                 ][ambient_settings["P"]]
             
@@ -872,7 +887,7 @@ def start_dash(host: str,
                 #fixed_rows={"headers": True},
                 markdown_options={"html": True, "link_target": "_self"},
             )
-
+    
             paths_table=dash_table.DataTable(
                 columns=[
                     {
@@ -915,7 +930,7 @@ def start_dash(host: str,
             )
             df_m_t = pd.DataFrame(mean).T 
             df_m_t = df_m_t[df_m_t['value'] !=0 ]
-
+    
             df_m=pd.DataFrame(
                 {
                     "comps": list(df_m_t.T.keys()),
@@ -928,7 +943,7 @@ def start_dash(host: str,
             #    [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
             #)
             #ymin, ymax=[-maxval, maxval]
-
+    
             fig=px.bar(
                 df_m,
                 x="comps",
@@ -967,14 +982,14 @@ def start_dash(host: str,
             #    range=[ymin - 2, ymax + 2],
             #    dtick=dtick,
             #)
-
+    
             resultsgraph=dcc.Graph(
                 figure=fig,
                 animate=False,
                 #config={"scrollZoom": True},
                 #style={"height": "60rem", "width": "100%"},
             )
-
+    
             return [
                 [metadata_table],
                 [stats_table],
@@ -983,8 +998,8 @@ def start_dash(host: str,
                 [resultsgraph],
                 [None],
             ]
-
+    
     with server_is_started:
         server_is_started.notify()
-
-    app.run_server(debug=True, port=port, host=host)
+    
+    app.run_server(debug=False, port=port, host=host)

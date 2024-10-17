@@ -285,8 +285,7 @@ class ApplyDataToReaction:
         self.prange = prange
         reactions = data['reactions']
         self.reactions = {i:Equilibrium.from_string(r) for i,r in enumerate(reactions)}
-        del data['reactions']
-        self.compound_data = data
+        self.compound_data = {k:data[k] for k in data.keys() if not k == 'reactions'}
         self.nprocs = nprocs
         self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
         

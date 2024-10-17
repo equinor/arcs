@@ -5,7 +5,7 @@ import setproctitle
 import webview
 import warnings 
 from arcs.dash_app.domino import terminate_when_process_dies
-from arcs.dash_app.server_2 import start_dash
+from arcs.dash_app.server_3 import start_dash
 
 def start():
     warnings.simplefilter('ignore')
