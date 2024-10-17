@@ -344,7 +344,7 @@ def start_dash(host: str,
                 ]
             ),
             dbc.AccordionItem(
-                title="Include CO2 as a reactant?",
+                title="Include Carbon Dioxide as a Reactant?",
                 className="accordion",
                 children=[
                     html.P(
