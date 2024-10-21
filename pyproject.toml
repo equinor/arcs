@@ -1,0 +1,61 @@
+[tool.poetry]
+name = "arcs"
+version = "0.1.0"
+description = "Automated reactions for CO2 storage"
+authors = [
+  "CCS Data & Digital Team <fg_CCS_Data_Digital@equinor.com>",
+  "Benjamin A. D. Williamson <benjamin.williamson@ntnu.no>",
+]
+license = "MIT"
+readme = "README.md"
+classifiers=[
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Development Status :: 3 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: System Administrators",
+  "Intended Audience :: Industry",
+  "Intended Audience :: Information Technology",
+  "Operating System :: OS Independent",
+  "Topic :: Other/Nonlisted Topic",
+  "Topic :: Scientific/Engineering",
+]
+
+[tool.poetry.urls]
+"homepage" = "https://arcs.radix.equinor.com"
+"repository" = "https://github.com/equinor/arcs"
+"documentation" = "https://github.com/equinor/arcs"
+"Bug Tracker" = "https://github.com/equinor/arcs/issues"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+ase = "^3.23.0"
+pymatgen = "^2024.10.3"
+scipy = "^1.14.1"
+numpy = "^2.1.2"
+chempy = "^0.9.0"
+tqdm = "^4.66.5"
+networkx = "^3.4.1"
+pathos = "^0.3.3"
+dash = "^2.18.1"
+monty = "^2024.7.30"
+dash-bootstrap-templates = "^1.2.4"
+dash-bootstrap-components = "^1.6.0"
+dash-loading-spinners = "^1.0.3"
+dash-core-components = "^2.0.0"
+loguru = "^0.7.2"
+pywebview = "^5.3"
+setproctitle = "^1.3.3"
+fastapi = "^0.115.2"
+uvicorn = "^0.32.0"
+pydantic = "^2.9.2"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

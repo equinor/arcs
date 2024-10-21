@@ -10,3 +10,6 @@ arcs.egg-info
 ./arcs/dash_app/__pycache__
 ./dash-app/__pycache__
 build
+
+.venv/
+venv/
