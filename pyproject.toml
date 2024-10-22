@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "arcs"
-version = "0.1.0"
+version = "1.5.0"
 description = "Automated reactions for CO2 storage"
 authors = [
   "CCS Data & Digital Team <fg_CCS_Data_Digital@equinor.com>",
