@@ -21,17 +21,23 @@ async def run_simulation(request: SimulationRequest):
     concs = request.concs
     settings = request.settings
 
-    graph = pickle.load(open(os.path.join(os.path.dirname(__file__), "../app/data/SCAN_graph.p"), "rb"))
-    traversal = Traversal(graph=graph, reactions=os.path.join(os.path.dirname(__file__), "../app/data/SCAN_reactions.p"))
+    graph = pickle.load(
+        open(os.path.join(os.path.dirname(__file__), "../app/data/SCAN_graph.p"), "rb")
+    )
+    traversal = Traversal(
+        graph=graph,
+        reactions=os.path.join(
+            os.path.dirname(__file__), "../app/data/SCAN_reactions.p"
+        ),
+    )
     traversal.run(trange=trange, prange=prange, save=False, ic=concs, **settings)
 
-    results = {
-        'initfinaldiff': traversal.initfinaldiff,
-        'data': traversal.data
-    }
+    results = {"initfinaldiff": traversal.initfinaldiff, "data": traversal.data}
     # TODO: return graph data?
     return results
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="127.0.0.1", port=8000)

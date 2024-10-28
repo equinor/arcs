@@ -4,7 +4,7 @@ import time
 from multiprocessing import Process, Condition
 import setproctitle
 import webview
-import warnings 
+import warnings
 from arcs.dash_app.domino import terminate_when_process_dies
 from arcs.dash_app.server import start_dash
 
@@ -21,22 +21,22 @@ def get_directory_size(directory: pathlib.Path) -> int:
 
 def dataset_location() -> str:
     """Return location string of the directory with dataset to be used."""
-    small_dataset = os.path.join(os.path.dirname(__file__),'data/')
-    large_dataset = os.path.join(os.path.dirname(__file__),'data/large_dataset/')
+    small_dataset = os.path.join(os.path.dirname(__file__), "data/")
+    large_dataset = os.path.join(os.path.dirname(__file__), "data/large_dataset/")
 
     # check if large dataset exists and that git-lfs pulled has happened
     directory = pathlib.Path(large_dataset)
     if directory.exists() and directory.is_dir():
-        MANY_MEGABYTES = 100*1024*1024
+        MANY_MEGABYTES = 100 * 1024 * 1024
         if get_directory_size(large_dataset) > MANY_MEGABYTES:
             return large_dataset
-    
+
     # otherwise use the small data set
     return small_dataset
 
 
 def start():
-    warnings.simplefilter('ignore')
+    warnings.simplefilter("ignore")
     port = int(os.getenv("PORT", "8050"))
     host = os.getenv("HOST", "127.0.0.1")
     this_dir, this_filename = os.path.split(__file__)
@@ -44,7 +44,7 @@ def start():
     server_is_started = Condition()
 
     # Set the process title.
-    setproctitle.setproctitle('arcs-0.1.0')
+    setproctitle.setproctitle("arcs-0.1.0")
 
     # Spawn the dash process.
     p = Process(target=start_dash, args=(host, port, server_is_started, file_location))
@@ -59,14 +59,15 @@ def start():
     time.sleep(0.2)
 
     # Create the webview.
-    webview.create_window('ARCS 1.4.0', f'http://{host}:{port}',
-                          width=1000, 
-                          height=1000)
+    webview.create_window(
+        "ARCS 1.4.0", f"http://{host}:{port}", width=1000, height=1000
+    )
     webview.start()
 
     # Reached when window is closed.
     p.terminate()
     exit(0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     start()

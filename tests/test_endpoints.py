@@ -1,11 +1,8 @@
 # test_app.py
-import pytest
 from fastapi.testclient import TestClient
 from api.app import app
 
 client = TestClient(app)
-
-
 
 
 def test_run_simulation():
@@ -17,7 +14,7 @@ def test_run_simulation():
             "H2O": 2e-05,
             "H2S": 3e-05,
             "SO2": 1e-05,
-             "NO2": 5e-05,
+            "NO2": 5e-05,
         },
         "settings": {
             "nprocs": 1,

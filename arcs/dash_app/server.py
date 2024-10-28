@@ -11,7 +11,6 @@ from dash import ctx
 from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
-import numpy as np
 from monty.serialization import loadfn
 from arcs.setup_functions import GenerateInitialConcentrations
 from arcs.analysis import AnalyseSampling
@@ -49,47 +48,52 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             try:
                 int(i)
                 md.append("<sub>{}</sub>".format(int(i)))
-            except:
+            except ValueError:
                 md.append(i)
         return "".join(md)
 
     def make_sliders(import_data, labels):
-        
         def sliderform(key, slider, label):
             # this is very janky - need to find a better way of storing the data
             correct_order = sorted([float(x) for x in list(slider)])
             # marks = {float(x):str('{:.2F}'.format(float(x))) for x in list(correct_order)}
-            marks = {int(x): {'label':str(x),'style':{'color':'rgba(0.1,0.1,0.1,0)'}} for x in correct_order}
+            marks = {
+                int(x): {"label": str(x), "style": {"color": "rgba(0.1,0.1,0.1,0)"}}
+                for x in correct_order
+            }
             minval = float(list(correct_order)[0])
             maxval = float(list(correct_order)[-1])
 
             return html.Div(
-                style={'padding':'2rem'},
+                style={"padding": "2rem"},
                 children=[
-                    #dbc.Col(children=html.Label(
+                    # dbc.Col(children=html.Label(
                     #        children=label[key]), width=2),
                     dbc.Col(
                         children=[
-                            html.Label(
-                                children=label[key]
-                                ),
+                            html.Label(children=label[key]),
                             dcc.Slider(
-                            className="form-range",
-                            id="slider-{}".format(key),
-                            min=minval,
-                            max=maxval,
-                            step=None,
-                            marks=marks,
-                            value=minval,
-                            updatemode="drag",
-                            tooltip={"placement": "bottom",
-                                     "always_visible": True,
-                                     "style": {"color": "LightSteelBlue", "fontSize": "20px"}},
-                        )
+                                className="form-range",
+                                id="slider-{}".format(key),
+                                min=minval,
+                                max=maxval,
+                                step=None,
+                                marks=marks,
+                                value=minval,
+                                updatemode="drag",
+                                tooltip={
+                                    "placement": "bottom",
+                                    "always_visible": True,
+                                    "style": {
+                                        "color": "LightSteelBlue",
+                                        "fontSize": "20px",
+                                    },
+                                },
+                            ),
                         ]
-                        #width=10,
+                        # width=10,
                     ),
-                ]
+                ],
             )
 
         slider_keys = keys_by_depth(import_data)
@@ -99,14 +103,13 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         return sliders
 
     # run data fields
-    g = pickle.load(open(file_location+"SCAN_graph.p", "rb"))
-    t = Traversal(graph=g, reactions=file_location+"SCAN_reactions.p")
+    g = pickle.load(open(file_location + "SCAN_graph.p", "rb"))
+    t = Traversal(graph=g, reactions=file_location + "SCAN_reactions.p")
 
     graph = dbc.Alert("No Data", color="light")  # None #html.P('None')
     table4 = dbc.Alert("No Data", color="light")  # None #html.P('None')
     table5 = dbc.Alert("No Data", color="light")  # None #html.P('None')
-    
-    
+
     meta = dbc.Alert("Data Shown When Run", color="secondary")  # None #html.P('None')
     sliders = make_sliders(g, labels={0: "T (K)", 1: "P (bar)"})
 
@@ -123,7 +126,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         "path_depth": 5,
         "ceiling": 2000,
         "scale_highest": 0.2,
-        "rank_small_reactions_higher":True
+        "rank_small_reactions_higher": True,
     }
     ambient_settings = {"T": None, "P": None}
 
@@ -142,341 +145,413 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     )
 
     concentrations_table = dbc.Stack(
-        style={
-            'textAlign': 'justified',
-            "margin-left":"20px",
-            "margin-right":"20px"
-        },
+        style={"textAlign": "justified", "margin-left": "20px", "margin-right": "20px"},
         gap=3,
         children=[
             dash_table.DataTable(
-                id='concentrations_table',
-                columns=[{
-                    'name': 'compound',
-                    'id': 'index',
-                    'editable': True
-                },
-                    {
-                    'name': 'initial conc. (ppm)',
-                    'id': 'initial',
-                    'editable': True
-                },
+                id="concentrations_table",
+                columns=[
+                    {"name": "compound", "id": "index", "editable": True},
+                    {"name": "initial conc. (ppm)", "id": "initial", "editable": True},
                 ],
                 data=[
-                    {'index': 'H2O', 'initial': 30},
-                    {'index': 'O2', 'initial': 10},
-                    {'index': 'SO2', 'initial': 10},
-                    {'index': 'NO2', 'initial': 0},
-                    {'index':'H2S','initial':10}
+                    {"index": "H2O", "initial": 30},
+                    {"index": "O2", "initial": 10},
+                    {"index": "SO2", "initial": 10},
+                    {"index": "NO2", "initial": 0},
+                    {"index": "H2S", "initial": 10},
                 ],
                 row_deletable=True,
                 style_as_list_view=False,
                 style_cell={
                     "font_family": "helvetica",
                     "align": "center",
-                    'padding-right': '30px',
-                    'padding-left': '30px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
+                    "padding-right": "30px",
+                    "padding-left": "30px",
+                    "text-align": "center",
+                    "marginLeft": "auto",
+                    "marginRight": "auto",
                 },
                 style_table={
                     "overflow": "scroll",
                 },
                 fixed_rows={"headers": True},
-    ),
-    dbc.Button('add compound', id='addrows', n_clicks=0)
-        ]
+            ),
+            dbc.Button("add compound", id="addrows", n_clicks=0),
+        ],
     )
 
-    arcs_settings = dbc.Accordion(
-        start_collapsed=True,
-        children=[
-            dbc.AccordionItem(
-                title="Samples",
-                className="accordion",
-                children=[
-                    html.P(["Number of sampling events used to get a stochastic mean average.",html.Br(),"Default = 100",html.Br(),"Recommended Amount > 500",html.Br()]),
-                    dcc.Input(
-                        id="samples",
-                        value="100",
-                        debounce=True,
-                        # style={
-                        # "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
-                        className="form-label mt-4",
-                    ),
-                ],
-            ),
-            dbc.AccordionItem(
-                title="Maximum Path Depth",
-                className="accordion",
-                children=[
-                    html.P(["The maximum path depth is the upper limit for how far down a reaction network a single sampling event goes.",html.Br(),"Default = 5",html.Br()]),
-                    dcc.Input(
-                        id="pathdepth",
-                        value="5",
-                        debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
-                        className="form-label mt-4",
-                    ),
-                ],
-            ),
-            dbc.AccordionItem(
-                title="Discovery % Cutoff",
-                className="accordion",
-                children=[
-                    html.P(["The discovery % cutoff, determines the amount (relative to the total concentration of compounds in the system) at which a certain compound is deemed 'chooseable' for ranking possible reactions. This is in order to weight the reactions in terms of the larger concentrations dominating the reaction probabilities.",html.Br(),"Default = 5%",html.Br()]),
-                    dcc.Input(
-                        id="probability_cutoff",
-                        value="5",
-                        debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
-                        className="form-label mt-4",
-                    ),
-                ],
-
-            ),
-            dbc.AccordionItem(
-                title="Concentration % Ceiling",
-                className="accordion",
-                children=[
-                    html.P(["The concentration % ceiling determines the border by which a component should be scaled down to allow for reactions with smaller components. The component value is then scaled by the amount specified in 'Largest Concentrations Scale Value'. It is important to note that this is only for choosing reactions and not the final value which remains as the large amount. This helps to alleviate situations where no reactions are expected in ARCS due to overweighting towards the large concentration components.",html.Br(),"Default = 500%",html.Br()])
-                    ,
-                    dcc.Input(
-                        id="ceiling",
-                        value="500",
-                        debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
-                        className="form-label mt-4",
-                    ),
-                ],
-            ),
-            dbc.AccordionItem(
-                title="Largest Concentrations Scale Value",
-                className="accordion",
-                children=[
-                    html.P(["Components which have reached the % ceiling in 'Concentration % Ceiling' are scaled by this amount.",html.Br(),"Default = 0.1",html.Br()]),
-                    dcc.Input(
-                        id="scale_highest",
-                        value="0.1",
-                        debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
-                        className="form-label mt-4",
-                    )
-                ],
-            ),
-            dbc.AccordionItem(
-                title="Max. Number of Reactions Considered in Choice",
-                className="accordion",
-                children=[
-                    html.P(["The maximum number of equations suitable for a random choice after ranking all possible solutions.",html.Br(),"Default = 5",html.Br()]),
-                    dcc.Input(
-                        id="max_rank",
-                        value="5",
-                        debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
-                        className="form-label mt-4",
-                    )
-                ]
-            ),
-            dbc.AccordionItem(
-                title="Max. Number of Compounds Considered in Choice",
-                className="accordion",
-                children=[
-                    html.P(["This corresponds to the largest number of compounds that can be considered for ranking at any one time.",html.Br(),"Default = 5",html.Br()]),  
-                    dcc.Input(
-                        id="max_compounds",
-                        value="5",
-                        debounce=True,
-                        # style={
-                        #    "color": "white",
-                        #    "backgroundColor": backgroundcolours,
-                        # },
-                        className="form-label mt-4",
-                    )
-                ]
-            ),
-            dbc.AccordionItem(
-                title="Graph Sampling Method",
-                className="accordion",
-                children=[
-                    html.P(["There are multiple algorithms that can be used to find the shortest path between two components in the reaction graph.",html.Br(),"Implemented in this work are the 'Bellman-Ford' and 'Dijkstra' methods.",html.Br(),"Default = Dijkstra",html.Br()]),
-                    dbc.RadioItems(
-                        id="method",
-                        className="btn btn-outline-primary",
-                        options=[
-                            {"label": "Bellman-Ford", "value": "Bellman-Ford"},
-                            {"label": "Dijkstra", "value": "Dijkstra"},
-                        ],
-                        value="Dijkstra",
-                    )
-                ]
-            ),
-            dbc.AccordionItem(
-                title="Include CO2 as a reactant?",
-                className="accordion",
-                children=[
-                    html.P(
-                        ["Including CO",html.Sub(2)," as a reactant or assume that CO",html.Sub(2)," is a background solvent.",html.Br(),"Default = False",html.Br()]),
-                    dbc.RadioItems(
-                        id="include_co2",
-                        className="btn btn-outline-primary",
-                        options=[
-                            {"label":"True","value":True},
-                            {"label":"False","value":False},
-                        ],
-                        value=False,
-                    )
-                ]
-            ),
-            dbc.AccordionItem(
-                title="Rank Smaller Reactions Higher",
-                className="accordion",
-                children=[
-                    html.P(
-                        ["Sometimes the simplest solutions are the most plausible. Rank Smaller reactions higher in the list.",html.Br(), "Default = True",html.Br()]),
-                    dbc.RadioItems(
-                        id="rank_small_reactions",
-                        className="btn btn-outline-primary",
-                        options=[
-                            {"label":"True","value":True},
-                            {"label":"False","value":False},
-                        ],
-                        value=True,
-                    )
-                ]
-            ),
-        ],
-    ),
+    arcs_settings = (
+        dbc.Accordion(
+            start_collapsed=True,
+            children=[
+                dbc.AccordionItem(
+                    title="Samples",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "Number of sampling events used to get a stochastic mean average.",
+                                html.Br(),
+                                "Default = 100",
+                                html.Br(),
+                                "Recommended Amount > 500",
+                                html.Br(),
+                            ]
+                        ),
+                        dcc.Input(
+                            id="samples",
+                            value="100",
+                            debounce=True,
+                            # style={
+                            # "backgroundColor": backgroundcolours,
+                            #    "color": "white",
+                            # },
+                            className="form-label mt-4",
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Maximum Path Depth",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "The maximum path depth is the upper limit for how far down a reaction network a single sampling event goes.",
+                                html.Br(),
+                                "Default = 5",
+                                html.Br(),
+                            ]
+                        ),
+                        dcc.Input(
+                            id="pathdepth",
+                            value="5",
+                            debounce=True,
+                            # style={
+                            #    "backgroundColor": backgroundcolours,
+                            #    "color": "white",
+                            # },
+                            className="form-label mt-4",
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Discovery % Cutoff",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "The discovery % cutoff, determines the amount (relative to the total concentration of compounds in the system) at which a certain compound is deemed 'chooseable' for ranking possible reactions. This is in order to weight the reactions in terms of the larger concentrations dominating the reaction probabilities.",
+                                html.Br(),
+                                "Default = 5%",
+                                html.Br(),
+                            ]
+                        ),
+                        dcc.Input(
+                            id="probability_cutoff",
+                            value="5",
+                            debounce=True,
+                            # style={
+                            #    "backgroundColor": backgroundcolours,
+                            #    "color": "white",
+                            # },
+                            className="form-label mt-4",
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Concentration % Ceiling",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "The concentration % ceiling determines the border by which a component should be scaled down to allow for reactions with smaller components. The component value is then scaled by the amount specified in 'Largest Concentrations Scale Value'. It is important to note that this is only for choosing reactions and not the final value which remains as the large amount. This helps to alleviate situations where no reactions are expected in ARCS due to overweighting towards the large concentration components.",
+                                html.Br(),
+                                "Default = 500%",
+                                html.Br(),
+                            ]
+                        ),
+                        dcc.Input(
+                            id="ceiling",
+                            value="500",
+                            debounce=True,
+                            # style={
+                            #    "backgroundColor": backgroundcolours,
+                            #    "color": "white",
+                            # },
+                            className="form-label mt-4",
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Largest Concentrations Scale Value",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "Components which have reached the % ceiling in 'Concentration % Ceiling' are scaled by this amount.",
+                                html.Br(),
+                                "Default = 0.1",
+                                html.Br(),
+                            ]
+                        ),
+                        dcc.Input(
+                            id="scale_highest",
+                            value="0.1",
+                            debounce=True,
+                            # style={
+                            #    "backgroundColor": backgroundcolours,
+                            #    "color": "white",
+                            # },
+                            className="form-label mt-4",
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Max. Number of Reactions Considered in Choice",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "The maximum number of equations suitable for a random choice after ranking all possible solutions.",
+                                html.Br(),
+                                "Default = 5",
+                                html.Br(),
+                            ]
+                        ),
+                        dcc.Input(
+                            id="max_rank",
+                            value="5",
+                            debounce=True,
+                            # style={
+                            #    "backgroundColor": backgroundcolours,
+                            #    "color": "white",
+                            # },
+                            className="form-label mt-4",
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Max. Number of Compounds Considered in Choice",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "This corresponds to the largest number of compounds that can be considered for ranking at any one time.",
+                                html.Br(),
+                                "Default = 5",
+                                html.Br(),
+                            ]
+                        ),
+                        dcc.Input(
+                            id="max_compounds",
+                            value="5",
+                            debounce=True,
+                            # style={
+                            #    "color": "white",
+                            #    "backgroundColor": backgroundcolours,
+                            # },
+                            className="form-label mt-4",
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Graph Sampling Method",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "There are multiple algorithms that can be used to find the shortest path between two components in the reaction graph.",
+                                html.Br(),
+                                "Implemented in this work are the 'Bellman-Ford' and 'Dijkstra' methods.",
+                                html.Br(),
+                                "Default = Dijkstra",
+                                html.Br(),
+                            ]
+                        ),
+                        dbc.RadioItems(
+                            id="method",
+                            className="btn btn-outline-primary",
+                            options=[
+                                {"label": "Bellman-Ford", "value": "Bellman-Ford"},
+                                {"label": "Dijkstra", "value": "Dijkstra"},
+                            ],
+                            value="Dijkstra",
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Include CO2 as a reactant?",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "Including CO",
+                                html.Sub(2),
+                                " as a reactant or assume that CO",
+                                html.Sub(2),
+                                " is a background solvent.",
+                                html.Br(),
+                                "Default = False",
+                                html.Br(),
+                            ]
+                        ),
+                        dbc.RadioItems(
+                            id="include_co2",
+                            className="btn btn-outline-primary",
+                            options=[
+                                {"label": "True", "value": True},
+                                {"label": "False", "value": False},
+                            ],
+                            value=False,
+                        ),
+                    ],
+                ),
+                dbc.AccordionItem(
+                    title="Rank Smaller Reactions Higher",
+                    className="accordion",
+                    children=[
+                        html.P(
+                            [
+                                "Sometimes the simplest solutions are the most plausible. Rank Smaller reactions higher in the list.",
+                                html.Br(),
+                                "Default = True",
+                                html.Br(),
+                            ]
+                        ),
+                        dbc.RadioItems(
+                            id="rank_small_reactions",
+                            className="btn btn-outline-primary",
+                            options=[
+                                {"label": "True", "value": True},
+                                {"label": "False", "value": False},
+                            ],
+                            value=True,
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    )
 
     submit_button = dbc.Button(
-                children="Run",
-                id="submit-val",
-                n_clicks=0,
-                className="btn btn-success",
-                style={'float': 'left',"margin-right":"1rem"}
-            )
-
+        children="Run",
+        id="submit-val",
+        n_clicks=0,
+        className="btn btn-success",
+        style={"float": "left", "margin-right": "1rem"},
+    )
 
     metadatatable = html.Div(
-                        id="metadata",
-                        style={
-                            "align": "center"
-                        },
-                        children=meta,
-                        #className="table table-secondary",
-                    )
+        id="metadata",
+        style={"align": "center"},
+        children=meta,
+        # className="table table-secondary",
+    )
 
     offcanvas = html.Div(
         style={
-            'textAlign': 'justified',
+            "textAlign": "justified",
             "margin-left": "1px",
             "margin-right": "1px",
-            #"padding":"2px",
+            # "padding":"2px",
         },
         children=[
-            dbc.Button("Settings", id="open-offcanvas", n_clicks=0,className='btn btn-info',style={'float': 'left',"margin-right":"1rem"}),
+            dbc.Button(
+                "Settings",
+                id="open-offcanvas",
+                n_clicks=0,
+                className="btn btn-info",
+                style={"float": "left", "margin-right": "1rem"},
+            ),
             dbc.Offcanvas(
                 children=[
                     dbc.Stack(
                         [
-                    dbc.Card(
-                        [
-                            dbc.CardBody(arcs_settings),
-                            dbc.CardFooter("ARCS Settings")
-                        ]
-
-                    ),
-                    dbc.Card(
-                        [
-                            dbc.CardBody(metadatatable),
-                            dbc.CardFooter("System Data")
-                        ]
-                    )
+                            dbc.Card(
+                                [
+                                    dbc.CardBody(arcs_settings),
+                                    dbc.CardFooter("ARCS Settings"),
+                                ]
+                            ),
+                            dbc.Card(
+                                [
+                                    dbc.CardBody(metadatatable),
+                                    dbc.CardFooter("System Data"),
+                                ]
+                            ),
                         ],
-                        gap=3
+                        gap=3,
                     )
                 ],
                 id="offcanvas",
                 is_open=False,
                 scrollable=True,
-                style={"width":"50rem"}
-            )
-        ]
+                style={"width": "50rem"},
+            ),
+        ],
     )
 
     most_frequent_reactions = html.Div(
         id="reaction-stats",
         style={"align": "center"},
         children=table4,
-        #className="table table-primary",
+        # className="table table-primary",
     )
 
-    most_frequent_paths = html.Div(
-        id="reaction-paths",
-        style={"align": "center"},
-        children=table5,
-        #className="table table-primary",
-    ),
-    
-    logos = html.Div( # needs work
-        children=[
-            html.Img(
-                src=app.get_asset_url(
-                    "images/logos.png"
+    most_frequent_paths = (
+        html.Div(
+            id="reaction-paths",
+            style={"align": "center"},
+            children=table5,
+            # className="table table-primary",
+        ),
+    )
+
+    logos = (
+        html.Div(  # needs work
+            children=[
+                html.Img(
+                    src=app.get_asset_url("images/logos.png"),
+                    style={
+                        # "width": "50%",
+                        "height": "30%",
+                        "padding": "0.05rem",
+                        "align": "end",
+                    },
                 ),
-                style={
-                    #"width": "50%",
-                    "height": "30%",
-                    "padding": "0.05rem",
-                    "align": "end",
-                },
-            ),
-        ],
-    ),
+            ],
+        ),
+    )
 
-    results_concentration_graph = html.Div(
-        id="final_concs",
-        children=None,
-    ),
+    results_concentration_graph = (
+        html.Div(
+            id="final_concs",
+            children=None,
+        ),
+    )
 
-    finalgraph = html.Div(
-                    id="output-graph",
-                    children=graph
-                ),
-    
+    finalgraph = (html.Div(id="output-graph", children=graph),)
 
-################################### layout
+    ################################### layout
 
     app.layout = html.Div(
-        style={'padding': '5rem'},
+        style={"padding": "5rem"},
         children=[
             dbc.Row(dbc.Col(logos)),
             dbc.Row(
                 [
                     html.P("ARCS 1.4.0"),
-                    html.H3(["Automated Reactions for ","C", "O", html.Sub(2), " Conversion (ARCS)"]),
-                    html.Div(
-                        [offcanvas,
-                         submit_button]
+                    html.H3(
+                        [
+                            "Automated Reactions for ",
+                            "C",
+                            "O",
+                            html.Sub(2),
+                            " Conversion (ARCS)",
+                        ]
                     ),
+                    html.Div([offcanvas, submit_button]),
                     html.Div(
                         # for updating the concentrations to be used in ARCS (no need for displaying)
                         id="placeholder1",
@@ -497,95 +572,97 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             ),
             loading_spinner,
             dbc.Tabs(
-                style={'padding':'2rem','align':'center'},
+                style={"padding": "2rem", "align": "center"},
                 children=[
                     dbc.Tab(
-                        className='nav nav-tabs',
-                        label='Inputs',
+                        className="nav nav-tabs",
+                        label="Inputs",
                         children=[
                             dbc.Col(
-                                children=[dbc.Stack(
-                                    gap=3,
-                                    children=[
-                                        dbc.Card(
-                                            children=[
-                                                dbc.CardHeader('Input Concentrations'),
-                                                dbc.CardBody(concentrations_table),
-                                            ]
-                                        ),
-                                        dbc.Card(
-                                            children=[
-                                                dbc.CardHeader('Conditions'),
-                                                dbc.CardBody(sliders),
-                                            ]
-                                        )
-                                    ]
-                                )
+                                children=[
+                                    dbc.Stack(
+                                        gap=3,
+                                        children=[
+                                            dbc.Card(
+                                                children=[
+                                                    dbc.CardHeader(
+                                                        "Input Concentrations"
+                                                    ),
+                                                    dbc.CardBody(concentrations_table),
+                                                ]
+                                            ),
+                                            dbc.Card(
+                                                children=[
+                                                    dbc.CardHeader("Conditions"),
+                                                    dbc.CardBody(sliders),
+                                                ]
+                                            ),
+                                        ],
+                                    )
                                 ]
                             )
-                        ]
+                        ],
                     ),
                     dbc.Tab(
-                        label='Output Concentrations',
+                        label="Output Concentrations",
                         children=[
                             dbc.Stack(
                                 gap=3,
                                 children=[
                                     dbc.Card(
                                         children=[
-                                            dbc.CardHeader(
-                                                "Change in Concentrations"),
+                                            dbc.CardHeader("Change in Concentrations"),
                                             dbc.CardFooter(
                                                 dbc.Tabs(
-                                                    style={'padding':'2rem'},
+                                                    style={"padding": "2rem"},
                                                     children=[
                                                         dbc.Tab(
-                                                            finalgraph, label='Graph'),
+                                                            finalgraph, label="Graph"
+                                                        ),
                                                         dbc.Tab(
-                                                            results_concentration_graph, label='Table')
+                                                            results_concentration_graph,
+                                                            label="Table",
+                                                        ),
                                                     ],
                                                 )
                                             ),
                                         ]
                                     ),
-                                ]
+                                ],
                             )
-                        ]
+                        ],
                     ),
                     dbc.Tab(
-                        label='Reactions',
+                        label="Reactions",
                         children=[
                             dbc.Stack(
                                 gap=3,
                                 children=[
                                     dbc.Card(
                                         children=[
-                                            dbc.CardBody(
-                                                most_frequent_reactions),
-                                            dbc.CardHeader(
-                                                'Most Frequent Reactions')
+                                            dbc.CardBody(most_frequent_reactions),
+                                            dbc.CardHeader("Most Frequent Reactions"),
                                         ]
                                     ),
                                     dbc.Card(
                                         children=[
-                                            dbc.CardBody(
-                                                most_frequent_paths),
+                                            dbc.CardBody(most_frequent_paths),
                                             dbc.CardHeader(
-                                                'Most Frequent Paths (alpha)')
+                                                "Most Frequent Paths (alpha)"
+                                            ),
                                         ]
-                                    )
-                                ]
+                                    ),
+                                ],
                             )
-                        ]
-                        ),
-                        ]
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
 
-                        ),
-                        ]
-                    )
-
-#####################app callbacks
-    #off canvas
+    #####################app callbacks
+    # off canvas
     @app.callback(
         Output("offcanvas", "is_open"),
         Input("open-offcanvas", "n_clicks"),
@@ -595,30 +672,32 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         if n1:
             return not is_open
         return is_open
-    
-    #update concentrations table (new!)
+
+    # update concentrations table (new!)
     @app.callback(
-            Output('concentrations_table','data'),
-            Input('addrows','n_clicks'),
-            State('concentrations_table','data'),
-            State('concentrations_table','columns'))
-    def add_row(n_clicks,rows,columns):
-        if n_clicks > 0:
-            rows.append({c['id']: '' for c in columns})
-        return(rows)
-    #update the concentrations
-    @app.callback(
-            Output('placeholder1','children'),
-            Input('concentrations_table','data'),
-            Input('concentrations_table','columns')
+        Output("concentrations_table", "data"),
+        Input("addrows", "n_clicks"),
+        State("concentrations_table", "data"),
+        State("concentrations_table", "columns"),
     )
-    def update_concentrations(rows,columns):
-        for k,v in concs.items(): # reset values
-            if not k == 'CO2':
+    def add_row(n_clicks, rows, columns):
+        if n_clicks > 0:
+            rows.append({c["id"]: "" for c in columns})
+        return rows
+
+    # update the concentrations
+    @app.callback(
+        Output("placeholder1", "children"),
+        Input("concentrations_table", "data"),
+        Input("concentrations_table", "columns"),
+    )
+    def update_concentrations(rows, columns):
+        for k, v in concs.items():  # reset values
+            if not k == "CO2":
                 concs[k] = 0
         for row in rows:
-            spec = row.get('index', None)
-            num = row.get('initial', None)
+            spec = row.get("index", None)
+            num = row.get("initial", None)
             if spec in list(concs.keys()):
                 concs[spec] = float(num) * 1e-6
             else:
@@ -637,36 +716,36 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             Input("max_compounds", "value"),
             Input("method", "value"),
             Input("include_co2", "value"),
-            Input("rank_small_reactions","value")
+            Input("rank_small_reactions", "value"),
         ],
     )
     def update_settings(*inputs):
-        settings["sample_length"]=int(inputs[0])
-        settings["path_depth"]=int(inputs[1])
-        settings["probability_threshold"]=float(inputs[2]) / 100
-        settings["ceiling"]=int(inputs[3])
-        settings["scale_highest"]=float(inputs[4])
-        settings["max_rank"]=int(inputs[5])
-        settings["max_compounds"]=int(inputs[6])
-        settings["method"]=str(inputs[7])
-        settings["include_co2"]=bool(inputs[8])
-        settings["rank_small_reactions_higher"]=bool(inputs[9])
+        settings["sample_length"] = int(inputs[0])
+        settings["path_depth"] = int(inputs[1])
+        settings["probability_threshold"] = float(inputs[2]) / 100
+        settings["ceiling"] = int(inputs[3])
+        settings["scale_highest"] = float(inputs[4])
+        settings["max_rank"] = int(inputs[5])
+        settings["max_compounds"] = int(inputs[6])
+        settings["method"] = str(inputs[7])
+        settings["include_co2"] = bool(inputs[8])
+        settings["rank_small_reactions_higher"] = bool(inputs[9])
 
-    #update T and P
+    # update T and P
     @app.callback(
         Output("placeholder3", "children"),
         [Input("slider-0", "value"), Input("slider-1", "value")],
     )
     def update_t_and_p(*inputs):
-        ambient_settings["T"]=int(inputs[0])
-        ambient_settings["P"]=int(inputs[1])
+        ambient_settings["T"] = int(inputs[0])
+        ambient_settings["P"] = int(inputs[1])
 
     @app.callback(
         [
             Output("metadata", "children"),
             Output("reaction-stats", "children"),
             Output("reaction-paths", "children"),
-            Output("final_concs", "children"), 
+            Output("final_concs", "children"),
             Output("output-graph", "children"),
             Output("loading-output-1", "children"),
         ],
@@ -683,46 +762,45 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 **settings,
             )
 
-            metadata=t.metadata
-            metadata=pd.Series(metadata).reset_index()
-            metadata=metadata.rename(columns={0: "value"})
+            metadata = t.metadata
+            metadata = pd.Series(metadata).reset_index()
+            metadata = metadata.rename(columns={0: "value"})
 
-            metadata_table=dash_table.DataTable(
-                columns=[{"name": i,
-                           "id": i,
-                           "type":"text",
-                           "presentation":"markdown"} for i in metadata.columns],
+            metadata_table = dash_table.DataTable(
+                columns=[
+                    {"name": i, "id": i, "type": "text", "presentation": "markdown"}
+                    for i in metadata.columns
+                ],
                 data=metadata.to_dict("records"),
                 style_as_list_view=False,
                 cell_selectable=False,
                 style_cell={
                     "font_family": "helvetica",
                     "align": "center",
-                    'padding-right': '30px',
-                    'padding-left': '30px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
+                    "padding-right": "30px",
+                    "padding-left": "30px",
+                    "text-align": "center",
+                    "marginLeft": "auto",
+                    "marginRight": "auto",
                 },
                 style_table={
                     "overflow": "scroll",
                 },
-                markdown_options={"html": True, "link_target": "_self"}
-                #fixed_rows={"headers": True},
+                markdown_options={"html": True, "link_target": "_self"},
+                # fixed_rows={"headers": True},
             )
-            #####updating concentrations table 
-            df_d=(
+            #####updating concentrations table
+            df_d = (
                 pd.DataFrame(
-                    t.initfinaldiff[ambient_settings["T"]
-                        ][ambient_settings["P"]]
+                    t.initfinaldiff[ambient_settings["T"]][ambient_settings["P"]]
                 )
                 .round(1)
                 .drop("CO2")
             )
-            df_d=df_d.T
-            df_d=df_d.T.rename({x: _markdown_compound(x) for x in df_d})
-            df_d=df_d.reset_index()
-            df_d=df_d.rename(
+            df_d = df_d.T
+            df_d = df_d.T.rename({x: _markdown_compound(x) for x in df_d})
+            df_d = df_d.reset_index()
+            df_d = df_d.rename(
                 {
                     "index": "compound",
                     "initial": "initial (ppm)",
@@ -731,12 +809,9 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 }
             )
 
-            diff_table=dash_table.DataTable(
+            diff_table = dash_table.DataTable(
                 columns=[
-                    {"name": i, 
-                     "id": i, 
-                     "type": "text",
-                     "presentation": "markdown"}
+                    {"name": i, "id": i, "type": "text", "presentation": "markdown"}
                     for i in df_d.columns
                 ],
                 data=df_d.to_dict("records"),
@@ -745,17 +820,17 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style_cell={
                     "font_family": "helvetica",
                     "align": "center",
-                    'padding-right': '30px',
-                    'padding-left': '30px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
+                    "padding-right": "30px",
+                    "padding-left": "30px",
+                    "text-align": "center",
+                    "marginLeft": "auto",
+                    "marginRight": "auto",
                 },
                 style_table={
                     "overflow": "scroll",
                 },
-                #fixed_rows={"headers": True},
-                #style_cell_conditional=[
+                # fixed_rows={"headers": True},
+                # style_cell_conditional=[
                 #    {"if": {"column_id": "index"},
                 #        "width": "10%", "textAlign": "left"},
                 #    {
@@ -763,28 +838,25 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 #        "width": "10%",
                 #        "textAlign": "left",
                 #    },
-                #],
+                # ],
                 markdown_options={"html": True, "link_target": "_self"},
             )
-            
-            
-            ### statistics 
-            analyse=AnalyseSampling(t.data, markdown=True)
+
+            ### statistics
+            analyse = AnalyseSampling(t.data, markdown=True)
             analyse.reaction_statistics()
             analyse.mean_sampling()
             analyse.reaction_paths()
 
-            mean=analyse.mean_data[ambient_settings["T"]
-                ][ambient_settings["P"]]
-            
-            paths=pd.DataFrame(
-                analyse.common_paths[ambient_settings["T"]
-                    ][ambient_settings["P"]]
+            mean = analyse.mean_data[ambient_settings["T"]][ambient_settings["P"]]
+
+            paths = pd.DataFrame(
+                analyse.common_paths[ambient_settings["T"]][ambient_settings["P"]]
             )
-            stats=pd.DataFrame(
+            stats = pd.DataFrame(
                 analyse.stats[ambient_settings["T"]][ambient_settings["P"]]
             )
-            stats_table=dash_table.DataTable(
+            stats_table = dash_table.DataTable(
                 columns=[
                     {
                         "name": "Reactions",
@@ -811,29 +883,29 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style_cell={
                     "font_family": "helvetica",
                     "align": "center",
-                    'padding-right': '10px',
-                    'padding-left': '10px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
+                    "padding-right": "10px",
+                    "padding-left": "10px",
+                    "text-align": "center",
+                    "marginLeft": "auto",
+                    "marginRight": "auto",
                 },
                 style_header={
                     "font_family": "helvetica",
                     "align": "center",
-                    'padding-right': '10px',
-                    'padding-left': '10px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
+                    "padding-right": "10px",
+                    "padding-left": "10px",
+                    "text-align": "center",
+                    "marginLeft": "auto",
+                    "marginRight": "auto",
                 },
                 style_table={
                     "overflow": "scroll",
                 },
-                #fixed_rows={"headers": True},
+                # fixed_rows={"headers": True},
                 markdown_options={"html": True, "link_target": "_self"},
             )
 
-            paths_table=dash_table.DataTable(
+            paths_table = dash_table.DataTable(
                 columns=[
                     {
                         "name": "Paths",
@@ -861,35 +933,35 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style_cell={
                     "font_family": "helvetica",
                     "align": "center",
-                    'padding-right': '10px',
-                    'padding-left': '10px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
+                    "padding-right": "10px",
+                    "padding-left": "10px",
+                    "text-align": "center",
+                    "marginLeft": "auto",
+                    "marginRight": "auto",
                 },
                 style_table={
                     "overflow": "scroll",
                 },
-                #fixed_rows={"headers": True},
+                # fixed_rows={"headers": True},
                 markdown_options={"html": True, "link_target": "_self"},
             )
-            df_m_t = pd.DataFrame(mean).T 
-            df_m_t = df_m_t[df_m_t['value'] !=0 ]
+            df_m_t = pd.DataFrame(mean).T
+            df_m_t = df_m_t[df_m_t["value"] != 0]
 
-            df_m=pd.DataFrame(
+            df_m = pd.DataFrame(
                 {
                     "comps": list(df_m_t.T.keys()),
-                    "values": df_m_t['value'].values,
-                    "variance":df_m_t['variance'].values,
-                    "variance_minus":-df_m_t['variance'].values
+                    "values": df_m_t["value"].values,
+                    "variance": df_m_t["variance"].values,
+                    "variance_minus": -df_m_t["variance"].values,
                 }
             )
-            #maxval=np.max(
+            # maxval=np.max(
             #    [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
-            #)
-            #ymin, ymax=[-maxval, maxval]
+            # )
+            # ymin, ymax=[-maxval, maxval]
 
-            fig=px.bar(
+            fig = px.bar(
                 df_m,
                 x="comps",
                 y="values",
@@ -901,8 +973,8 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 hover_data={
                     "values": False,
                     "comps": False,
-                    "variance":False,
-                    "error":(":.2e", df_m["variance"]),
+                    "variance": False,
+                    "error": (":.2e", df_m["variance"]),
                     "specie": df_m["comps"],
                     "PPM": (":.1f", df_m["values"]),
                 },
@@ -916,23 +988,23 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 coloraxis_showscale=False,
             )
             fig.update_xaxes(showgrid=False, tickangle=-60, tickmode="linear")
-            #try:
+            # try:
             #    dtick=int(int(ymax - ymin) / 10)
-            #except:
+            # except:
             #    dtick = None
             #    pass
-            #fig.update_yaxes(
+            # fig.update_yaxes(
             #    showgrid=True,
             #    tickmode="linear",
             #    range=[ymin - 2, ymax + 2],
             #    dtick=dtick,
-            #)
+            # )
 
-            resultsgraph=dcc.Graph(
+            resultsgraph = dcc.Graph(
                 figure=fig,
                 animate=False,
-                #config={"scrollZoom": True},
-                #style={"height": "60rem", "width": "100%"},
+                # config={"scrollZoom": True},
+                # style={"height": "60rem", "width": "100%"},
             )
 
             return [
