@@ -21,4 +21,4 @@ USER 1001
 
 # Run the application (replace this with your application command)
 ENV HOST=0.0.0.0
-CMD ["python", "app/arcs_app.py"]
+CMD ["gunicorn", "arcs.dash_app:server", "-b", ":8050"]

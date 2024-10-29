@@ -22,12 +22,17 @@ async def run_simulation(request: SimulationRequest):
     settings = request.settings
 
     graph = pickle.load(
-        open(os.path.join(os.path.dirname(__file__), "../app/data/SCAN_graph.p"), "rb")
+        open(
+            os.path.join(
+                os.path.dirname(__file__), "../arcs/dash_app/data/SCAN_graph.p"
+            ),
+            "rb",
+        )
     )
     traversal = Traversal(
         graph=graph,
         reactions=os.path.join(
-            os.path.dirname(__file__), "../app/data/SCAN_reactions.p"
+            os.path.dirname(__file__), "../arcs/dash_app/data/SCAN_reactions.p"
         ),
     )
     traversal.run(trange=trange, prange=prange, save=False, ic=concs, **settings)
