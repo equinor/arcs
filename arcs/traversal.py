@@ -12,10 +12,8 @@ import psutil
 import warnings
 
 from datetime import datetime
-import math
 import numpy as np
 import pandas as pd
-from pathos.helpers import mp as pmp
 import pickle
 
 
@@ -41,7 +39,6 @@ class Traversal:
         self.sample_length = 1000
         self.path_depth = 20
         self.random_path_depth = False
-        self.nprocs = 4
         self.ceiling = 2000
         self.scale_highest = 0.1
         self.rank_small_reactions_higher = True
@@ -363,57 +360,7 @@ class Traversal:
 
         out_q.put(sample_data)
 
-    def sampling_multiprocessing(self, T=None, P=None, **kw):
-        init_concs = copy.deepcopy(self.concs)
-        result_dict = {
-            0: {"data": init_concs, "equation_statistics": [], "path_length": None}
-        }
-        # start the queue
-        out_queue = pmp.Queue()
-        samples = list(range(1, self.sample_length + 1, 1))
-        data_chunks = [
-            samples[chunksize * i : chunksize * (i + 1)]
-            for i in range(self.nprocs)
-            for chunksize in [int(math.ceil(len(samples) / float(self.nprocs)))]
-        ]
-
-        jobs = []
-        for i, chunk in enumerate(data_chunks):
-            process = pmp.Process(
-                target=self._queue_function,
-                args=(
-                    i,
-                    chunk,
-                    T,
-                    P,
-                    self.probability_threshold,
-                    self.path_depth,
-                    self.max_compounds,
-                    self.max_rank,
-                    self.co2,
-                    self.scale_highest,
-                    self.ceiling,
-                    self.method,
-                    out_queue,
-                ),
-            )
-            jobs.append(process)
-            process.start()
-
-        for proc in jobs:
-            result_dict.update(out_queue.get())
-
-        for proc in jobs:
-            proc.terminate()
-
-        for proc in jobs:
-            proc.join()
-
-        out_queue.close()
-
-        return result_dict
-
-    def sampling_serial(self, T=None, P=None, **kw):
+    def sample(self, T=None, P=None, **kw):
         init_concs = copy.deepcopy(self.concs)
         result_dict = {
             0: {"data": init_concs, "equation_statistics": [], "path_length": None}
@@ -456,7 +403,7 @@ class Traversal:
             warnings.filterwarnings("ignore")
 
         """
-        kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,nprocs,random_path_depth,co2=False
+        kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,random_path_depth,co2=False
         """
         from loguru import logger
         from io import StringIO
@@ -491,7 +438,6 @@ version:1.2
         ->path_depth = {}
         ->co2 = {}
         ->shortest path method = {}
-        ->number of processes = {}
         ->concentration ceiling = {} %
         ->scale highest = {}
         ->rank smaller reactions higher = {}\n""".format(
@@ -503,7 +449,6 @@ version:1.2
                 self.path_depth,
                 self.co2,
                 self.method,
-                self.nprocs,
                 self.ceiling,
                 self.scale_highest,
                 self.rank_small_reactions_higher,
@@ -534,10 +479,7 @@ version:1.2
                     ),
                     end="\n",
                 )
-                if self.nprocs > 1:
-                    data_2[P] = self.sampling_multiprocessing(T, P, **kw)
-                else:
-                    data_2[P] = self.sampling_serial(T, P, **kw)
+                data_2[P] = self.sample(T, P, **kw)
 
                 finish = datetime.now() - start
                 logger.info(
@@ -609,7 +551,6 @@ version:1.2
             "sample_length": self.sample_length,
             "path_depth": self.path_depth,
             "random_path_depth": self.random_path_depth,
-            "nprocs": self.nprocs,
             "ceiling": self.ceiling,
             "scale_highest": self.scale_highest,
             "rank_small_reactions_higher": self.rank_small_reactions_higher,
@@ -627,6 +568,3 @@ version:1.2
         self.data = total_data
         if logging:
             print(stream.get_value())
-
-
-# done

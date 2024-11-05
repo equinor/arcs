@@ -104,7 +104,6 @@ sliders = make_sliders(g, labels={0: "T (K)", 1: "P (bar)"})
 
 concs: dict[str, float] = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
 settings = {
-    "nprocs": 1,
     "sample_length": 320,
     "max_rank": 10,
     "max_compounds": 5,
