@@ -457,30 +457,3 @@ class GraphGenerator:
     def save(self, filename="graph.p"):
         pickle.dump(self.graph, open(filename, "wb"))
         print("graph saved to: {}".format(filename))
-
-
-class GenerateInitialConcentrations:
-    """all concentrations are given in x10^-6 (ppm)"""
-
-    def __init__(self, graph):
-        self.graph = graph
-        self.T = list(graph)[0]  # dummy temp
-        self.P = list(graph[self.T])[0]  # dummy pressure
-
-    def all_zero(self, include_co2=True):
-        compounds = [
-            node for node in self.graph[self.T][self.P].nodes() if isinstance(node, str)
-        ]
-        ic = {c: 0 for c in compounds}
-        if include_co2 is not True:
-            ic["CO2"] = 1
-        self.ic = ic
-
-    def update_ic(self, update_dict, include_co2=True):
-        """update dict = {'CO2':1e-6,'H2O':300e-5} etc."""
-        try:
-            hasattr(self.ic, "ic")
-        except AttributeError:
-            self.all_zero(include_co2=include_co2)
-        for k, v in update_dict.items():
-            self.ic[k] = v

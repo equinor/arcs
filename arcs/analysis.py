@@ -92,11 +92,8 @@ class AnalyseSampling:
                     eqs = self.data[T][P][x]["equation_statistics"]
                     if eqs:
                         equations.append(eqs)
-                try:
-                    eqp[float(P)] = self._get_stats(equations)
-                except Exception:
-                    eqp[float(P)] = []
-            eqt[float(T)] = eqp
+                eqp[P] = self._get_stats(equations)
+            eqt[T] = eqp
 
         self.stats = eqt
 
@@ -127,10 +124,10 @@ class AnalyseSampling:
                         "value": np.mean(diff) / 1e-6,
                         "variance": np.var(diff) / 1e-6,
                     }  # 2nd value is the variance and not the std deviation
-                m_2[float(P)] = m_3
-                f_2[float(P)] = f_3
-            md[float(T)] = m_2
-            f_1[float(T)] = f_2
+                m_2[P] = m_3
+                f_2[P] = f_3
+            md[T] = m_2
+            f_1[T] = f_2
 
         self.mean_data = md
         self.final_concs = f_1
@@ -177,7 +174,7 @@ class AnalyseSampling:
                         index = index_override
                     self.cancel_markdown = True
                     self.reaction_statistics()
-                    tr = str(self.stats[float(T)][float(P)]["index"][index])
+                    tr = str(self.stats[T][P]["index"][index])
                 except Exception:
                     tr = None
 
@@ -240,11 +237,11 @@ class AnalyseSampling:
                     df.columns = "frequency", "reaction 1", "reaction 2"
                     df.set_index("frequency")
                     dict_ = df.to_dict()
-                    df2[float(P)] = _eqpath(dict_)
+                    df2[P] = _eqpath(dict_)
                 except Exception:
-                    df2[float(P)] = {"frequency": [None], "paths": [None], "k": [None]}
+                    df2[P] = {"frequency": [None], "paths": [None], "k": [None]}
 
-            df1[float(T)] = df2
+            df1[T] = df2
         self.common_paths = df1
         self.cancel_markdown = False
         self.reaction_statistics()

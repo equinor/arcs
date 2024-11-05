@@ -62,7 +62,7 @@ class Traversal:
     ):  # ceiling percent larger than the median average
         [n for n in self.graph[T][P].nodes() if isinstance(n, str)]
         concs = copy.deepcopy(init_concs)  # don't modify the original
-        if co2 is False:
+        if co2 is False and "CO2" in concs:
             del concs["CO2"]  # CO2 will always be too large as it is the background
         # house keeping:
         num_not_zero = len([x for x in concs.values() if x > 0])
@@ -513,7 +513,8 @@ version:1.2
         logger.info("initial concentrations (ppm):\n")
         self.concs = ic
         concstring = pd.Series({k: v for k, v in self.concs.items() if v > 0}) / 1e-6
-        del concstring["CO2"]
+        if "CO2" in concstring:
+            del concstring["CO2"]
         logger.info(concstring.to_string() + "\n")
 
         if logging:
@@ -553,10 +554,10 @@ version:1.2
                             for k, v in pd.DataFrame(reformatted).mean().items()
                             if v > 0.5e-6
                         }
-                    ).drop("CO2")
+                    )
                     / 1e-6
                 )
-                # mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P]).keys()) if v > 0.5e-6}).drop('CO2')/1e-6
+
                 logger.info("\n final concentrations (>0.5ppm):\n")
                 logger.info(mean.round(1).to_string())
                 final_concs_2[P] = mean.to_dict()

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pathlib import Path
 import dash
 import dash_bootstrap_components as dbc
@@ -10,7 +11,6 @@ from dash import ctx
 from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
-from arcs.setup_functions import GenerateInitialConcentrations
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import Traversal
 import pickle
@@ -102,10 +102,7 @@ table5 = dbc.Alert("No Data", color="light")
 meta = dbc.Alert("Data Shown When Run", color="secondary")
 sliders = make_sliders(g, labels={0: "T (K)", 1: "P (bar)"})
 
-gic = GenerateInitialConcentrations(g)
-gic.all_zero(include_co2=False)
-gic.update_ic({"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6})
-concs = gic.ic
+concs: dict[str, float] = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
 settings = {
     "nprocs": 1,
     "sample_length": 320,
@@ -635,19 +632,17 @@ def add_row(n_clicks, rows, columns):
 @app.callback(
     Output("placeholder1", "children"),
     Input("concentrations_table", "data"),
-    Input("concentrations_table", "columns"),
 )
-def update_concentrations(rows, columns):
-    for k, v in concs.items():  # reset values
-        if not k == "CO2":
-            concs[k] = 0
+def update_concentrations(rows):
+    global concs
+
+    concs = {k: 0 for k in concs if k != "CO2"}
+
     for row in rows:
-        spec = row.get("index", None)
-        num = row.get("initial", None)
-        if spec in list(concs.keys()):
+        spec = row["index"]
+        num = row["initial"]
+        if spec in concs:
             concs[spec] = float(num) * 1e-6
-        else:
-            pass
 
 
 @app.callback(
@@ -735,11 +730,9 @@ def apprun(btn1):
             },
             markdown_options={"html": True, "link_target": "_self"},
         )
-        df_d = (
-            pd.DataFrame(t.initfinaldiff[ambient_settings["T"]][ambient_settings["P"]])
-            .round(1)
-            .drop("CO2")
-        )
+        df_d = pd.DataFrame(
+            t.initfinaldiff[ambient_settings["T"]][ambient_settings["P"]]
+        ).round(1)
         df_d = df_d.T
         df_d = df_d.T.rename({x: _markdown_compound(x) for x in df_d})
         df_d = df_d.reset_index()
