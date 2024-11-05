@@ -14,24 +14,12 @@ import warnings
 from datetime import datetime
 import numpy as np
 import pandas as pd
-import pickle
+
+from arcs.model import get_graph, get_reactions
 
 
 class Traversal:
-    def __init__(self, graph, reactions):
-        if isinstance(graph, str):
-            self.graph = pickle.load(open(graph, "rb"))
-        else:
-            self.graph = graph
-        if isinstance(reactions, str):
-            self.reactions = pickle.load(open(reactions, "rb"))
-        else:
-            self.reactions = reactions
-        # self.concs = copy.deepcopy(concs) # saves having to reload the class each time
-        self.trange = list(self.graph)
-        self.prange = list(self.graph[self.trange[0]])
-
-        # default values:
+    def __init__(self):
         self.co2 = False
         self.max_compounds = 5
         self.probability_threshold = 0.05
@@ -57,7 +45,7 @@ class Traversal:
         scale_highest=0.1,  # how much to scale the highest components
         ceiling=3000,
     ):  # ceiling percent larger than the median average
-        [n for n in self.graph[T][P].nodes() if isinstance(n, str)]
+        [n for n in get_graph(T, P).nodes() if isinstance(n, str)]
         concs = copy.deepcopy(init_concs)  # don't modify the original
         if co2 is False and "CO2" in concs:
             del concs["CO2"]  # CO2 will always be too large as it is the background
@@ -122,26 +110,26 @@ class Traversal:
         if len(choices) > 1:
             possibilities = list(
                 nx.shortest_paths.all_shortest_paths(
-                    self.graph[T][P], list(choices)[0], list(choices)[1], method=method
+                    get_graph(T, P), list(choices)[0], list(choices)[1], method=method
                 )
             )
 
             for x in possibilities:
-                candidates = list(self.graph[T][P][x[1]])
+                candidates = list(get_graph(T, P)[x[1]])
                 if len(choices) > 2:
                     for c in list(choices)[2:]:
                         if c in candidates:
-                            weight = self.graph[T][P].get_edge_data(x[0], x[1])[0][
+                            weight = get_graph(T, P).get_edge_data(x[0], x[1])[0][
                                 "weight"
-                            ] * 10 ** self._length_multiplier(self.graph[T][P][x[1]])
+                            ] * 10 ** self._length_multiplier(get_graph(T, P)[x[1]])
                             rankings[x[1]] = {
                                 "candidates": candidates,
                                 "weight": weight,
                             }
                 else:
-                    weight = self.graph[T][P].get_edge_data(x[0], x[1])[0][
+                    weight = get_graph(T, P).get_edge_data(x[0], x[1])[0][
                         "weight"
-                    ] * 10 ** self._length_multiplier(self.graph[T][P][x[1]])
+                    ] * 10 ** self._length_multiplier(get_graph(T, P)[x[1]])
                     rankings[x[1]] = {"candidates": candidates, "weight": weight}
         if rankings:
             sorted_rankings = (
@@ -160,7 +148,7 @@ class Traversal:
     def _random_choice_unconnected(
         self, T, P, force_direct=False, co2=False
     ):  # currently randomly disjointed reactions that are weighted
-        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n, str)]
+        nodes = [n for n in get_graph(T, P).nodes() if isinstance(n, str)]
         if force_direct is True:
             pstring = [0, 1, 2]
             while len(pstring) > 2:
@@ -168,12 +156,12 @@ class Traversal:
                     T, P, co2=co2, force_selection=None
                 )
                 target = random.choice(nodes)
-                p = nx.shortest_path(self.graph[T][P], source, target, weight="weight")
+                p = nx.shortest_path(get_graph(T, P), source, target, weight="weight")
                 pstring = [n for n in p if isinstance(p, str)]
         else:
             source = self._get_weighted_random_compound(T, P)
             target = random.choice(nodes)
-            p = nx.shortest_path(self.graph[T][P], source, target)
+            p = nx.shortest_path(get_graph(T, P), source, target)
         return p
 
     def _random_choice_connected(
@@ -181,25 +169,25 @@ class Traversal:
     ):  # this will be joined - I think we can also make a ranking of potential reactions based upon components in the stream as well
         if previous_index is None:
             raise ValueError("no previous compound selected")
-        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n, str)]
+        nodes = [n for n in get_graph(T, P).nodes() if isinstance(n, str)]
         if force_direct is True:
             pstring = [0, 1, 2]
             while len(pstring) > 2:
                 present = [
                     c
-                    for c in list(self.reactions[T][P][previous_index]["e"].reac)
-                    + list(self.reactions[T][P][previous_index]["e"].prod)
+                    for c in list(get_reactions(T, P)[previous_index]["e"].reac)
+                    + list(get_reactions(T, P)[previous_index]["e"].prod)
                 ]  # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
                 source = self._get_weighted_random_compound(
                     T, P, co2=co2, force_selection=present
                 )
                 target = random.choice(nodes)  # the next path will be random
-                p = nx.shortest_path(self.graph[T][P], source, target, weight="weight")
+                p = nx.shortest_path(get_graph(T, P), source, target, weight="weight")
                 pstring = [n for n in p if isinstance(p, str)]
         else:
             source = self._get_weighted_random_compound(T, P)
             target = random.choice(nodes)
-            p = nx.shortest_path(self.graph[T][P], source, target)
+            p = nx.shortest_path(get_graph(T, P), source, target)
         return p
 
     def generate_eqsystem(self, index, T, P):
@@ -208,7 +196,7 @@ class Traversal:
             "NH4": +1,
             "NH2CO2": -1,
         }  # this needs to be added to the arguments
-        rs = self.reactions[T][P][index]
+        rs = get_reactions(T, P)[index]
         r = rs["e"].reac
         p = rs["e"].prod
         k = rs["k"]
