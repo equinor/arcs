@@ -1,5 +1,4 @@
 from __future__ import annotations
-import random
 from dataclasses import dataclass
 from typing import Literal, Any
 
@@ -10,7 +9,6 @@ import networkx as nx
 import itertools as it
 
 from tqdm import tqdm
-from numpy.random import choice
 import platform
 import psutil
 
@@ -39,6 +37,7 @@ def _get_weighted_random_compounds(
     probability_threshold: float,
     scale_highest: float,
     ceiling: int,
+    rng: np.random.Generator,
 ) -> dict[Any, Any]:
     concs = copy.deepcopy(init_concs)  # don't modify the original
     if co2 is False and "CO2" in concs:
@@ -68,20 +67,20 @@ def _get_weighted_random_compounds(
     p_3 = {k: v / sum(p_2.values()) for k, v in p_2.items()}
     # make a list of choices based upon the probabilities
     available = list(
-        np.random.choice(list(p_3.keys()), 100, p=list(p_3.values()))
+        rng.choice(list(p_3.keys()), 100, p=list(p_3.values()))
     )  # make this list length of the nodes
     # now make a list max_compounds long of random choices based on available
     choices = {}
     for c in range(max_compounds):
         if c == 0:
-            c1 = np.random.choice(available)
+            c1 = rng.choice(available)
             choices[c1] = p_3[c1]
         else:
             try:
                 for i in range(available.count(list(choices)[c - 1])):
                     available.remove(list(choices)[c - 1])
                 try:
-                    c2 = np.random.choice(available)
+                    c2 = rng.choice(available)
                     choices[c2] = p_3[c2]
                 except Exception:
                     pass
@@ -212,6 +211,7 @@ def _random_walk(
     ceiling: int,
     method: Literal["Bellman-Ford"],
     rank_small_reactions_higher: bool,
+    rng: np.random.Generator,
 ):
     final_concs = {0: copy.deepcopy(concs)}
     reactionstats = {0: None}
@@ -228,6 +228,7 @@ def _random_walk(
                 co2=co2,
                 scale_highest=scale_highest,
                 ceiling=ceiling,
+                rng=rng,
             )
         except Exception:
             path_depth = ip + 1
@@ -247,9 +248,9 @@ def _random_walk(
             break
         weights = {k: 1 / rankings[k]["weight"] for k in rankings}
         probabilities = {k: v / sum(weights.values()) for k, v in weights.items()}
-        chosen_reaction = random.choice(
+        chosen_reaction = rng.choice(
             [
-                choice(
+                rng.choice(
                     list(probabilities.keys()),
                     len(probabilities),
                     p=list(probabilities.values()),
@@ -281,17 +282,17 @@ def _sample(
     pressure: int,
     concs: dict[str, float],
     *,
-    co2: bool = False,
-    max_compounds: int = 5,
-    probability_threshold: float = 0.05,
-    max_rank: int = 5,
-    sample_length: int = 1000,
-    path_depth: int = 20,
-    random_path_depth: bool = False,
-    ceiling: int = 2000,
-    scale_highest: float = 0.1,
-    rank_small_reactions_higher: bool = True,
-    method: Literal["Bellman-Ford"] = "Bellman-Ford",
+    co2: bool,
+    max_compounds: int,
+    probability_threshold: float,
+    max_rank: int,
+    sample_length: int,
+    path_depth: int,
+    ceiling: int,
+    scale_highest: float,
+    rank_small_reactions_higher: bool,
+    method: Literal["Bellman-Ford"],
+    rng: np.random.Generator,
 ) -> dict[int, Any]:
     init_concs = copy.deepcopy(concs)
     result_dict = {
@@ -318,6 +319,7 @@ def _sample(
                 ceiling=ceiling,
                 method=method,
                 rank_small_reactions_higher=rank_small_reactions_higher,
+                rng=rng,
             )
             pbar.update(1)
     return result_dict
@@ -334,12 +336,15 @@ def traverse(
     max_rank: int = 5,
     sample_length: int = 1000,
     path_depth: int = 20,
-    random_path_depth: bool = False,
     ceiling: int = 2000,
     scale_highest: float = 0.1,
     rank_small_reactions_higher: bool = True,
     method: Literal["Bellman-Ford"] = "Bellman-Ford",
+    rng: np.random.Generator | None = None,
 ) -> TraversalResult:
+    if rng is None:
+        rng = np.random.default_rng()
+
     concs = {**concs}
     concstring = pd.Series({k: v for k, v in concs.items() if v > 0}) / 1e-6
     if "CO2" in concstring:
@@ -357,11 +362,11 @@ def traverse(
         max_rank=max_rank,
         sample_length=sample_length,
         path_depth=path_depth,
-        random_path_depth=random_path_depth,
         ceiling=ceiling,
         scale_highest=scale_highest,
         rank_small_reactions_higher=rank_small_reactions_higher,
         method=method,
+        rng=rng,
     )
 
     reformatted = [{x: v for x, v in data[i]["data"].items()} for i in data]
@@ -401,7 +406,6 @@ def traverse(
         "max_rank": max_rank,
         "sample_length": sample_length,
         "path_depth": path_depth,
-        "random_path_depth": random_path_depth,
         "ceiling": ceiling,
         "scale_highest": scale_highest,
         "rank_small_reactions_higher": rank_small_reactions_higher,
