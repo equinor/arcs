@@ -696,8 +696,8 @@ def apprun(btn1):
     if "submit-val" == ctx.triggered_id:
         warnings.simplefilter("ignore")
         t.run(
-            [ambient_settings["T"]],
-            [ambient_settings["P"]],
+            ambient_settings["T"],
+            ambient_settings["P"],
             concs,
             **settings,
         )

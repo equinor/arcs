@@ -36,8 +36,8 @@ class SimulationRequest(BaseModel):
 async def run_simulation(form: SimulationRequest):
     traversal = Traversal()
     results = traversal.run(
-        [form.temperature],
-        [form.pressure],
+        form.temperature,
+        form.pressure,
         form.concs,
         sample_length=10,
     )

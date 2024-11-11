@@ -8,6 +8,7 @@ from chempy import Substance
 import copy
 import networkx as nx
 import itertools as it
+
 from tqdm import tqdm
 from numpy.random import choice
 import platform
@@ -101,31 +102,32 @@ class Traversal:
     @classmethod
     def _get_weighted_reaction_rankings(
         cls,
-        T,
-        P,
+        tempreature: int,
+        pressure: int,
         choices,
         *,
         max_rank: int,
         method: Literal["Bellman-Ford"],
         rank_small_reactions_higher: bool,
     ):
+        graph = get_graph(tempreature, pressure)
         rankings = {}
         if len(choices) > 1:
             possibilities = list(
                 nx.shortest_paths.all_shortest_paths(
-                    get_graph(T, P), list(choices)[0], list(choices)[1], method=method
+                    graph, list(choices)[0], list(choices)[1], method=method
                 )
             )
 
             for x in possibilities:
-                candidates = list(get_graph(T, P)[x[1]])
+                candidates = list(graph[x[1]])
                 if len(choices) > 2:
                     for c in list(choices)[2:]:
                         if c in candidates:
-                            weight = get_graph(T, P).get_edge_data(x[0], x[1])[0][
+                            weight = graph.get_edge_data(x[0], x[1])[0][
                                 "weight"
                             ] * 10 ** cls._length_multiplier(
-                                get_graph(T, P)[x[1]],
+                                graph[x[1]],
                                 rank_small_reactions_higher=rank_small_reactions_higher,
                             )
                             rankings[x[1]] = {
@@ -133,10 +135,10 @@ class Traversal:
                                 "weight": weight,
                             }
                 else:
-                    weight = get_graph(T, P).get_edge_data(x[0], x[1])[0][
+                    weight = graph.get_edge_data(x[0], x[1])[0][
                         "weight"
                     ] * 10 ** cls._length_multiplier(
-                        get_graph(T, P)[x[1]],
+                        graph[x[1]],
                         rank_small_reactions_higher=rank_small_reactions_higher,
                     )
                     rankings[x[1]] = {"candidates": candidates, "weight": weight}
@@ -153,13 +155,13 @@ class Traversal:
             return None
 
     @staticmethod
-    def generate_eqsystem(index: int, T: int, P: int) -> EqSystem | None:
+    def generate_eqsystem(index: int, temperature: int, pressure: int) -> EqSystem | None:
         charged_species = {
             "CO3H": -1,
             "NH4": +1,
             "NH2CO2": -1,
         }  # this needs to be added to the arguments
-        rs = get_reactions(T, P)[index]
+        rs = get_reactions(temperature, pressure)[index]
         r = rs["e"].reac
         p = rs["e"].prod
         k = rs["k"]
@@ -203,8 +205,8 @@ class Traversal:
     @classmethod
     def random_walk(
         cls,
-        T: int,
-        P: int,
+        temperature: int,
+        pressure: int,
         concs: dict[str, float],
         *,
         probability_threshold: float,
@@ -224,9 +226,9 @@ class Traversal:
             fcs = copy.deepcopy(final_concs[ip - 1])
             try:
                 choices = cls._get_weighted_random_compounds(
-                    T=T,
-                    P=P,
-                    init_concs=fcs,
+                    temperature,
+                    pressure,
+                    fcs,
                     max_compounds=max_compounds,
                     probability_threshold=probability_threshold,
                     co2=co2,
@@ -240,9 +242,9 @@ class Traversal:
                 path_depth = ip + 1
                 break
             rankings = cls._get_weighted_reaction_rankings(
-                T=T,
-                P=P,
-                choices=choices,
+                temperature,
+                pressure,
+                choices,
                 max_rank=max_rank,
                 method=method,
                 rank_small_reactions_higher=rank_small_reactions_higher,
@@ -261,7 +263,7 @@ class Traversal:
                 ][0]
             )
 
-            eqsyst = cls.generate_eqsystem(chosen_reaction, T, P)
+            eqsyst = cls.generate_eqsystem(chosen_reaction, temperature, pressure)
             # if reaction was previous reaction then break
             path_available = [r for r in reactionstats.values() if r is not None]
             if path_available:
@@ -284,8 +286,8 @@ class Traversal:
     @classmethod
     def sample(
         cls,
-        T: int,
-        P: int,
+        temperature: int,
+        pressure: int,
         concs: dict[str, float],
         *,
         co2: bool = False,
@@ -313,8 +315,8 @@ class Traversal:
         ) as pbar:
             for sample in range(sample_length):
                 result_dict[sample + 1] = cls.random_walk(
-                    T,
-                    P,
+                    temperature,
+                    pressure,
                     init_concs,
                     probability_threshold=probability_threshold,
                     path_depth=path_depth,
@@ -332,8 +334,8 @@ class Traversal:
     @classmethod
     def run(
         cls,
-        trange: list[int],
-        prange: list[int],
+        temperature: int,
+        pressure: int,
         concs: dict[str, float] | None = None,
         *,
         co2: bool = False,
@@ -348,8 +350,6 @@ class Traversal:
         rank_small_reactions_higher: bool = True,
         method: Literal["Bellman-Ford"] = "Bellman-Ford",
     ) -> TraversalResult:
-        num = 1
-
         concs = {**concs}
         concstring = pd.Series({k: v for k, v in concs.items() if v > 0}) / 1e-6
         if "CO2" in concstring:
@@ -357,70 +357,59 @@ class Traversal:
 
         path_lengths = []
         total_data = {}
-        final_concs = {}
-        initfinaldiff = {}
-        for T in trange:
-            data_2 = {}
-            final_concs_2 = {}
-            initfinaldiff_2 = {}
-            for P in prange:
-                data_2[P] = cls.sample(
-                    T,
-                    P,
-                    concs,
-                    co2=co2,
-                    max_compounds=max_compounds,
-                    probability_threshold=probability_threshold,
-                    max_rank=max_rank,
-                    sample_length=sample_length,
-                    path_depth=path_depth,
-                    random_path_depth=random_path_depth,
-                    ceiling=ceiling,
-                    scale_highest=scale_highest,
-                    rank_small_reactions_higher=rank_small_reactions_higher,
-                    method=method,
-                )
+        data = cls.sample(
+            temperature,
+            pressure,
+            concs,
+            co2=co2,
+            max_compounds=max_compounds,
+            probability_threshold=probability_threshold,
+            max_rank=max_rank,
+            sample_length=sample_length,
+            path_depth=path_depth,
+            random_path_depth=random_path_depth,
+            ceiling=ceiling,
+            scale_highest=scale_highest,
+            rank_small_reactions_higher=rank_small_reactions_higher,
+            method=method,
+        )
 
-                reformatted = [
-                    {x: v for x, v in data_2[P][i]["data"].items()} for i in data_2[P]
-                ]
-                mean = (
-                    pd.Series(
-                        {
-                            k: v
-                            for k, v in pd.DataFrame(reformatted).mean().items()
-                            if v > 0.5e-6
-                        }
-                    )
-                    / 1e-6
-                )
+        reformatted = [
+            {x: v for x, v in data[i]["data"].items()} for i in data
+        ]
+        mean = (
+            pd.Series(
+                {
+                    k: v
+                    for k, v in pd.DataFrame(reformatted).mean().items()
+                    if v > 0.5e-6
+                }
+            )
+            / 1e-6
+        )
 
-                final_concs_2[P] = mean.to_dict()
-                diff_concs = pd.Series(mean.to_dict()) - pd.Series(
-                    {k: v / 1e-6 for k, v in concs.items()}
-                )
-                ift = pd.DataFrame(
-                    [
-                        {k: v / 1e-6 for k, v in concs.items() if v > 0},
-                        mean.to_dict(),
-                        diff_concs.to_dict(),
-                    ],
-                    index=["initial", "final", "change"],
-                ).T
-                initfinaldiff_2[P] = ift.dropna(how="all").fillna(0.0).to_dict()
-                avgpathlength = np.median(
-                    [
-                        data_2[P][i]["path_length"]
-                        for i in data_2[P]
-                        if data_2[P][i]["path_length"] is not None
-                    ]
-                )
+        final_concs = mean.to_dict()
+        diff_concs = pd.Series(mean.to_dict()) - pd.Series(
+            {k: v / 1e-6 for k, v in concs.items()}
+        )
+        ift = pd.DataFrame(
+            [
+                {k: v / 1e-6 for k, v in concs.items() if v > 0},
+                mean.to_dict(),
+                diff_concs.to_dict(),
+            ],
+            index=["initial", "final", "change"],
+        ).T
+        initfinaldiff = ift.dropna(how="all").fillna(0.0).to_dict()
+        avgpathlength = np.median(
+            [
+                data[i]["path_length"]
+                for i in data
+                if data[i]["path_length"] is not None
+            ]
+        )
 
-                path_lengths.append(avgpathlength)
-                num += 1
-            total_data[T] = data_2
-            final_concs[T] = final_concs_2
-            initfinaldiff[T] = initfinaldiff_2
+        path_lengths.append(avgpathlength)
 
         metadata = {
             "arcs_version": "1.4.0",
