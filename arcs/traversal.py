@@ -9,8 +9,6 @@ from numpy.random import choice
 import platform
 import psutil
 
-import warnings
-
 from datetime import datetime
 import numpy as np
 import pandas as pd
@@ -381,77 +379,19 @@ class Traversal:
         trange,
         prange,
         ic=None,
-        save=False,
-        savename=None,
-        ignore_warnings=True,
-        logging=False,
         **kw,
     ):
-        if ignore_warnings:
-            warnings.filterwarnings("ignore")
-
-        """
-        kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,random_path_depth,co2=False
-        """
-        from loguru import logger
-        from io import StringIO
-
-        # setup logger
-        stream = StringIO()
-        logger.remove()
-        logger.add(stream, format="{message}")
-
         num = 1
-        total = len(trange) * len(prange)
 
         needed_args = self.__dict__
         for i in needed_args:
             if i in kw:
                 self.__dict__[i] = kw[i]
-
-        logger.info(
-            """\n                                             
-                                            
-    // | |     //   ) )  //   ) )  //   ) ) 
-   //__| |    //___/ /  //        ((        
-  / ___  |   / ___ (   //           \\      
- //    | |  //   | |  //              ) )   
-//     | | //    | | ((____/ / ((___ / /    
-version:1.2
-{}
-        ->sample_length = {}
-        ->probability_threshold = {}
-        ->max_compounds = {}
-        ->max_rank = {}
-        ->path_depth = {}
-        ->co2 = {}
-        ->shortest path method = {}
-        ->concentration ceiling = {} %
-        ->scale highest = {}
-        ->rank smaller reactions higher = {}\n""".format(
-                str(datetime.now()),
-                self.sample_length,
-                self.probability_threshold,
-                self.max_compounds,
-                self.max_rank,
-                self.path_depth,
-                self.co2,
-                self.method,
-                self.ceiling,
-                self.scale_highest,
-                self.rank_small_reactions_higher,
-            )
-        )
-
-        logger.info("initial concentrations (ppm):\n")
         self.concs = ic
+
         concstring = pd.Series({k: v for k, v in self.concs.items() if v > 0}) / 1e-6
         if "CO2" in concstring:
             del concstring["CO2"]
-        logger.info(concstring.to_string() + "\n")
-
-        if logging:
-            print(stream.get_value())
 
         path_lengths = []
         total_data = {}
@@ -460,20 +400,8 @@ version:1.2
             final_concs_2 = {}
             initfinaldiff = {}
             for P in prange:
-                start = datetime.now()
-                logger.info(
-                    "\n {}/{}: temperature = {}K, pressure = {}bar ".format(
-                        num, total, T, P
-                    ),
-                    end="\n",
-                )
                 data_2[P] = self.sample(T, P, **kw)
 
-                finish = datetime.now() - start
-                logger.info(
-                    "-> completed in {} seconds".format(finish.total_seconds()),
-                    end="\n",
-                )
                 reformatted = [
                     {x: v for x, v in data_2[P][i]["data"].items()} for i in data_2[P]
                 ]
@@ -488,8 +416,6 @@ version:1.2
                     / 1e-6
                 )
 
-                logger.info("\n final concentrations (>0.5ppm):\n")
-                logger.info(mean.round(1).to_string())
                 final_concs_2[P] = mean.to_dict()
                 diff_concs = pd.Series(mean.to_dict()) - pd.Series(
                     {k: v / 1e-6 for k, v in self.concs.items()}
@@ -511,22 +437,11 @@ version:1.2
                     ]
                 )
 
-                logger.info("\n median path length: {}".format(avgpathlength))
                 path_lengths.append(avgpathlength)
                 num += 1
             total_data[T] = data_2
             self.final_concs[T] = final_concs_2
             self.initfinaldiff[T] = initfinaldiff
-
-        if save:
-            from monty.serialization import dumpfn
-
-            if not savename:
-                from datetime import date
-
-                today = str(date.today())
-                savename = "sampling_{}.json".format(today)
-            dumpfn(total_data, savename, indent=4)
 
         self.metadata = {
             "arcs_version": "1.4.0",
@@ -554,5 +469,3 @@ version:1.2
         }
 
         self.data = total_data
-        if logging:
-            print(stream.get_value())
