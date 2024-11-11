@@ -8,8 +8,8 @@ app = FastAPI()
 
 
 class SimulationRequest(BaseModel):
-    temperature: float
-    pressure: float
+    temperature: int
+    pressure: int
     concs: dict[str, float] = Field(default_factory=dict)
     samples: int
 
@@ -34,16 +34,12 @@ class SimulationRequest(BaseModel):
 
 @app.post("/run_simulation")
 async def run_simulation(form: SimulationRequest):
-    global GRAPH
-    global REACTIONS
-
     traversal = Traversal()
-    traversal.run(
-        trange=[form.temperature],
-        prange=[form.pressure],
-        ic=form.concs,
+    results = traversal.run(
+        [form.temperature],
+        [form.pressure],
+        form.concs,
         sample_length=10,
     )
 
-    results = {"initfinaldiff": traversal.initfinaldiff, "data": traversal.data}
-    return results
+    return {"initfinaldiff": results.initfinaldiff, "data": results.data}

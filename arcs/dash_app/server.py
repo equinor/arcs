@@ -93,7 +93,7 @@ def make_sliders(import_data, labels):
 
 file_location = Path(__file__).parent / "data/large_dataset"
 g = pickle.load(open(file_location / "SCAN_graph.p", "rb"))
-t = Traversal(graph=g, reactions=str(file_location / "SCAN_reactions.p"))
+t = Traversal()
 
 graph = dbc.Alert("No Data", color="light")
 table4 = dbc.Alert("No Data", color="light")
@@ -696,10 +696,9 @@ def apprun(btn1):
     if "submit-val" == ctx.triggered_id:
         warnings.simplefilter("ignore")
         t.run(
-            trange=[ambient_settings["T"]],
-            prange=[ambient_settings["P"]],
-            save=False,
-            ic=concs,
+            [ambient_settings["T"]],
+            [ambient_settings["P"]],
+            concs,
             **settings,
         )
 

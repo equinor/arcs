@@ -1,4 +1,8 @@
+from __future__ import annotations
 import random
+from dataclasses import dataclass
+from typing import Literal, Any
+
 from chempy.equilibria import Equilibrium, EqSystem
 from chempy import Substance
 import copy
@@ -16,34 +20,27 @@ import pandas as pd
 from arcs.model import get_graph, get_reactions
 
 
-class Traversal:
-    def __init__(self):
-        self.co2 = False
-        self.max_compounds = 5
-        self.probability_threshold = 0.05
-        self.max_rank = 5
-        self.sample_length = 1000
-        self.path_depth = 20
-        self.random_path_depth = False
-        self.ceiling = 2000
-        self.scale_highest = 0.1
-        self.rank_small_reactions_higher = True
-        self.method = "Bellman-Ford"
-        self.final_concs = {}
-        self.initfinaldiff = {}
+@dataclass
+class TraversalResult:
+    initfinaldiff: Any
+    final_concs: Any
+    metadata: dict[str, Any]
+    data: dict[str, Any]
 
+
+class Traversal:
+    @staticmethod
     def _get_weighted_random_compounds(
-        self,
-        T,
-        P,
-        init_concs=None,
-        co2=False,  # should probably be "exclude_co2"
-        max_compounds=5,
-        probability_threshold=0.05,
-        scale_highest=0.1,  # how much to scale the highest components
-        ceiling=3000,
-    ):  # ceiling percent larger than the median average
-        [n for n in get_graph(T, P).nodes() if isinstance(n, str)]
+        T: int,
+        P: int,
+        init_concs: dict[str, float],
+        *,
+        co2: bool,
+        max_compounds: int,
+        probability_threshold: float,
+        scale_highest: float,
+        ceiling: int,
+    ) -> dict[Any, Any]:
         concs = copy.deepcopy(init_concs)  # don't modify the original
         if co2 is False and "CO2" in concs:
             del concs["CO2"]  # CO2 will always be too large as it is the background
@@ -53,7 +50,6 @@ class Traversal:
             max_compounds = num_not_zero
 
         # scale the probabilities accordingly based upon a ceiling percentage
-
         median_conc = np.median(
             [v for v in concs.values() if v > 0]
         )  # median > mean for this
@@ -95,14 +91,23 @@ class Traversal:
 
         return choices
 
-    def _length_multiplier(self, candidate):
-        if self.rank_small_reactions_higher:
+    @staticmethod
+    def _length_multiplier(candidate, *, rank_small_reactions_higher: bool):
+        if rank_small_reactions_higher:
             return len(list(candidate))
         else:
             return 1
 
+    @classmethod
     def _get_weighted_reaction_rankings(
-        self, T, P, choices, max_rank=20, method="Bellman-Ford"
+        cls,
+        T,
+        P,
+        choices,
+        *,
+        max_rank: int,
+        method: Literal["Bellman-Ford"],
+        rank_small_reactions_higher: bool,
     ):
         rankings = {}
         if len(choices) > 1:
@@ -119,7 +124,10 @@ class Traversal:
                         if c in candidates:
                             weight = get_graph(T, P).get_edge_data(x[0], x[1])[0][
                                 "weight"
-                            ] * 10 ** self._length_multiplier(get_graph(T, P)[x[1]])
+                            ] * 10 ** cls._length_multiplier(
+                                get_graph(T, P)[x[1]],
+                                rank_small_reactions_higher=rank_small_reactions_higher,
+                            )
                             rankings[x[1]] = {
                                 "candidates": candidates,
                                 "weight": weight,
@@ -127,7 +135,10 @@ class Traversal:
                 else:
                     weight = get_graph(T, P).get_edge_data(x[0], x[1])[0][
                         "weight"
-                    ] * 10 ** self._length_multiplier(get_graph(T, P)[x[1]])
+                    ] * 10 ** cls._length_multiplier(
+                        get_graph(T, P)[x[1]],
+                        rank_small_reactions_higher=rank_small_reactions_higher,
+                    )
                     rankings[x[1]] = {"candidates": candidates, "weight": weight}
         if rankings:
             sorted_rankings = (
@@ -137,58 +148,12 @@ class Traversal:
                 x for i, x in enumerate(sorted_rankings) if i <= max_rank
             ]  # need to sort first
             rankings = {x: rankings[x] for x in topranks}
-            # return(pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()) # sort them
-            # according to lowest weight first
             return rankings
         else:
             return None
 
-    def _random_choice_unconnected(
-        self, T, P, force_direct=False, co2=False
-    ):  # currently randomly disjointed reactions that are weighted
-        nodes = [n for n in get_graph(T, P).nodes() if isinstance(n, str)]
-        if force_direct is True:
-            pstring = [0, 1, 2]
-            while len(pstring) > 2:
-                source = self._get_weighted_random_compound(
-                    T, P, co2=co2, force_selection=None
-                )
-                target = random.choice(nodes)
-                p = nx.shortest_path(get_graph(T, P), source, target, weight="weight")
-                pstring = [n for n in p if isinstance(p, str)]
-        else:
-            source = self._get_weighted_random_compound(T, P)
-            target = random.choice(nodes)
-            p = nx.shortest_path(get_graph(T, P), source, target)
-        return p
-
-    def _random_choice_connected(
-        self, T, P, force_direct=False, previous_index=None, co2=False
-    ):  # this will be joined - I think we can also make a ranking of potential reactions based upon components in the stream as well
-        if previous_index is None:
-            raise ValueError("no previous compound selected")
-        nodes = [n for n in get_graph(T, P).nodes() if isinstance(n, str)]
-        if force_direct is True:
-            pstring = [0, 1, 2]
-            while len(pstring) > 2:
-                present = [
-                    c
-                    for c in list(get_reactions(T, P)[previous_index]["e"].reac)
-                    + list(get_reactions(T, P)[previous_index]["e"].prod)
-                ]  # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
-                source = self._get_weighted_random_compound(
-                    T, P, co2=co2, force_selection=present
-                )
-                target = random.choice(nodes)  # the next path will be random
-                p = nx.shortest_path(get_graph(T, P), source, target, weight="weight")
-                pstring = [n for n in p if isinstance(p, str)]
-        else:
-            source = self._get_weighted_random_compound(T, P)
-            target = random.choice(nodes)
-            p = nx.shortest_path(get_graph(T, P), source, target)
-        return p
-
-    def generate_eqsystem(self, index, T, P):
+    @staticmethod
+    def generate_eqsystem(index: int, T: int, P: int) -> EqSystem | None:
         charged_species = {
             "CO3H": -1,
             "NH4": +1,
@@ -216,7 +181,10 @@ class Traversal:
         except Exception:
             return None
 
-    def equilibrium_concentrations(self, concs, eq):
+    @staticmethod
+    def equilibrium_concentrations(
+        concs: dict[str, float], eq: EqSystem
+    ) -> tuple[dict[str, float], str]:
         # something is going wrong here...
         fc = copy.deepcopy(concs)
         try:
@@ -232,27 +200,30 @@ class Traversal:
             eq = None
         return (concs, eq)
 
+    @classmethod
     def random_walk(
-        self,
-        T,
-        P,
-        probability_threshold=0.05,
-        path_depth=50,
-        # concs=None,
-        max_compounds=5,
-        max_rank=5,
-        co2=False,
-        scale_highest=1000,
-        ceiling=3000,
-        method="bellman-ford",
+        cls,
+        T: int,
+        P: int,
+        concs: dict[str, float],
+        *,
+        probability_threshold: float,
+        path_depth: int,
+        max_compounds: int,
+        max_rank: int,
+        co2: bool,
+        scale_highest: float,
+        ceiling: int,
+        method: Literal["Bellman-Ford"],
+        rank_small_reactions_higher: bool,
     ):
-        final_concs = {0: copy.deepcopy(self.concs)}
+        final_concs = {0: copy.deepcopy(concs)}
         reactionstats = {0: None}
 
         for ip in range(1, path_depth + 1):
             fcs = copy.deepcopy(final_concs[ip - 1])
             try:
-                choices = self._get_weighted_random_compounds(
+                choices = cls._get_weighted_random_compounds(
                     T=T,
                     P=P,
                     init_concs=fcs,
@@ -268,8 +239,13 @@ class Traversal:
             if len(choices) <= 1:  # not sure this is necessary....
                 path_depth = ip + 1
                 break
-            rankings = self._get_weighted_reaction_rankings(
-                T=T, P=P, choices=choices, max_rank=max_rank, method=method
+            rankings = cls._get_weighted_reaction_rankings(
+                T=T,
+                P=P,
+                choices=choices,
+                max_rank=max_rank,
+                method=method,
+                rank_small_reactions_higher=rank_small_reactions_higher,
             )
             if not rankings:
                 break
@@ -285,7 +261,7 @@ class Traversal:
                 ][0]
             )
 
-            eqsyst = self.generate_eqsystem(chosen_reaction, T, P)
+            eqsyst = cls.generate_eqsystem(chosen_reaction, T, P)
             # if reaction was previous reaction then break
             path_available = [r for r in reactionstats.values() if r is not None]
             if path_available:
@@ -295,7 +271,7 @@ class Traversal:
                 ):
                     break  # extra break
 
-            final_concs[ip], reactionstats[ip] = self.equilibrium_concentrations(
+            final_concs[ip], reactionstats[ip] = cls.equilibrium_concentrations(
                 fcs, eqsyst
             )
 
@@ -305,34 +281,41 @@ class Traversal:
             "path_length": len([r for r in reactionstats.values() if r is not None]),
         }
 
-    def _queue_function(
-        self,
-        pbari,
-        samples,
-        T,
-        P,
-        probability_threshold,
-        path_depth,
-        max_compounds,
-        max_rank,
-        co2,
-        scale_highest,
-        ceiling,
-        method,
-        out_q,
-    ):
-        sample_data = {}
+    @classmethod
+    def sample(
+        cls,
+        T: int,
+        P: int,
+        concs: dict[str, float],
+        *,
+        co2: bool = False,
+        max_compounds: int = 5,
+        probability_threshold: float = 0.05,
+        max_rank: int = 5,
+        sample_length: int = 1000,
+        path_depth: int = 20,
+        random_path_depth: bool = False,
+        ceiling: int = 2000,
+        scale_highest: float = 0.1,
+        rank_small_reactions_higher: bool = True,
+        method: Literal["Bellman-Ford"] = "Bellman-Ford",
+    ) -> dict[int, Any]:
+        init_concs = copy.deepcopy(concs)
+        result_dict = {
+            0: {"data": init_concs, "equation_statistics": [], "path_length": None}
+        }
         with tqdm(
-            total=len(samples),
+            total=sample_length,
             bar_format="progress: {desc:<10}|{bar:50}|",
             ascii=" >=",
             position=0,
             leave=False,
         ) as pbar:
-            for sample in samples:
-                sample_data[sample] = self.random_walk(
-                    T=T,
-                    P=P,
+            for sample in range(sample_length):
+                result_dict[sample + 1] = cls.random_walk(
+                    T,
+                    P,
+                    init_concs,
                     probability_threshold=probability_threshold,
                     path_depth=path_depth,
                     max_compounds=max_compounds,
@@ -341,66 +324,62 @@ class Traversal:
                     scale_highest=scale_highest,
                     ceiling=ceiling,
                     method=method,
-                )
-                pbar.update(1)
-
-        out_q.put(sample_data)
-
-    def sample(self, T=None, P=None, **kw):
-        init_concs = copy.deepcopy(self.concs)
-        result_dict = {
-            0: {"data": init_concs, "equation_statistics": [], "path_length": None}
-        }
-        with tqdm(
-            total=self.sample_length,
-            bar_format="progress: {desc:<10}|{bar:50}|",
-            ascii=" >=",
-            position=0,
-            leave=False,
-        ) as pbar:
-            for sample in range(self.sample_length):
-                result_dict[sample + 1] = self.random_walk(
-                    T=T,
-                    P=P,
-                    probability_threshold=self.probability_threshold,
-                    path_depth=self.path_depth,
-                    max_compounds=self.max_compounds,
-                    max_rank=self.max_rank,
-                    co2=self.co2,
-                    scale_highest=self.scale_highest,
-                    ceiling=self.ceiling,
-                    method=self.method,
+                    rank_small_reactions_higher=rank_small_reactions_higher,
                 )
                 pbar.update(1)
         return result_dict
 
+    @classmethod
     def run(
-        self,
-        trange,
-        prange,
-        ic=None,
-        **kw,
-    ):
+        cls,
+        trange: list[int],
+        prange: list[int],
+        concs: dict[str, float] | None = None,
+        *,
+        co2: bool = False,
+        max_compounds: int = 5,
+        probability_threshold: float = 0.05,
+        max_rank: int = 5,
+        sample_length: int = 1000,
+        path_depth: int = 20,
+        random_path_depth: bool = False,
+        ceiling: int = 2000,
+        scale_highest: float = 0.1,
+        rank_small_reactions_higher: bool = True,
+        method: Literal["Bellman-Ford"] = "Bellman-Ford",
+    ) -> TraversalResult:
         num = 1
 
-        needed_args = self.__dict__
-        for i in needed_args:
-            if i in kw:
-                self.__dict__[i] = kw[i]
-        self.concs = ic
-
-        concstring = pd.Series({k: v for k, v in self.concs.items() if v > 0}) / 1e-6
+        concs = {**concs}
+        concstring = pd.Series({k: v for k, v in concs.items() if v > 0}) / 1e-6
         if "CO2" in concstring:
             del concstring["CO2"]
 
         path_lengths = []
         total_data = {}
+        final_concs = {}
+        initfinaldiff = {}
         for T in trange:
             data_2 = {}
             final_concs_2 = {}
-            initfinaldiff = {}
+            initfinaldiff_2 = {}
             for P in prange:
-                data_2[P] = self.sample(T, P, **kw)
+                data_2[P] = cls.sample(
+                    T,
+                    P,
+                    concs,
+                    co2=co2,
+                    max_compounds=max_compounds,
+                    probability_threshold=probability_threshold,
+                    max_rank=max_rank,
+                    sample_length=sample_length,
+                    path_depth=path_depth,
+                    random_path_depth=random_path_depth,
+                    ceiling=ceiling,
+                    scale_highest=scale_highest,
+                    rank_small_reactions_higher=rank_small_reactions_higher,
+                    method=method,
+                )
 
                 reformatted = [
                     {x: v for x, v in data_2[P][i]["data"].items()} for i in data_2[P]
@@ -418,17 +397,17 @@ class Traversal:
 
                 final_concs_2[P] = mean.to_dict()
                 diff_concs = pd.Series(mean.to_dict()) - pd.Series(
-                    {k: v / 1e-6 for k, v in self.concs.items()}
+                    {k: v / 1e-6 for k, v in concs.items()}
                 )
                 ift = pd.DataFrame(
                     [
-                        {k: v / 1e-6 for k, v in self.concs.items() if v > 0},
+                        {k: v / 1e-6 for k, v in concs.items() if v > 0},
                         mean.to_dict(),
                         diff_concs.to_dict(),
                     ],
                     index=["initial", "final", "change"],
                 ).T
-                initfinaldiff[P] = ift.dropna(how="all").fillna(0.0).to_dict()
+                initfinaldiff_2[P] = ift.dropna(how="all").fillna(0.0).to_dict()
                 avgpathlength = np.median(
                     [
                         data_2[P][i]["path_length"]
@@ -440,23 +419,23 @@ class Traversal:
                 path_lengths.append(avgpathlength)
                 num += 1
             total_data[T] = data_2
-            self.final_concs[T] = final_concs_2
-            self.initfinaldiff[T] = initfinaldiff
+            final_concs[T] = final_concs_2
+            initfinaldiff[T] = initfinaldiff_2
 
-        self.metadata = {
+        metadata = {
             "arcs_version": "1.4.0",
             "avg_path_length": np.mean(path_lengths),
-            "co2": self.co2,
-            "max_compounds": self.max_compounds,
-            "probability_threshold": self.probability_threshold,
-            "shortest_path_method": self.method,
-            "max_rank": self.max_rank,
-            "sample_length": self.sample_length,
-            "path_depth": self.path_depth,
-            "random_path_depth": self.random_path_depth,
-            "ceiling": self.ceiling,
-            "scale_highest": self.scale_highest,
-            "rank_small_reactions_higher": self.rank_small_reactions_higher,
+            "co2": co2,
+            "max_compounds": max_compounds,
+            "probability_threshold": probability_threshold,
+            "shortest_path_method": method,
+            "max_rank": max_rank,
+            "sample_length": sample_length,
+            "path_depth": path_depth,
+            "random_path_depth": random_path_depth,
+            "ceiling": ceiling,
+            "scale_highest": scale_highest,
+            "rank_small_reactions_higher": rank_small_reactions_higher,
             "platform": platform.platform(),
             "python_version": platform.python_version(),
             "processor": platform.processor(),
@@ -468,4 +447,9 @@ class Traversal:
             "date": str(datetime.now()),
         }
 
-        self.data = total_data
+        return TraversalResult(
+            initfinaldiff=initfinaldiff,
+            final_concs=final_concs,
+            data=total_data,
+            metadata=metadata,
+        )
