@@ -12,7 +12,7 @@ from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
 from arcs.analysis import AnalyseSampling
-from arcs.traversal import Traversal
+from arcs.traversal import traverse
 import pickle
 import warnings
 
@@ -93,7 +93,6 @@ def make_sliders(import_data, labels):
 
 file_location = Path(__file__).parent / "data/large_dataset"
 g = pickle.load(open(file_location / "SCAN_graph.p", "rb"))
-t = Traversal()
 
 graph = dbc.Alert("No Data", color="light")
 table4 = dbc.Alert("No Data", color="light")
@@ -695,7 +694,7 @@ def update_t_and_p(*inputs):
 def apprun(btn1):
     if "submit-val" == ctx.triggered_id:
         warnings.simplefilter("ignore")
-        t.run(
+        t = traverse(
             ambient_settings["T"],
             ambient_settings["P"],
             concs,
@@ -728,9 +727,7 @@ def apprun(btn1):
             },
             markdown_options={"html": True, "link_target": "_self"},
         )
-        df_d = pd.DataFrame(
-            t.initfinaldiff[ambient_settings["T"]][ambient_settings["P"]]
-        ).round(1)
+        df_d = pd.DataFrame(t.initfinaldiff).round(1)
         df_d = df_d.T
         df_d = df_d.T.rename({x: _markdown_compound(x) for x in df_d})
         df_d = df_d.reset_index()

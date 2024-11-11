@@ -1,7 +1,7 @@
 from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
-from arcs.traversal import Traversal
+from arcs.traversal import traverse
 
 
 app = FastAPI()
@@ -34,8 +34,7 @@ class SimulationRequest(BaseModel):
 
 @app.post("/run_simulation")
 async def run_simulation(form: SimulationRequest):
-    traversal = Traversal()
-    results = traversal.run(
+    results = traverse(
         form.temperature,
         form.pressure,
         form.concs,
