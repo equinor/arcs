@@ -61,7 +61,7 @@ class AnalyseSampling:
         equation_statistics = {}
         for equation, frequency in appearances.items():
             eq, k = equation.split(";")
-            if self.cancel_markdown is True:
+            if self.markdown is True:
                 equation_statistics[eq] = {
                     "k": k.split("\n")[0],
                     "frequency": frequency,
@@ -83,19 +83,12 @@ class AnalyseSampling:
         return d
 
     def reaction_statistics(self):
-        eqt = {}
-        for T in self.data:
-            eqp = {}
-            for P in self.data[T]:
-                equations = []
-                for x in self.data[T][P]:
-                    eqs = self.data[T][P][x]["equation_statistics"]
-                    if eqs:
-                        equations.append(eqs)
-                eqp[P] = self._get_stats(equations)
-            eqt[T] = eqp
-
-        self.stats = eqt
+        equations = []
+        for x in self.data:
+            eqs = self.data[x]["equation_statistics"]
+            if eqs:
+                equations.append(eqs)
+        self.stats = self._get_stats(equations)
 
     def mean_sampling(self):
         t = list(self.data)[0]

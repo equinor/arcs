@@ -100,10 +100,10 @@ def _length_multiplier(candidate, *, rank_small_reactions_higher: bool):
 def _get_weighted_reaction_rankings(
     tempreature: int,
     pressure: int,
-    choices,
+    choices: list[str],
     *,
     max_rank: int,
-    method: Literal["Bellman-Ford"],
+    method: Literal["Bellman-Ford", "Dijkstra"],
     rank_small_reactions_higher: bool,
 ):
     graph = get_graph(tempreature, pressure)
@@ -209,7 +209,7 @@ def _random_walk(
     co2: bool,
     scale_highest: float,
     ceiling: int,
-    method: Literal["Bellman-Ford"],
+    method: Literal["Bellman-Ford", "Dijkstra"],
     rank_small_reactions_higher: bool,
     rng: np.random.Generator,
 ):
@@ -339,7 +339,7 @@ def traverse(
     ceiling: int = 2000,
     scale_highest: float = 0.1,
     rank_small_reactions_higher: bool = True,
-    method: Literal["Bellman-Ford"] = "Bellman-Ford",
+    method: Literal["Bellman-Ford", "Dijkstra"] = "Bellman-Ford",
     rng: np.random.Generator | None = None,
 ) -> TraversalResult:
     if rng is None:
@@ -351,7 +351,6 @@ def traverse(
         del concstring["CO2"]
 
     path_lengths = []
-    total_data = {}
     data = _sample(
         temperature,
         pressure,
@@ -421,6 +420,6 @@ def traverse(
     return TraversalResult(
         initfinaldiff=initfinaldiff,
         final_concs=final_concs,
-        data=total_data,
+        data=data,
         metadata=metadata,
     )
