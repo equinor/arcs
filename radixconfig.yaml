@@ -7,6 +7,9 @@ spec:
     - name: dev
       build:
         from: main
+    - name: legacy_dash
+      build:
+        from: old
   dnsAlias:
     - alias: arcs
       component: server
