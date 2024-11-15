@@ -1,0 +1,53 @@
+{
+    "name": "co2spec",
+    "private": true,
+    "version": "0.0.1",
+    "type": "module",
+    "scripts": {
+        "dev": "vite --host",
+        "build": "tsc && vite build",
+        "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@azure/msal-react": "latest",
+        "@azure/web-pubsub-client": "latest",
+        "@equinor/eds-core-react": "latest",
+        "@equinor/eds-data-grid-react": "latest",
+        "@microsoft/applicationinsights-react-js": "latest",
+        "@microsoft/applicationinsights-web": "latest",
+        "@reduxjs/toolkit": "latest",
+        "@types/uuid": "latest",
+        "chart.js": "latest",
+        "downloadjs": "latest",
+        "events": "latest",
+        "react": "latest",
+        "react-chartjs-2": "latest",
+        "react-dom": "latest",
+        "react-hook-form": "latest",
+        "react-markdown": "latest",
+        "react-papaparse": "latest",
+        "react-redux": "latest",
+        "react-router-dom": "latest",
+        "react-svg": "^16.1.34",
+        "remark-gfm": "latest",
+        "styled-components": "latest",
+        "vis-data": "latest",
+        "vis-network": "latest"
+    },
+    "devDependencies": {
+        "@types/downloadjs": "latest",
+        "@types/node": "latest",
+        "@types/react": "latest",
+        "@types/react-dom": "latest",
+        "@types/styled-components": "latest",
+        "@typescript-eslint/eslint-plugin": "latest",
+        "@typescript-eslint/parser": "latest",
+        "@vitejs/plugin-react": "latest",
+        "eslint": "latest",
+        "eslint-plugin-react-hooks": "latest",
+        "eslint-plugin-react-refresh": "latest",
+        "typescript": "latest",
+        "vite": "^5.1.7"
+    }
+}

@@ -2,9 +2,22 @@ from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from arcs.traversal import traverse
-
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+    "https://frontend-acidwatch-dev.radix.equinor.com/",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class SimulationRequest(BaseModel):
@@ -38,7 +51,13 @@ async def run_simulation(form: SimulationRequest):
         form.temperature,
         form.pressure,
         form.concs,
-        sample_length=10,
+        sample_length=form.samples,
     )
 
     return {"initfinaldiff": results.initfinaldiff, "data": results.data}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="127.0.0.1", port=8000)

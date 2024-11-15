@@ -1,0 +1,9 @@
+/* eslint-disable no-template-curly-in-string */
+window.injectEnv = {
+    BACKEND_URL: "${BACKEND_URL}",
+    BACKEND_API_SCOPE: "${BACKEND_API_SCOPE}",
+    AD_CLIENT_ID: "${AD_CLIENT_ID}",
+    AD_TENANT_ID: "${AD_TENANT_ID}",
+    FEEDBACK_FORM_URL: "${FEEDBACK_FORM_URL}",
+    APPLICATION_INSIGHTS_CONNECTION_STRING: "${APPLICATION_INSIGHTS_CONNECTION_STRING}",
+};
