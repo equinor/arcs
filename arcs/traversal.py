@@ -105,8 +105,8 @@ def _get_weighted_reaction_rankings(
     max_rank: int,
     method: Literal["Bellman-Ford", "Dijkstra"],
     rank_small_reactions_higher: bool,
+    graph: nx.MultiDiGraph,
 ):
-    graph = get_graph(tempreature, pressure)
     rankings = {}
     if len(choices) > 1:
         possibilities = list(
@@ -151,13 +151,15 @@ def _get_weighted_reaction_rankings(
         return None
 
 
-def _generate_eqsystem(index: int, temperature: int, pressure: int) -> EqSystem | None:
+def _generate_eqsystem(
+    index: int, temperature: int, pressure: int, *, reactions: dict[int, Any]
+) -> EqSystem | None:
     charged_species = {
         "CO3H": -1,
         "NH4": +1,
         "NH2CO2": -1,
-    }  # this needs to be added to the arguments
-    rs = get_reactions(temperature, pressure)[index]
+    }
+    rs = reactions[index]
     r = rs["e"].reac
     p = rs["e"].prod
     k = rs["k"]
@@ -212,6 +214,8 @@ def _random_walk(
     method: Literal["Bellman-Ford", "Dijkstra"],
     rank_small_reactions_higher: bool,
     rng: np.random.Generator,
+    reactions: dict[int, Any],
+    graph: nx.MultiDiGraph,
 ):
     final_concs = {0: copy.deepcopy(concs)}
     reactionstats = {0: None}
@@ -243,6 +247,7 @@ def _random_walk(
             max_rank=max_rank,
             method=method,
             rank_small_reactions_higher=rank_small_reactions_higher,
+            graph=graph,
         )
         if not rankings:
             break
@@ -258,7 +263,9 @@ def _random_walk(
             ][0]
         )
 
-        eqsyst = _generate_eqsystem(chosen_reaction, temperature, pressure)
+        eqsyst = _generate_eqsystem(
+            chosen_reaction, temperature, pressure, reactions=reactions
+        )
         # if reaction was previous reaction then break
         path_available = [r for r in reactionstats.values() if r is not None]
         if path_available:
@@ -293,6 +300,8 @@ def _sample(
     rank_small_reactions_higher: bool,
     method: Literal["Bellman-Ford"],
     rng: np.random.Generator,
+    reactions: dict[int, Any],
+    graph: nx.MultiDiGraph,
 ) -> dict[int, Any]:
     init_concs = copy.deepcopy(concs)
     result_dict = {
@@ -320,6 +329,8 @@ def _sample(
                 method=method,
                 rank_small_reactions_higher=rank_small_reactions_higher,
                 rng=rng,
+                reactions=reactions,
+                graph=graph,
             )
             pbar.update(1)
     return result_dict
@@ -341,9 +352,15 @@ def traverse(
     rank_small_reactions_higher: bool = True,
     method: Literal["Bellman-Ford", "Dijkstra"] = "Bellman-Ford",
     rng: np.random.Generator | None = None,
+    reactions: dict[int, Any] | None = None,
+    graph: nx.MultiDiGraph | None = None,
 ) -> TraversalResult:
     if rng is None:
         rng = np.random.default_rng()
+    if graph is None:
+        graph = get_graph(temperature, pressure)
+    if reactions is None:
+        reactions = get_reactions(temperature, pressure)
 
     concs = {**concs}
     concstring = pd.Series({k: v for k, v in concs.items() if v > 0}) / 1e-6
@@ -366,6 +383,8 @@ def traverse(
         rank_small_reactions_higher=rank_small_reactions_higher,
         method=method,
         rng=rng,
+        reactions=reactions,
+        graph=graph,
     )
 
     reformatted = [{x: v for x, v in data[i]["data"].items()} for i in data]
