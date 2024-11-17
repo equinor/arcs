@@ -7,7 +7,7 @@ spec:
     - name: dev
       build:
         from: main
-    - name: legacy_dash
+    - name: legacy-dash
       build:
         from: old
   dnsAlias:
