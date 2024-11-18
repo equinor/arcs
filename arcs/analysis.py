@@ -91,39 +91,30 @@ class AnalyseSampling:
         self.stats = self._get_stats(equations)
 
     def mean_sampling(self):
-        t = list(self.data)[0]
-        p = list(self.data[t])[0]
-        zeroth = list(self.data[t][p])[0]
-        # if isinstance(xr[0],str):
-        #    #data = str_to_int_dict(data)
+        final_concentrations = {}
+        mean_values = {}
 
-        md = {}
-        f_1 = {}
+        compounds = set()
+        for sample in self.data.values():
+            compounds.update(sample["data"].keys())
 
-        for T in self.data:
-            f_2 = {}
-            m_2 = {}
-            for P in self.data[T]:
-                f_3 = {}
-                m_3 = {}
-                for c in self.data[T][P][zeroth]["data"]:
-                    f_4 = []
-                    for x in self.data[T][P]:
-                        if not x == zeroth:
-                            f_4.append(self.data[T][P][x]["data"][c])
-                    diff = [i - self.data[T][P][zeroth]["data"][c] for i in f_4]
-                    f_3[c] = np.mean(f_4) / 1e-6
-                    m_3[c] = {
-                        "value": np.mean(diff) / 1e-6,
-                        "variance": np.var(diff) / 1e-6,
-                    }  # 2nd value is the variance and not the std deviation
-                m_2[P] = m_3
-                f_2[P] = f_3
-            md[T] = m_2
-            f_1[T] = f_2
+        # initial concentrations including zeros
+        initial_concentrations = {c: self.data[0]["data"].get(c, 0) for c in compounds}
 
-        self.mean_data = md
-        self.final_concs = f_1
+        for compound in compounds:
+            final_all_samples = [
+                self.data[x]["data"].get(compound, 0) for x in self.data
+            ]
+            diff = [i - initial_concentrations[compound] for i in final_all_samples]
+            final_concentrations[compound] = np.mean(final_all_samples) / 1e-6
+            mean_values[compound] = {
+                "value": np.mean(diff) / 1e-6,
+                "variance": np.var(diff) / 1e-6,
+            }
+            # 2nd value is the variance and not the std deviation
+
+        self.mean_data = mean_values
+        self.final_concs = final_concentrations
 
     def reaction_paths(self, index_override=None):
         """currently chooses the top reaction, and only does what comes after"""
@@ -146,95 +137,86 @@ class AnalyseSampling:
             return _dict
 
         df1 = {}
-        for T in self.data:
-            df2 = {}
-            for P in self.data[T]:
-                stats = {
-                    int(x): {
-                        y: {"reaction": d.split(";")[0], "k": d.split(";")[1]}
-                        for y, d in enumerate(self.data[T][P][x]["equation_statistics"])
-                        if d
-                    }
-                    for x in self.data[T][P]
-                }
 
-                try:
-                    if (
-                        index_override is None
-                    ):  # should allow for clickable paths, ideally this should go through all paths
-                        index = 0
-                    else:
-                        index = index_override
-                    self.cancel_markdown = True
-                    self.reaction_statistics()
-                    tr = str(self.stats[T][P]["index"][index])
-                except Exception:
-                    tr = None
+        stats = {
+            int(x): {
+                y: {"reaction": d.split(";")[0], "k": d.split(";")[1]}
+                for y, d in enumerate(self.data[x]["equation_statistics"])
+                if d
+            }
+            for x in self.data
+        }
 
-                vs = []
-                # print(stats)
-                for x in stats:
-                    if stats[x] and not x == 0:
-                        for y in stats[x]:
-                            if tr in stats[x][y]["reaction"]:
-                                vs.append(x)
+        try:
+            if (
+                index_override is None
+            ):  # should allow for clickable paths, ideally this should go through all paths
+                index = 0
+            else:
+                index = index_override
+            self.cancel_markdown = True
+            self.reaction_statistics()
+            tr = str(self.stats["index"][index])
+        except Exception:
+            tr = None
 
-                self.cancel_markdown = False
+        vs = []
+        # print(stats)
+        for x in stats:
+            if stats[x] and not x == 0:
+                for y in stats[x]:
+                    if tr in stats[x][y]["reaction"]:
+                        vs.append(x)
 
-                p2l = []
-                for x in vs:
-                    if len(stats[x]) > 1:
-                        for y in stats[x]:
-                            if stats[x][y]["reaction"] == tr:
-                                try:
-                                    r1 = self._latex_equation(stats[x][y]["reaction"])
-                                    r2 = self._latex_equation(
-                                        stats[x][y + 1]["reaction"]
-                                    )
-                                    # p2l.append(stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0]+':'+stats[x][y+1]['reaction']+' ; k='+stats[x][y+1]['k'].split('\n')[0])
-                                    p2l.append(
-                                        r1
-                                        + " ; k="
-                                        + stats[x][y]["k"].split("\n")[0]
-                                        + ":"
-                                        + r2
-                                        + " ; k="
-                                        + stats[x][y + 1]["k"].split("\n")[0]
-                                    )
-                                except Exception:
-                                    r1 = self._latex_equation(
-                                        stats[x][y - 1]["reaction"]
-                                    )
-                                    r2 = self._latex_equation(stats[x][y]["reaction"])
-                                    # p2l.append(stats[x][y-1]['reaction']+' ; k='+stats[x][y-1]['k'].split('\n')[0]+':'+stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0])
-                                    p2l.append(
-                                        r1
-                                        + " ; k="
-                                        + stats[x][y - 1]["k"].split("\n")[0]
-                                        + ":"
-                                        + r2
-                                        + " ; k="
-                                        + stats[x][y]["k"].split("\n")[0]
-                                    )
+        self.cancel_markdown = False
 
-                try:
-                    frequencies = Counter(p2l)
-                    fs = {
-                        frequencies[f]: {x: d for x, d in enumerate(f.split(":"))}
-                        for x, f in enumerate(frequencies)
-                    }
-                    df = pd.DataFrame(
-                        dict(reversed(sorted(fs.items())))
-                    ).T.reset_index()
+        p2l = []
+        for x in vs:
+            if len(stats[x]) > 1:
+                for y in stats[x]:
+                    if stats[x][y]["reaction"] == tr:
+                        try:
+                            r1 = self._latex_equation(stats[x][y]["reaction"])
+                            r2 = self._latex_equation(stats[x][y + 1]["reaction"])
+                            # p2l.append(stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0]+':'+stats[x][y+1]['reaction']+' ; k='+stats[x][y+1]['k'].split('\n')[0])
+                            p2l.append(
+                                r1
+                                + " ; k="
+                                + stats[x][y]["k"].split("\n")[0]
+                                + ":"
+                                + r2
+                                + " ; k="
+                                + stats[x][y + 1]["k"].split("\n")[0]
+                            )
+                        except Exception:
+                            r1 = self._latex_equation(stats[x][y - 1]["reaction"])
+                            r2 = self._latex_equation(stats[x][y]["reaction"])
+                            # p2l.append(stats[x][y-1]['reaction']+' ; k='+stats[x][y-1]['k'].split('\n')[0]+':'+stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0])
+                            p2l.append(
+                                r1
+                                + " ; k="
+                                + stats[x][y - 1]["k"].split("\n")[0]
+                                + ":"
+                                + r2
+                                + " ; k="
+                                + stats[x][y]["k"].split("\n")[0]
+                            )
 
-                    df.columns = "frequency", "reaction 1", "reaction 2"
-                    df.set_index("frequency")
-                    dict_ = df.to_dict()
-                    df2[P] = _eqpath(dict_)
-                except Exception:
-                    df2[P] = {"frequency": [None], "paths": [None], "k": [None]}
+        try:
+            frequencies = Counter(p2l)
+            fs = {
+                frequencies[f]: {x: d for x, d in enumerate(f.split(":"))}
+                for x, f in enumerate(frequencies)
+            }
+            df = pd.DataFrame(dict(reversed(sorted(fs.items())))).T.reset_index()
 
-            df1[T] = df2
+            df.columns = "frequency", "reaction 1", "reaction 2"
+            df.set_index("frequency")
+            dict_ = df.to_dict()
+            df1 = _eqpath(dict_)
+        except Exception:
+            df1 = {"frequency": [None], "paths": [None], "k": [None]}
+
         self.common_paths = df1
         self.cancel_markdown = False
         self.reaction_statistics()
