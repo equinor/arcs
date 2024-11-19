@@ -27,6 +27,8 @@ spec:
           cpu: 500m
           memory: 8000M
     - name: api
+      environmentConfig:
+        - environment: dev
       dockerfileName: Dockerfile_api
       ports:
         - name: http
@@ -38,5 +40,3 @@ spec:
         requests:
           cpu: 500m
           memory: 8000M
-
-          
