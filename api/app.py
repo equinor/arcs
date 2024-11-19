@@ -1,6 +1,8 @@
 from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+import pandas as pd
+from arcs.analysis import AnalyseSampling
 from arcs.traversal import traverse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -54,7 +56,23 @@ async def run_simulation(form: SimulationRequest):
         sample_length=form.samples,
     )
 
-    return {"initfinaldiff": results.initfinaldiff, "data": results.data}
+    analysis = AnalyseSampling(results.data, markdown=True)
+    analysis.reaction_statistics()
+    analysis.mean_sampling()
+    analysis.reaction_paths()
+
+    df_m_t = pd.DataFrame(analysis.mean_data).T
+    df_m_t = df_m_t[df_m_t["value"] != 0]
+    result_stats = pd.DataFrame(
+        {
+            "comps": list(df_m_t.T.keys()),
+            "values": df_m_t["value"].values,
+            "variance": df_m_t["variance"].values,
+            "variance_minus": -df_m_t["variance"].values,
+        }
+    )
+
+    return {"results": results, "analysis": analysis, "chart_data": result_stats}
 
 
 if __name__ == "__main__":
