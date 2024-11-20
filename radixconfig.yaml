@@ -28,7 +28,8 @@ spec:
           memory: 8000M
     - name: api
       environmentConfig:
-        - environment: dev
+        - environment: legacy-dash
+          enabled: false
       dockerfileName: Dockerfile_api
       ports:
         - name: http
