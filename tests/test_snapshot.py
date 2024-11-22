@@ -1,6 +1,13 @@
 import numpy as np
 import pandas as pd
-from arcs.traversal import traverse
+import json
+from arcs.traversal import (
+    traverse,
+    _get_weighted_reaction_rankings,
+    _get_weighted_random_compounds,
+    _random_walk,
+)
+from arcs.model import get_graph, get_reactions
 from arcs.analysis import AnalyseSampling
 from chempy import Equilibrium
 import networkx as nx
@@ -100,3 +107,74 @@ def test_synthetic(k, expected_left_shift, expected_right_shift):
 
     if not expected_left_shift and expected_right_shift:
         assert first_product_change > 0
+
+
+def test_function_get_weighted_random_compounds(snapshot):
+    concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
+
+    weighted_random_compounds = _get_weighted_random_compounds(
+        temperature=300,
+        pressure=10,
+        init_concs=concentrations,
+        co2=False,
+        max_compounds=5,
+        probability_threshold=0.05,
+        scale_highest=0.1,
+        ceiling=2000,
+        rng=np.random.default_rng([0]),
+    )
+    snapshot.assert_match(
+        json.dumps(weighted_random_compounds), "weighted_random_compounds.json"
+    )
+
+
+def test_function_get_weighted_reaction_rankings(snapshot):
+    graph = get_graph(300, 10)
+    concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
+
+    weighted_random_compounds = _get_weighted_random_compounds(
+        temperature=300,
+        pressure=10,
+        init_concs=concentrations,
+        co2=False,
+        max_compounds=5,
+        probability_threshold=0.05,
+        scale_highest=0.1,
+        ceiling=2000,
+        rng=np.random.default_rng([0]),
+    )
+    ranking = _get_weighted_reaction_rankings(
+        tempreature=300,
+        pressure=10,
+        choices=weighted_random_compounds,
+        max_rank=5,
+        method="Bellman-Ford",
+        rank_small_reactions_higher=True,
+        graph=graph,
+    )
+    snapshot.assert_match(json.dumps(ranking), "weighted_reaction_ranking.json")
+
+
+def test_function_random_walk(snapshot):
+    concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
+    graph = get_graph(300, 10)
+    reactions = get_reactions(300, 10)
+
+    walk = _random_walk(
+        temperature=250,
+        pressure=10,
+        concs=concentrations,
+        probability_threshold=0.06,
+        path_depth=18,
+        max_compounds=5,
+        max_rank=5,
+        co2=False,
+        scale_highest=0.1,
+        ceiling=2100,
+        method="Bellman-Ford",
+        rank_small_reactions_higher=True,
+        rng=np.random.default_rng([0]),
+        reactions=reactions,
+        graph=graph,
+    )
+    snapshot.assert_match(json.dumps(walk), "random_walk.json")
