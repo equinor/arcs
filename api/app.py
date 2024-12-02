@@ -11,6 +11,7 @@ app = FastAPI()
 origins = [
     "http://localhost:5173",
     "https://frontend-acidwatch-dev.radix.equinor.com",
+    "https://acidwatch.radix.equinor.com/arcs"
 ]
 
 app.add_middleware(
