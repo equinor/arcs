@@ -12,6 +12,7 @@ origins = [
     "http://localhost:5173",
     "https://frontend-acidwatch-dev.radix.equinor.com",
     "https://acidwatch.radix.equinor.com",
+    "https://frontend-acidwatch-prod.radix.equinor.com",
 ]
 
 app.add_middleware(
