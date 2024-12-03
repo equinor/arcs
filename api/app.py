@@ -1,12 +1,25 @@
 from __future__ import annotations
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
+
+import os
+
 import pandas as pd
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+from api.authentication import authenticated_user_claims
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import traverse
-from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
-app = FastAPI()
+load_dotenv()
+app = FastAPI(dependencies=[Depends(authenticated_user_claims)])
+app.swagger_ui_init_oauth = {
+    "clientId": os.environ.get("CLIENT_ID"),
+    "appName": "ARCS API",
+    "usePkceWithAuthorizationCodeGrant": True,  # Enable PKCE
+    "scope": os.environ.get("API_SCOPE"),
+}
 
 origins = [
     "http://localhost:5173",
@@ -80,4 +93,4 @@ async def run_simulation(form: SimulationRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="localhost", port=8000)

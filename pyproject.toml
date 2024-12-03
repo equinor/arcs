@@ -48,6 +48,8 @@ fastapi = "^0.115.2"
 uvicorn = "^0.32.0"
 pydantic = "^2.9.2"
 gunicorn = "^23.0.0"
+pyjwt = {extras = ["crypto"], version = "^2.10.1"}
+python-dotenv = "^1.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
