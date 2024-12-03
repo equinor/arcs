@@ -197,7 +197,7 @@ def _equilibrium_concentrations(
     except Exception:
         concs = fc
         eq = None
-    return (concs, eq)
+    return (dict(concs), eq)
 
 
 def _random_walk(
