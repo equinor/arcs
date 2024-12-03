@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from typing import Iterable
+
 import pytest
 from fastapi.testclient import TestClient
+
 from api.app import app
 
 
@@ -11,7 +14,6 @@ def client() -> Iterable[TestClient]:
         yield client
 
 
-@pytest.mark.skip
 def test_run_simulation(client):
     payload = {
         "temperature": 300,
