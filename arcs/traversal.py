@@ -40,32 +40,30 @@ def _get_weighted_random_compounds(
     ceiling: int,
     rng: np.random.Generator,
 ) -> dict[Any, Any]:
-    concs = copy.deepcopy(init_concs)  # don't modify the original
-    if co2 is False and "CO2" in concs:
-        del concs["CO2"]  # CO2 will always be too large as it is the background
-    # house keeping:
     
+    concs = copy.deepcopy(init_concs)
+    # CO2 will always be too large as it is the background
+    if co2 is False and "CO2" in concs:
+        del concs["CO2"]
+
     positive_concs = [conc for conc in concs.values() if conc > 0]
     num_positive_concs = len(positive_concs)
     if max_compounds > num_positive_concs:
         max_compounds = num_positive_concs
 
-    # scale the probabilities accordingly based upon a ceiling percentage
-    median_conc = np.median(positive_concs)  # median > mean for this
-    # new_concs = {}
+    median_conc = np.median(positive_concs)
     concs_above_ceiling = {
-        compound: conc for compound, conc in concs.items() if conc > (median_conc * (1 + (ceiling / 100)))
+        compound: conc
+        for compound, conc in concs.items()
+        if conc > (median_conc * (1 + (ceiling / 100)))
     }
-    # modify the ceiling by scaling it down to a suitable value
-    # should still max out if concentrations become way to high
+
     for compound, conc in concs_above_ceiling.items():
         concs[compound] = conc * scale_highest
 
-    # get the probabilities based upon relative concentrations:
     compound_probabilities_relative_to_scaled_sum_concs = (
         calculate_compound_probabilities_relative_to_compound_values(concs=concs)
     )
-    # now filter based upon the probability threshold:
     compound_probabilities_over_threshold = (
         filter_out_compounds_under_probability_threshold(
             probability_threshold=probability_threshold,
@@ -80,13 +78,13 @@ def _get_weighted_random_compounds(
     compounds = list(compound_probabilities.keys())
     probabilities = list(compound_probabilities.values())
 
-    picked_weighted_compounds = {
+    randomly_selected_weighted_compounds = {
         compound: compound_probabilities[compound]
         for compound in rng.choice(
             compounds, max_compounds, replace=False, p=probabilities
         )
     }
-    return picked_weighted_compounds
+    return randomly_selected_weighted_compounds
 
 
 def filter_out_compounds_under_probability_threshold(
