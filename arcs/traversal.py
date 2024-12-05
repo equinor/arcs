@@ -62,10 +62,21 @@ def _get_weighted_random_compounds(
         concs[compound] = conc * scale_highest
 
     # get the probabilities based upon relative concentrations:
-    compound_probabilities_relative_to_scaled_sum_concs = {compound: conc / sum(concs.values()) for compound, conc in concs.items()}
+    compound_probabilities_relative_to_scaled_sum_concs = (
+        calculate_compound_probabilities_relative_to_compound_values(concs=concs)
+    )
     # now filter based upon the probability threshold:
-    compound_probabilities_over_threshold = {compound: conc for compound, conc in compound_probabilities_relative_to_scaled_sum_concs.items() if conc > probability_threshold}
-    compound_probabilities = {compound: conc / sum(compound_probabilities_over_threshold.values()) for compound, conc in compound_probabilities_over_threshold.items()}
+    compound_probabilities_over_threshold = (
+        filter_out_compounds_under_probability_threshold(
+            probability_threshold=probability_threshold,
+            probabilities=compound_probabilities_relative_to_scaled_sum_concs,
+        )
+    )
+    compound_probabilities = (
+        calculate_compound_probabilities_relative_to_compound_values(
+            compound_probabilities_over_threshold
+        )
+    )
     # make a list of choices based upon the probabilities
     available = list(
         rng.choice(list(compound_probabilities.keys()), 100, p=list(compound_probabilities.values()))
@@ -89,6 +100,20 @@ def _get_weighted_random_compounds(
                 pass
 
     return choices
+
+
+def filter_out_compounds_under_probability_threshold(
+    probability_threshold: float, probabilities: dict[str, float]
+):
+    return {
+        compound: probability
+        for compound, probability in probabilities.items()
+        if probability > probability_threshold
+    }
+
+
+def calculate_compound_probabilities_relative_to_compound_values(concs):
+    return {compound: conc / sum(concs.values()) for compound, conc in concs.items()}
 
 
 def _length_multiplier(candidate, *, rank_small_reactions_higher: bool):
