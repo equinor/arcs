@@ -44,45 +44,45 @@ def _get_weighted_random_compounds(
     if co2 is False and "CO2" in concs:
         del concs["CO2"]  # CO2 will always be too large as it is the background
     # house keeping:
-    num_not_zero = len([x for x in concs.values() if x > 0])
-    if max_compounds > num_not_zero:
-        max_compounds = num_not_zero
+    
+    positive_concs = [conc for conc in concs.values() if conc > 0]
+    num_positive_concs = len(positive_concs)
+    if max_compounds > num_positive_concs:
+        max_compounds = num_positive_concs
 
     # scale the probabilities accordingly based upon a ceiling percentage
-    median_conc = np.median(
-        [v for v in concs.values() if v > 0]
-    )  # median > mean for this
+    median_conc = np.median(positive_concs)  # median > mean for this
     # new_concs = {}
-    above_ceiling = {
-        k: v for k, v in concs.items() if v > (median_conc * (1 + (ceiling / 100)))
+    concs_above_ceiling = {
+        compound: conc for compound, conc in concs.items() if conc > (median_conc * (1 + (ceiling / 100)))
     }
     # modify the ceiling by scaling it down to a suitable value
     # should still max out if concentrations become way to high
-    for k, v in above_ceiling.items():
-        concs[k] = v * scale_highest
+    for compound, conc in concs_above_ceiling.items():
+        concs[compound] = conc * scale_highest
 
     # get the probabilities based upon relative concentrations:
-    p_1 = {k: v / sum(concs.values()) for k, v in concs.items()}
+    compound_probabilities_relative_to_scaled_sum_concs = {compound: conc / sum(concs.values()) for compound, conc in concs.items()}
     # now filter based upon the probability threshold:
-    p_2 = {k: v for k, v in p_1.items() if v > probability_threshold}
-    p_3 = {k: v / sum(p_2.values()) for k, v in p_2.items()}
+    compound_probabilities_over_threshold = {compound: conc for compound, conc in compound_probabilities_relative_to_scaled_sum_concs.items() if conc > probability_threshold}
+    compound_probabilities = {compound: conc / sum(compound_probabilities_over_threshold.values()) for compound, conc in compound_probabilities_over_threshold.items()}
     # make a list of choices based upon the probabilities
     available = list(
-        rng.choice(list(p_3.keys()), 100, p=list(p_3.values()))
+        rng.choice(list(compound_probabilities.keys()), 100, p=list(compound_probabilities.values()))
     )  # make this list length of the nodes
     # now make a list max_compounds long of random choices based on available
     choices = {}
     for c in range(max_compounds):
         if c == 0:
             c1 = rng.choice(available)
-            choices[c1] = p_3[c1]
+            choices[c1] = compound_probabilities[c1]
         else:
             try:
                 for i in range(available.count(list(choices)[c - 1])):
                     available.remove(list(choices)[c - 1])
                 try:
                     c2 = rng.choice(available)
-                    choices[c2] = p_3[c2]
+                    choices[c2] = compound_probabilities[c2]
                 except Exception:
                     pass
             except Exception:
