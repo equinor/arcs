@@ -77,29 +77,16 @@ def _get_weighted_random_compounds(
             compound_probabilities_over_threshold
         )
     )
-    # make a list of choices based upon the probabilities
-    available = list(
-        rng.choice(list(compound_probabilities.keys()), 100, p=list(compound_probabilities.values()))
-    )  # make this list length of the nodes
-    # now make a list max_compounds long of random choices based on available
-    choices = {}
-    for c in range(max_compounds):
-        if c == 0:
-            c1 = rng.choice(available)
-            choices[c1] = compound_probabilities[c1]
-        else:
-            try:
-                for i in range(available.count(list(choices)[c - 1])):
-                    available.remove(list(choices)[c - 1])
-                try:
-                    c2 = rng.choice(available)
-                    choices[c2] = compound_probabilities[c2]
-                except Exception:
-                    pass
-            except Exception:
-                pass
+    compounds = list(compound_probabilities.keys())
+    probabilities = list(compound_probabilities.values())
 
-    return choices
+    picked_weighted_compounds = {
+        compound: compound_probabilities[compound]
+        for compound in rng.choice(
+            compounds, max_compounds, replace=False, p=probabilities
+        )
+    }
+    return picked_weighted_compounds
 
 
 def filter_out_compounds_under_probability_threshold(

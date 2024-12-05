@@ -123,9 +123,11 @@ def test_function_get_weighted_random_compounds(snapshot):
         ceiling=2000,
         rng=np.random.default_rng([0]),
     )
-    snapshot.assert_match(
-        json.dumps(weighted_random_compounds), "weighted_random_compounds.json"
-    )
+
+    with open(snapshot._snapshot_path("weighted_random_compounds.json"), "r") as f:
+        snapshot_content = json.load(f)
+
+    assert weighted_random_compounds == snapshot_content
 
 
 def test_function_get_weighted_reaction_rankings(snapshot):
