@@ -40,37 +40,31 @@ def _get_weighted_random_compounds(
     ceiling: int,
     rng: np.random.Generator,
 ) -> dict[Any, Any]:
-    concs = copy.deepcopy(init_concs)  # don't modify the original
+    concs = copy.deepcopy(init_concs)
     if co2 is False and "CO2" in concs:
-        del concs["CO2"]  # CO2 will always be too large as it is the background
-    # house keeping:
+        del concs["CO2"]
+
     num_positive_concs = len([conc for conc in concs.values() if conc > 0])
     if max_compounds > num_positive_concs:
         max_compounds = num_positive_concs
 
-    # scale the probabilities accordingly based upon a ceiling percentage
     median_conc = np.median(
         [conc for conc in concs.values() if conc > 0]
-    )  # median > mean for this
-    # new_concs = {}
+    )  
     concs_above_ceiling = {
         compound: conc for compound, conc in concs.items() if conc > (median_conc * (1 + (ceiling / 100)))
     }
-    # modify the ceiling by scaling it down to a suitable value
-    # should still max out if concentrations become way to high
+
     for compound, conc in concs_above_ceiling.items():
         concs[compound] = conc * scale_highest
 
-    # get the probabilities based upon relative concentrations:
     compound_probabilities = {compound: conc / sum(concs.values()) for compound, conc in concs.items()}
-    # now filter based upon the probability threshold:
     compound_probabilities_above_threshold = {compound: conc for compound, conc in compound_probabilities.items() if conc > probability_threshold}
     compound_probabilities = {compound: conc / sum(compound_probabilities_above_threshold.values()) for compound, conc in compound_probabilities_above_threshold.items()}
-    # make a list of choices based upon the probabilities
+
     sample_frame = list(
         rng.choice(list(compound_probabilities.keys()), 100, p=list(compound_probabilities.values()))
-    )  # make this list length of the nodes
-    # now make a list max_compounds long of random choices based on available
+    ) 
     selected_compounds = {}
     for c in range(max_compounds):
         if c == 0:
