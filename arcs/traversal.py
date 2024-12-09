@@ -40,55 +40,49 @@ def _get_weighted_random_compounds(
     ceiling: int,
     rng: np.random.Generator,
 ) -> dict[Any, Any]:
-    concs = copy.deepcopy(init_concs)  # don't modify the original
+    concs = copy.deepcopy(init_concs)
     if co2 is False and "CO2" in concs:
-        del concs["CO2"]  # CO2 will always be too large as it is the background
-    # house keeping:
-    num_not_zero = len([x for x in concs.values() if x > 0])
-    if max_compounds > num_not_zero:
-        max_compounds = num_not_zero
+        del concs["CO2"]
 
-    # scale the probabilities accordingly based upon a ceiling percentage
+    num_positive_concs = len([conc for conc in concs.values() if conc > 0])
+    if max_compounds > num_positive_concs:
+        max_compounds = num_positive_concs
+
     median_conc = np.median(
-        [v for v in concs.values() if v > 0]
-    )  # median > mean for this
-    # new_concs = {}
-    above_ceiling = {
+        [conc for conc in concs.values() if conc > 0]
+    )  
+    concs_above_ceiling = {
         k: v for k, v in concs.items() if v > (median_conc * (1 + (ceiling / 100)))
     }
-    # modify the ceiling by scaling it down to a suitable value
-    # should still max out if concentrations become way to high
-    for k, v in above_ceiling.items():
-        concs[k] = v * scale_highest
 
-    # get the probabilities based upon relative concentrations:
-    p_1 = {k: v / sum(concs.values()) for k, v in concs.items()}
-    # now filter based upon the probability threshold:
-    p_2 = {k: v for k, v in p_1.items() if v > probability_threshold}
-    p_3 = {k: v / sum(p_2.values()) for k, v in p_2.items()}
-    # make a list of choices based upon the probabilities
-    available = list(
-        rng.choice(list(p_3.keys()), 100, p=list(p_3.values()))
-    )  # make this list length of the nodes
-    # now make a list max_compounds long of random choices based on available
-    choices = {}
+    for compound, conc in concs_above_ceiling.items():
+        concs[compound] = conc * scale_highest
+
+    compound_probabilities = {k: v / sum(concs.values()) for k, v in concs.items()}
+    filtered_probabilities = {k: v for k, v in compound_probabilities.items() if v > probability_threshold}
+    compound_probabilities = {k: v / sum(filtered_probabilities.values()) for k, v in filtered_probabilities.items()}
+    
+    sample_frame = list(
+        rng.choice(list(compound_probabilities.keys()), 100, p=list(compound_probabilities.values()))
+    ) 
+    selected_compounds = {}
     for c in range(max_compounds):
         if c == 0:
-            c1 = rng.choice(available)
-            choices[c1] = p_3[c1]
+            choice = rng.choice(sample_frame)
+            selected_compounds[choice] = compound_probabilities[choice]
         else:
             try:
-                for i in range(available.count(list(choices)[c - 1])):
-                    available.remove(list(choices)[c - 1])
+                for i in range(sample_frame.count(list(selected_compounds)[c - 1])):
+                    sample_frame.remove(list(selected_compounds)[c - 1])
                 try:
-                    c2 = rng.choice(available)
-                    choices[c2] = p_3[c2]
+                    choice = rng.choice(sample_frame)
+                    selected_compounds[choice] = compound_probabilities[choice]
                 except Exception:
                     pass
             except Exception:
                 pass
 
-    return choices
+    return selected_compounds
 
 
 def _length_multiplier(candidate, *, rank_small_reactions_higher: bool):
@@ -108,46 +102,47 @@ def _get_weighted_reaction_rankings(
     rank_small_reactions_higher: bool,
     graph: nx.MultiDiGraph,
 ):
-    rankings = {}
+    reaction_rankings = {}
     if len(choices) > 1:
-        possibilities = list(
+        possible_shortest_reaction_paths = list(
             nx.shortest_paths.all_shortest_paths(
                 graph, list(choices)[0], list(choices)[1], method=method
             )
         )
-
-        for x in possibilities:
-            candidates = list(graph[x[1]])
+        for reaction_path in possible_shortest_reaction_paths:
+            reactant_compound = reaction_path[0]
+            reaction = reaction_path[1]
+            candidates = list(graph[reaction])
             if len(choices) > 2:
-                for c in list(choices)[2:]:
-                    if c in candidates:
-                        weight = graph.get_edge_data(x[0], x[1])[0][
+                for compound in list(choices)[2:]:
+                    if compound in candidates:
+                        weight = graph.get_edge_data(reactant_compound, reaction)[0][
                             "weight"
                         ] * 10 ** _length_multiplier(
-                            graph[x[1]],
+                            graph[reaction],
                             rank_small_reactions_higher=rank_small_reactions_higher,
                         )
-                        rankings[x[1]] = {
+                        reaction_rankings[reaction] = {
                             "candidates": candidates,
                             "weight": weight,
                         }
             else:
-                weight = graph.get_edge_data(x[0], x[1])[0][
+                weight = graph.get_edge_data(reactant_compound, reaction)[0][
                     "weight"
                 ] * 10 ** _length_multiplier(
-                    graph[x[1]],
+                    graph[reaction],
                     rank_small_reactions_higher=rank_small_reactions_higher,
                 )
-                rankings[x[1]] = {"candidates": candidates, "weight": weight}
-    if rankings:
+                reaction_rankings[reaction] = {"candidates": candidates, "weight": weight}
+    if reaction_rankings:
         sorted_rankings = (
-            pd.DataFrame(rankings).sort_values(by="weight", axis=1).to_dict()
+            pd.DataFrame(reaction_rankings).sort_values(by="weight", axis=1).to_dict()
         )
-        topranks = [
-            x for i, x in enumerate(sorted_rankings) if i <= max_rank
-        ]  # need to sort first
-        rankings = {x: rankings[x] for x in topranks}
-        return rankings
+        top_ranked_reactions = [
+            reaction for i, reaction in enumerate(sorted_rankings) if i <= max_rank
+        ] 
+        reaction_rankings = {r: reaction_rankings[r] for r in top_ranked_reactions}
+        return reaction_rankings
     else:
         return None
 
@@ -160,23 +155,25 @@ def _generate_eqsystem(
         "NH4": +1,
         "NH2CO2": -1,
     }
-    rs = reactions[index]
-    r = rs["e"].reac
-    p = rs["e"].prod
-    k = rs["k"]
+    reaction = reactions[index]
+    reactants = reaction["e"].reac
+    products = reaction["e"].prod
+    k = reaction["k"]
     substances = {}
-    for n in list(it.chain(*[list(r) + list(p)])):
-        if n in list(charged_species.keys()):
-            s = Substance.from_formula(n, **{"charge": charged_species[n]})
-            substances[s.name] = s
+
+    reaction_compounds = list(it.chain(*[list(reactants) + list(products)]))
+    for compound in reaction_compounds:
+        if compound in list(charged_species.keys()):
+            substance = Substance.from_formula(compound, **{"charge": charged_species[compound]})
+            substances[substance.name] = substance
         else:
-            s = Substance.from_formula(
-                n, **{"charge": 0}
+            substance = Substance.from_formula(
+                compound, **{"charge": 0}
             )  # ,charge=0) # charge buggers up everything have removed for now....
-            substances[s.name] = s
-    eql = Equilibrium(reac=r, prod=p, param=k)
+            substances[substance.name] = substance
+    equilibrium = Equilibrium(reac=reactants, prod=products, param=k)
     try:
-        return EqSystem([eql], substances)  # might not just be able to try a return...
+        return EqSystem([equilibrium], substances)  # might not just be able to try a return...
     except Exception:
         return None
 
@@ -185,17 +182,16 @@ def _equilibrium_concentrations(
     concs: dict[str, float], eq: EqSystem
 ) -> tuple[dict[str, float], str]:
     # something is going wrong here...
-    fc = defaultdict(lambda: 0.0, concs)
+    equilibrium_concentrations = defaultdict(lambda: 0.0, concs)
     try:
-        x, sol, sane = eq.root(fc)
-        assert sol["success"] and sane
-        for n, c in enumerate(x):
-            fc[eq.substance_names()[n]] = c
-
-        concs = fc
+        root_concs, solution_data, sane = eq.root(equilibrium_concentrations)
+        assert solution_data["success"] and sane
+        for i, conc in enumerate(root_concs):
+            equilibrium_concentrations[eq.substance_names()[i]] = conc
+        concs = equilibrium_concentrations
         eq = eq.string()
     except Exception:
-        concs = fc
+        concs = equilibrium_concentrations
         eq = None
     return (dict(concs), eq)
 
@@ -218,16 +214,16 @@ def _random_walk(
     reactions: dict[int, Any],
     graph: nx.MultiDiGraph,
 ):
-    final_concs = [concs]
-    reactionstats = []
+    conc_history = [concs]
+    reaction_history = []
 
     for _ in range(path_depth):
-        fcs = final_concs[-1]
+        previous_conc_step = conc_history[-1]
         try:
             choices = _get_weighted_random_compounds(
                 temperature,
                 pressure,
-                fcs,
+                previous_conc_step,
                 max_compounds=max_compounds,
                 probability_threshold=probability_threshold,
                 co2=co2,
@@ -239,7 +235,7 @@ def _random_walk(
             break
         if len(choices) <= 1:
             break
-        rankings = _get_weighted_reaction_rankings(
+        reaction_rankings = _get_weighted_reaction_rankings(
             temperature,
             pressure,
             choices,
@@ -248,10 +244,10 @@ def _random_walk(
             rank_small_reactions_higher=rank_small_reactions_higher,
             graph=graph,
         )
-        if not rankings:
+        if not reaction_rankings:
             break
-        weights = {k: 1 / rankings[k]["weight"] for k in rankings}
-        probabilities = {k: v / sum(weights.values()) for k, v in weights.items()}
+        reaction_weights = {r: 1 / reaction_rankings[r]["weight"] for r in reaction_rankings}
+        probabilities = {k: v / sum(reaction_weights.values()) for k, v in reaction_weights.items()}
         chosen_reaction = rng.choice(
             [
                 rng.choice(
@@ -266,7 +262,7 @@ def _random_walk(
             chosen_reaction, temperature, pressure, reactions=reactions
         )
         # if reaction was previous reaction then break
-        path_available = [r for r in reactionstats if r is not None]
+        path_available = [r for r in reaction_history if r is not None]
         if path_available:
             if (
                 eqsyst.string() == path_available[-1]
@@ -274,14 +270,14 @@ def _random_walk(
             ):
                 break  # extra break
 
-        a, b = _equilibrium_concentrations(fcs, eqsyst)
-        final_concs.append(a)
-        reactionstats.append(b)
+        equilibrium_concs, reaction_string = _equilibrium_concentrations(previous_conc_step, eqsyst)
+        conc_history.append(equilibrium_concs)
+        reaction_history.append(reaction_string)
 
     return {
-        "data": final_concs[-1],
-        "equation_statistics": [r for r in reactionstats if r is not None],
-        "path_length": len([r for r in reactionstats if r is not None]),
+        "data": conc_history[-1],
+        "equation_statistics": [r for r in reaction_history if r is not None],
+        "path_length": len([r for r in reaction_history if r is not None]),
     }
 
 
@@ -363,9 +359,9 @@ def traverse(
     concstring = pd.Series({k: v for k, v in concs.items() if v > 0}) / 1e-6
     if "CO2" in concstring:
         del concstring["CO2"]
-
+  
     path_lengths = []
-    data = _sample(
+    samples = _sample(
         temperature,
         pressure,
         concs,
@@ -384,32 +380,32 @@ def traverse(
         graph=graph,
     )
 
-    reformatted = [{x: v for x, v in data[i]["data"].items()} for i in data]
-    mean = (
+    sample_concs = [{k: v for k, v in samples[sample]["data"].items()} for sample in samples]
+    mean_concs = (
         pd.Series(
-            {k: v for k, v in pd.DataFrame(reformatted).mean().items() if v > 0.5e-6}
+            {k: v for k, v in pd.DataFrame(sample_concs).mean().items() if v > 0.5e-6}
         )
         / 1e-6
     )
 
-    final_concs = mean.to_dict()
-    diff_concs = pd.Series(mean.to_dict()) - pd.Series(
+    final_concs = mean_concs.to_dict()
+    diff_concs = pd.Series(mean_concs.to_dict()) - pd.Series(
         {k: v / 1e-6 for k, v in concs.items()}
     )
-    ift = pd.DataFrame(
+    conc_diff_summary = pd.DataFrame(
         [
             {k: v / 1e-6 for k, v in concs.items() if v > 0},
-            mean.to_dict(),
+            mean_concs.to_dict(),
             diff_concs.to_dict(),
         ],
         index=["initial", "final", "change"],
     ).T
-    initfinaldiff = ift.dropna(how="all").fillna(0.0).to_dict()
-    avgpathlength = np.median(
-        [data[i]["path_length"] for i in data if data[i]["path_length"] is not None]
+    conc_diff_summary = conc_diff_summary.dropna(how="all").fillna(0.0).to_dict()
+    avg_path_length = np.median(
+        [samples[i]["path_length"] for i in samples if samples[i]["path_length"] is not None]
     )
 
-    path_lengths.append(avgpathlength)
+    path_lengths.append(avg_path_length)
 
     metadata = {
         "arcs_version": "1.4.0",
@@ -434,8 +430,8 @@ def traverse(
     }
 
     return TraversalResult(
-        initfinaldiff=initfinaldiff,
+        initfinaldiff=conc_diff_summary,
         final_concs=final_concs,
-        data=data,
+        data=samples,
         metadata=metadata,
     )
