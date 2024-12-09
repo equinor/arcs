@@ -48,15 +48,7 @@ def _get_weighted_random_compounds(
     if max_compounds > num_positive_concs:
         max_compounds = num_positive_concs
 
-    median_conc = np.median(
-        [conc for conc in concs.values() if conc > 0]
-    )  
-    concs_above_ceiling = {
-        compound: conc for compound, conc in concs.items() if conc > (median_conc * (1 + (ceiling / 100)))
-    }
-
-    for compound, conc in concs_above_ceiling.items():
-        concs[compound] = conc * scale_highest
+    scale_down_concs_above_ceiling(scale_highest, ceiling, concs)
 
     compound_probabilities = {compound: conc / sum(concs.values()) for compound, conc in concs.items()}
     compound_probabilities_above_threshold = {compound: conc for compound, conc in compound_probabilities.items() if conc > probability_threshold}
@@ -83,6 +75,16 @@ def _get_weighted_random_compounds(
                 pass
 
     return selected_compounds
+
+def scale_down_concs_above_ceiling(scale_highest, ceiling, concs):
+    median_conc = np.median(
+        [conc for conc in concs.values() if conc > 0]
+    )  
+    concs_above_ceiling = {
+        compound: conc for compound, conc in concs.items() if conc > (median_conc * (1 + (ceiling / 100)))
+    }
+    for compound, conc in concs_above_ceiling.items():
+        concs[compound] = conc * scale_highest
 
 
 def _length_multiplier(candidate, *, rank_small_reactions_higher: bool):
