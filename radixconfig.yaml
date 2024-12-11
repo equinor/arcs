@@ -11,8 +11,6 @@ spec:
       build:
         from: old
     - name: prod
-      build:
-          from:
   dnsAlias:
     - alias: arcs
       component: server
@@ -43,8 +41,9 @@ spec:
           port: 5001
       publicPort: http
       resources:
-        limits:
-          memory: 8000M
         requests:
-          cpu: 500m
-          memory: 8000M
+          memory: "8Gi"
+          cpu: "2000m"
+        limits:
+            memory: "8Gi"
+            cpu: "4000m"
