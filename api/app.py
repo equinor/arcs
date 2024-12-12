@@ -63,7 +63,7 @@ class SimulationRequest(BaseModel):
 
 
 @app.post("/run_simulation")
-async def run_simulation(form: SimulationRequest):
+def run_simulation(form: SimulationRequest):
     results = traverse(
         form.temperature,
         form.pressure,
