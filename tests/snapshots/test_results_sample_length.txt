@@ -1,0 +1,81 @@
+/Users/AKVAS/equinor_repos/venvs/venv-arcs/bin/python3.13 /Applications/PyCharm.app/Contents/plugins/python-ce/helpers/pycharm/_jb_pytest_runner.py --target test_sample_length.py::test_sample_length
+Testing started at 15:27 ...
+Launching pytest with arguments test_sample_length.py::test_sample_length --no-header --no-summary -q in /Users/AKVAS/equinor_repos/arcs/tests
+
+============================= test session starts ==============================
+collecting ... collected 5 items
+
+test_sample_length.py::test_sample_length[10-100]
+test_sample_length.py::test_sample_length[20-100]
+test_sample_length.py::test_sample_length[40-100]
+test_sample_length.py::test_sample_length[80-100]
+test_sample_length.py::test_sample_length[160-100]
+
+=============== 5 passed, 276316 warnings in 21687.59s (6:01:27) ===============
+PASSED                 [ 20%]
+ This is the run with  the sample length of 10 and it was run 100 times.
+
+The total run time is 217.44804906845093.
+
+CO2 - Mean: 1000000.0, Std: 0.0
+H2O - Mean: 31.252923211423585, Std: 1.5272819191673104
+O2 - Mean: 4.92970622980333, Std: 1.2168606152677726
+SO2 - Mean: 11.757468666250784, Std: 1.6116951675325841
+H2S - Mean: 6.88798594874264, Std: 0.9543749701110125
+H2SO4 - Mean: 3.157290292110167, Std: 1.6835252623416272
+H2 - Mean: 1.7284334030739985, Std: 0.7465535897529509
+H2SO3 - Mean: 2.96296285598679, Std: 0.26189139098409614
+PASSED                 [ 40%]
+ This is the run with  the sample length of 20 and it was run 100 times.
+
+The total run time is 434.1097650527954.
+
+CO2 - Mean: 1000000.0, Std: 0.0
+H2O - Mean: 31.477777842440734, Std: 1.2675961873185533
+O2 - Mean: 4.807142882792163, Std: 0.9861254055640113
+SO2 - Mean: 12.023115875588086, Std: 1.2970270811329807
+H2S - Mean: 6.755505583523299, Std: 0.756962525106398
+H2SO4 - Mean: 2.5126364792467837, Std: 1.2645916669520563
+H2 - Mean: 1.1029893882719821, Std: 0.561489561273546
+H2SO3 - Mean: 2.0502644761793745, Std: 0.467663198142285
+PASSED                 [ 60%]
+ This is the run with  the sample length of 40 and it was run 100 times.
+
+The total run time is 8361.117660045624.
+
+CO2 - Mean: 1000000.0, Std: 0.0
+H2O - Mean: 31.29143473694451, Std: 0.7704616546826688
+O2 - Mean: 4.732360229211837, Std: 0.6549376580249122
+SO2 - Mean: 11.863437144322257, Std: 0.7943321958440475
+H2S - Mean: 6.747157625500498, Std: 0.49271875270115495
+H2SO4 - Mean: 2.5631085691784707, Std: 0.9440470250456126
+H2 - Mean: 1.097385966519822, Std: 0.4252736371588852
+H2SO3 - Mean: 0.9393627665409447, Std: 0.1482225856408965
+PASSED                 [ 80%]
+ This is the run with  the sample length of 80 and it was run 100 times.
+
+The total run time is 4105.19584107399.
+
+CO2 - Mean: 1000000.0, Std: 0.0
+H2O - Mean: 31.41763733559683, Std: 0.575199608630476
+O2 - Mean: 4.622839534868639, Std: 0.588973970691264
+SO2 - Mean: 11.932516722228701, Std: 0.6431084860329965
+H2S - Mean: 6.684653011599003, Std: 0.43965673998934535
+H2SO4 - Mean: 2.4514498840757817, Std: 0.656750183922589
+H2SO3 - Mean: 0.6564212148293576, Std: 0.16072442920316285
+H2 - Mean: 0.9062556162070118, Std: 0.29673203781009067
+PASSED                [100%]
+ This is the run with  the sample length of 160 and it was run 100 times.
+
+The total run time is 8545.548424005508.
+
+CO2 - Mean: 1000000.0, Std: 0.0
+H2O - Mean: 31.324522572191974, Std: 0.36384683281247493
+O2 - Mean: 4.59861349688589, Std: 0.3300108622931028
+SO2 - Mean: 11.894133413302482, Std: 0.39194371245857507
+H2S - Mean: 6.6668073534257015, Std: 0.24332401205354254
+H2SO4 - Mean: 2.5060493052960187, Std: 0.4453989590843376
+H2 - Mean: 0.8844987937856215, Std: 0.24425611383194093
+H2SO3 - Mean: 0.658430087782832, Std: 0.08970158043283294
+progress:           |=======================================
+Process finished with exit code 0
