@@ -14,7 +14,7 @@ spec:
   dnsAlias:
     - alias: arcs
       component: server
-      environment: dev
+      environment: legacy-dash
   components:
     - name: server
       ports:
