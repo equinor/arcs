@@ -6,7 +6,7 @@ spec:
   environments:
     - name: dev
       build:
-        from: main
+        from: radix-job # changed for testing radix stuff
     - name: legacy-dash
       build:
         from: old
@@ -53,10 +53,10 @@ spec:
             cpu: "4000m"
   jobs:
     - name: runsimulation
-      src: src/
+      dockerfileName: Dockerfile_jobs
       schedulerPort: 8000
       payload:
-        path: "/compute/args"
+        path: "/runsimulation/args"
       ports:
         - name: http
           port: 3000

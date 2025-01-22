@@ -7,7 +7,7 @@ WORKDIR /app
 COPY . .
 RUN python -m pip install .
 
-
 EXPOSE 5001
 USER 1000
-ENTRYPOINT ["python", "simulation_runner.py"]
+ENV PYTHONPATH=/app
+ENTRYPOINT ["python", "/app/api/simulation_runner.py"]
