@@ -1,15 +1,13 @@
 from __future__ import annotations
 import os
-import pandas as pd
-from fastapi import Depends, FastAPI
+
+from fastapi import Depends, FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from api.authentication import authenticated_user_claims
+from api.job_manager import JobManager
 from api.models import SimulationRequest
-from arcs.analysis import AnalyseSampling
-from arcs.traversal import traverse
 from dotenv import load_dotenv
 from api.simulation_runner import run_simulation
-import httpx
 
 load_dotenv()
 app = FastAPI(dependencies=[Depends(authenticated_user_claims)])
@@ -36,43 +34,32 @@ app.add_middleware(
 )
 
 
+job_manager = JobManager(baseurl="http://runsimulation:8000")
+router = APIRouter()
 
 
-@app.post("/run_simulation")
-def run_simulation(form: SimulationRequest):
-
-
+@router.post("/run_simulation")
+def run_simulation_endpoint(form: SimulationRequest):
     result = run_simulation(form)
     return result
 
-@app.post("/run_simulation_radix_job")
-def run_simulation(form: SimulationRequest):
-    url ="http://runsimulation:8000/api/v1"
-    payload_path = "/runsimulation/args"
-    params = {
-        "temperature": 300,
-        "pressure": 10,
-        "concs": {
-            "CO2": 1,
-            "H2O": 2e-05,
-            "H2S": 3e-05,
-            "SO2": 1e-05,
-            "NO2": 5e-05,
-        },
-        "samples": 10,
-    }
 
-    payload = {
-        "payload": params
-    }
-    with httpx.Client() as client:
-        response = client.post(
-            url,
-            json=payload,
-            timeout=60.0)
+@router.post("/start_radix_job")
+async def start_job_endpoint(form: SimulationRequest):
+    return await job_manager.start_job(form)
 
-        return response.json()
 
+@router.post("/cancel_radix_job")
+async def cancel_job_endpoint(job_id: str):
+    return await job_manager.cancel_job(job_id)
+
+
+@router.get("/get_radix_job_status")
+async def get_job_status_endpoint(job_id: str):
+    return await job_manager.get_job_status(job_id)
+
+
+app.include_router(router)
 
 if __name__ == "__main__":
     import uvicorn
