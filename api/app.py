@@ -46,6 +46,7 @@ def run_simulation_endpoint(form: SimulationRequest):
 
 @router.post("/start_radix_job")
 async def start_job_endpoint(form: SimulationRequest):
+    print(f"Starting job: {form}")
     return await job_manager.start_job(form)
 
 

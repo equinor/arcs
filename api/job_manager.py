@@ -11,7 +11,7 @@ class JobManager:
 
     async def start_job(self, form: SimulationRequest):
         payload = {
-            "payload": json.dumps(form),
+            "payload": json.dumps(form.model_dump()),
             "resources": {
                 "requests": {"memory": "4Gi", "cpu": "2000m"},
                 "limits": {"memory": "8Gi", "cpu": "4000m"},
@@ -23,7 +23,7 @@ class JobManager:
             r.raise_for_status()
         except httpx.HTTPError as e:
             raise HTTPException(
-                status_code=r.status_code, detail=f"Could not create job: {str(e)}"
+                status_code=500, detail=f"Could not create job: {str(e)}"
             )
         return r.json()
 
@@ -33,7 +33,7 @@ class JobManager:
             r.raise_for_status()
         except httpx.HTTPError as e:
             raise HTTPException(
-                status_code=r.status_code, detail=f"Could not cancel job: {str(e)}"
+                status_code=500, detail=f"Could not cancel job: {str(e)}"
             )
         return r.json()
 
@@ -43,6 +43,6 @@ class JobManager:
             r.raise_for_status()
         except httpx.HTTPError as e:
             raise HTTPException(
-                status_code=r.status_code, detail=f"Could not get job status: {str(e)}"
+                status_code=500, detail=f"Could not get job status: {str(e)}"
             )
         return r.json()
