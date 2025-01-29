@@ -5,7 +5,8 @@ import numpy as np
 # Load the data using pandas
 # Replace 'simulation_data.csv' with the path to your actual CSV file
 csv_file_path = 'simulation_data.csv'
-data = pd.read_csv(csv_file_path)
+data_unsorted = pd.read_csv(csv_file_path)
+data = data_unsorted.sort_values(by=['sample_length'])
 
 # Plot the means with the standard deviations as error bars
 plt.errorbar(data['sample_length'], data['H2SO4_mean'], yerr=data['H2SO4_std'], fmt='o',
