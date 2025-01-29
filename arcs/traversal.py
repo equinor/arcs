@@ -27,6 +27,13 @@ class TraversalResult:
     metadata: dict[str, Any]
     data: dict[str, Any]
 
+    def to_dict(self):
+        return {
+            "initfinaldiff": self.initfinaldiff,
+            "final_concs": self.final_concs,
+            "metadata": self.metadata,
+            "data": {k: v for k, v in self.data.items()},
+        }
 
 def _get_weighted_random_compounds(
     temperature: int,

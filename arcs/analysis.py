@@ -13,6 +13,16 @@ class AnalyseSampling:
             self.data = data
         self.markdown = markdown
 
+    def to_dict(self):
+        return {
+            "data": self.data,
+            "markdown": self.markdown,
+            "stats": getattr(self, "stats", None),
+            "mean_data": getattr(self, "mean_data", None),
+            "final_concs": getattr(self, "final_concs", None),
+            "common_paths": getattr(self, "common_paths", None),
+        }
+
     def _latex_equation(self, equation):
         r, p = equation.split("=")
         reacs = r.split(" ")
