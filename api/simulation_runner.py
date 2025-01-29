@@ -1,7 +1,12 @@
+import os
+
 import pandas as pd
 from api.models import SimulationRequest
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import traverse
+import json
+import httpx
+from azure.identity import DefaultAzureCredential
 
 
 def run_simulation(form: SimulationRequest):
@@ -28,20 +33,43 @@ def run_simulation(form: SimulationRequest):
         }
     )
 
-    return {"results": results, "analysis": analysis, "chart_data": result_stats}
-
+    return {
+        "results": results.to_dict(),  # Convert results to a dictionary
+        "analysis": analysis.to_dict(),  # Convert analysis to a dictionary
+        "chart_data": result_stats.to_dict(orient="records"),  # Convert DataFrame to a list of dictionaries
+    }
 
 if __name__ == "__main__":
-    import json
+
+    scope = os.environ.get("API_SCOPE")
+    credential = DefaultAzureCredential()
+    token = credential.get_token(scope)
 
     with open("/runsimulation/args/payload", "r", encoding="utf8") as f:
         payload = json.load(f)
-        print(f"payload: {payload}")
+        print(payload)
+        project_id = payload["project_id"]
+        scenario_id = payload["scenario_id"]
         form = SimulationRequest(
             temperature=payload["temperature"],
             pressure=payload["pressure"],
             concs=payload["concs"],
             samples=payload["samples"],
         )
-        output = run_simulation(form)
-        print(json.dumps(output, default=str))
+        result = run_simulation(form)
+
+        post_data = {
+            "scenario_id": scenario_id,
+            "raw_results": json.dumps(result),
+       }
+        print(json.dumps(post_data, indent=4))
+        httpx.post(
+            f"https://backend-acidwatch-dev.radix.equinor.com/project/{project_id}/scenario/{scenario_id}/result",
+            json=post_data,
+            headers={"Authorization": "Bearer " + token.token},
+        )
+
+
+
+
+

@@ -1,7 +1,11 @@
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class SimulationRequest(BaseModel):
+    project_id: Optional[str] = None
+    scenario_id: Optional[str] = None
     temperature: int
     pressure: int
     concs: dict[str, float] = Field(default_factory=dict)
