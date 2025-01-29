@@ -1,5 +1,4 @@
 import os
-
 import pandas as pd
 from api.models import SimulationRequest
 from arcs.analysis import AnalyseSampling
@@ -34,9 +33,9 @@ def run_simulation(form: SimulationRequest):
     )
 
     return {
-        "results": results.to_dict(),  # Convert results to a dictionary
-        "analysis": analysis.to_dict(),  # Convert analysis to a dictionary
-        "chart_data": result_stats.to_dict(orient="records"),  # Convert DataFrame to a list of dictionaries
+        "results": results.to_dict(),
+        "analysis": analysis.to_dict(),
+        "chart_data": result_stats.to_dict(orient="records"),
     }
 
 if __name__ == "__main__":
@@ -47,7 +46,6 @@ if __name__ == "__main__":
 
     with open("/runsimulation/args/payload", "r", encoding="utf8") as f:
         payload = json.load(f)
-        print(payload)
         project_id = payload["project_id"]
         scenario_id = payload["scenario_id"]
         form = SimulationRequest(
@@ -62,7 +60,7 @@ if __name__ == "__main__":
             "scenario_id": scenario_id,
             "raw_results": json.dumps(result),
        }
-        print(json.dumps(post_data, indent=4))
+
         httpx.post(
             f"https://backend-acidwatch-dev.radix.equinor.com/project/{project_id}/scenario/{scenario_id}/result",
             json=post_data,

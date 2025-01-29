@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from api.authentication import authenticated_user_claims
 from api.job_manager import JobManager
-from api.models import SimulationRequest
+from api.models import SimulationRequest, Resources
 from dotenv import load_dotenv
 from api.simulation_runner import run_simulation
 
@@ -45,9 +45,9 @@ def run_simulation_endpoint(form: SimulationRequest):
 
 
 @router.post("/start_radix_job")
-async def start_job_endpoint(form: SimulationRequest):
+async def start_job_endpoint(form: SimulationRequest, resources: Resources):
     print(f"Starting job: {form}")
-    return await job_manager.start_job(form)
+    return await job_manager.start_job(form, resources)
 
 
 @router.post("/cancel_radix_job")
@@ -65,4 +65,4 @@ app.include_router(router)
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host="localhost", port=8001)

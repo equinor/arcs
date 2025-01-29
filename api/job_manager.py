@@ -1,7 +1,7 @@
 import json
 import httpx
 from fastapi import HTTPException
-from api.models import SimulationRequest
+from api.models import SimulationRequest, Resources
 
 
 class JobManager:
@@ -9,15 +9,13 @@ class JobManager:
         self.baseurl = baseurl
         self.client = httpx.AsyncClient(base_url=baseurl)
 
-    async def start_job(self, form: SimulationRequest):
+    async def start_job(self, form: SimulationRequest, resources: Resources):
         payload = {
             "payload": json.dumps(form.model_dump()),
-            "resources": {
-                "requests": {"memory": "4Gi", "cpu": "2000m"},
-                "limits": {"memory": "8Gi", "cpu": "4000m"},
-            },
-        }
+            "resources": json.dumps(resources.model_dump()),
 
+        }
+        print(f"Starting job with payload: {payload}")
         try:
             r = await self.client.post("/api/v1/jobs", json=payload)
             r.raise_for_status()

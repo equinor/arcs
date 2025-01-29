@@ -1,6 +1,20 @@
 from typing import Optional
-
 from pydantic import BaseModel, Field
+
+
+class ResourceRequests(BaseModel):
+    memory: Optional[str] = "8Gi"
+    cpu: Optional[str] = "4000m"
+
+
+class ResourceLimits(BaseModel):
+    memory: Optional[str] = "16Gi"
+    cpu: Optional[str] = "8000m"
+
+
+class Resources(BaseModel):
+    requests: ResourceRequests
+    limits: ResourceLimits
 
 
 class SimulationRequest(BaseModel):
