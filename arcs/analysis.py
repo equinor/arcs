@@ -1,15 +1,28 @@
-from typing import Any, Hashable, no_type_check
+from typing import Any, Hashable, no_type_check, Union
 import pandas as pd
 from collections import defaultdict
 import numpy as np
 from collections import Counter
-
-from .traversal import _RandomWalk
+from monty.serialization import loadfn
 
 
 class AnalyseSampling:
-    def __init__(self, data: dict[int, _RandomWalk]) -> None:
-        self.data = data
+    def __init__(self, data: Union[str, dict[str, Any]], markdown: bool = False):
+        if isinstance(data, str):
+            self.data = loadfn(data)
+        else:
+            self.data = data
+        self.markdown = markdown
+
+    def to_dict(self) -> dict[Any, Any]:
+        return {
+            "data": self.data,
+            "markdown": self.markdown,
+            "stats": getattr(self, "stats", None),
+            "mean_data": getattr(self, "mean_data", None),
+            "final_concs": getattr(self, "final_concs", None),
+            "common_paths": getattr(self, "common_paths", None),
+        }
 
     def _latex_equation(self, equation: str) -> str:
         r, p = equation.split("=")

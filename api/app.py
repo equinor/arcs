@@ -1,16 +1,13 @@
 from __future__ import annotations
-
 import os
 
-import pandas as pd
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-
 from api.authentication import authenticated_user_claims
-from arcs.analysis import AnalyseSampling
-from arcs.traversal import traverse
+from api.job_manager import JobManager
+from api.models import SimulationRequest, Resources
 from dotenv import load_dotenv
+from api.simulation_runner import run_simulation
 
 load_dotenv()
 app = FastAPI(dependencies=[Depends(authenticated_user_claims)])
@@ -37,60 +34,35 @@ app.add_middleware(
 )
 
 
-class SimulationRequest(BaseModel):
-    temperature: int
-    pressure: int
-    concs: dict[str, float] = Field(default_factory=dict)
-    samples: int
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "temperature": 300,
-                    "pressure": 10,
-                    "concs": {
-                        "SO2": 10e-6,
-                        "NO2": 50e-6,
-                        "H2S": 30e-6,
-                        "H2O": 20e-6,
-                    },
-                    "samples": 10,
-                }
-            ]
-        }
-    }
+job_manager = JobManager(baseurl="http://runsimulation:8000")
+router = APIRouter()
 
 
-@app.post("/run_simulation")
-def run_simulation(form: SimulationRequest):
-    results = traverse(
-        form.temperature,
-        form.pressure,
-        form.concs,
-        sample_length=form.samples,
-    )
+@router.post("/run_simulation")
+def run_simulation_endpoint(form: SimulationRequest):
+    result = run_simulation(form)
+    return result
 
-    analysis = AnalyseSampling(results.data)
-    analysis.reaction_statistics()
-    analysis.mean_sampling()
-    analysis.reaction_paths()
 
-    df_m_t = pd.DataFrame(analysis.mean_data).T
-    df_m_t = df_m_t[df_m_t["value"] != 0]
-    result_stats = pd.DataFrame(
-        {
-            "comps": list(df_m_t.T.keys()),
-            "values": df_m_t["value"].values,
-            "variance": df_m_t["variance"].values,
-            "variance_minus": -df_m_t["variance"].values,
-        }
-    )
+@router.post("/start_radix_job")
+async def start_job_endpoint(form: SimulationRequest, resources: Resources):
+    print(f"Starting job: {form}")
+    return await job_manager.start_job(form, resources)
 
-    return {"results": results, "analysis": analysis, "chart_data": result_stats}
 
+@router.post("/cancel_radix_job")
+async def cancel_job_endpoint(job_id: str):
+    return await job_manager.cancel_job(job_id)
+
+
+@router.get("/get_radix_job_status")
+async def get_job_status_endpoint(job_id: str):
+    return await job_manager.get_job_status(job_id)
+
+
+app.include_router(router)
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host="localhost", port=8001)

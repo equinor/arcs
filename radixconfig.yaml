@@ -6,7 +6,7 @@ spec:
   environments:
     - name: dev
       build:
-        from: main
+        from: radix-job # changed for testing radix stuff
     - name: legacy-dash
       build:
         from: old
@@ -51,3 +51,27 @@ spec:
         limits:
             memory: "8Gi"
             cpu: "4000m"
+  jobs:
+    - name: runsimulation
+      secrets:
+        - AZURE_CLIENT_SECRET
+      dockerfileName: Dockerfile_jobs
+      schedulerPort: 8000
+      payload:
+        path: "/runsimulation/args"
+      ports:
+        - name: http
+          port: 3000
+      environmentConfig:
+        - environment: dev
+          resources:
+            requests:
+              memory: "25Gi"
+              cpu: "8000m"
+          identity:
+            azure:
+              clientId: 848324c2-27b7-4804-8180-c7aa70be5af7
+          variables:
+            AZURE_CLIENT_ID: "848324c2-27b7-4804-8180-c7aa70be5af7"
+            API_SCOPE: "api://456cc109-08d7-4c11-bf2e-a7b26660f99e/.default"
+
