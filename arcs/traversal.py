@@ -28,7 +28,7 @@ class TraversalResult:
     metadata: dict[str, Any]
     data: dict[int, Any]
 
-    def to_dict(self):
+    def to_dict(self) -> dict[Any, Any]:
         return {
             "initfinaldiff": self.initfinaldiff,
             "final_concs": self.final_concs,

@@ -1,4 +1,4 @@
-from typing import Any, Hashable, no_type_check
+from typing import Any, Hashable, no_type_check, Union
 import pandas as pd
 from collections import defaultdict
 import numpy as np
@@ -7,14 +7,14 @@ from monty.serialization import loadfn
 
 
 class AnalyseSampling:
-    def __init__(self, data, markdown=False):
+    def __init__(self, data: Union[str, dict[str, Any]], markdown: bool = False):
         if isinstance(data, str):
             self.data = loadfn(data)
         else:
             self.data = data
         self.markdown = markdown
 
-    def to_dict(self):
+    def to_dict(self) -> dict[Any, Any]:
         return {
             "data": self.data,
             "markdown": self.markdown,
@@ -24,7 +24,7 @@ class AnalyseSampling:
             "common_paths": getattr(self, "common_paths", None),
         }
 
-    def _latex_equation(self, equation):
+    def _latex_equation(self, equation: str)-> str:
         r, p = equation.split("=")
         reacs = r.split(" ")
         prods = p.split(" ")
