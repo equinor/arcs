@@ -19,6 +19,26 @@ import numpy as np
 import pandas as pd
 
 from arcs.model import get_graph, get_reactions
+import time
+from functools import wraps
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
+
+
+def timing_decorator(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        logger.info(
+            f"Function '{func.__name__}' executed in {end_time - start_time:.4f} seconds"
+        )
+        return result
+
+    return wrapper
 
 
 @dataclass
@@ -227,6 +247,7 @@ class _RandomWalk(TypedDict):
     path_length: int
 
 
+@timing_decorator
 def _random_walk(
     temperature: int,
     pressure: int,
@@ -319,6 +340,7 @@ def _random_walk(
     }
 
 
+@timing_decorator
 def _sample(
     temperature: int,
     pressure: int,
@@ -370,6 +392,7 @@ def _sample(
     return result_dict
 
 
+@timing_decorator
 def traverse(
     temperature: int,
     pressure: int,

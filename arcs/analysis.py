@@ -24,7 +24,7 @@ class AnalyseSampling:
             "common_paths": getattr(self, "common_paths", None),
         }
 
-    def _latex_equation(self, equation: str)-> str:
+    def _latex_equation(self, equation: str) -> str:
         r, p = equation.split("=")
         reacs = r.split(" ")
         prods = p.split(" ")
