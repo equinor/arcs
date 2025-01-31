@@ -763,7 +763,7 @@ def apprun(btn1):
             markdown_options={"html": True, "link_target": "_self"},
         )
 
-        analyse = AnalyseSampling(t.data, markdown=True)
+        analyse = AnalyseSampling(t.data)
         analyse.reaction_statistics()
         analyse.mean_sampling()
         analyse.reaction_paths()

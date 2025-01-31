@@ -27,4 +27,4 @@ def get_reactions(temperature: int, pressure: int) -> dict[int, ReactionType]:
     with open(
         MODEL_PATH / f"T{temperature}_P{pressure}" / "reactions.p", "rb"
     ) as stream:
-        return pickle.load(stream)
+        return pickle.load(stream)  # type: ignore

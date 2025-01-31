@@ -1,11 +1,14 @@
-from monty.serialization import loadfn
+from typing import Any, Hashable, no_type_check
 import pandas as pd
 from collections import defaultdict
 import numpy as np
 from collections import Counter
 
+from .traversal import _RandomWalk
+
 
 class AnalyseSampling:
+
     def __init__(self, data, markdown=False):
         if isinstance(data, str):
             self.data = loadfn(data)
@@ -24,11 +27,12 @@ class AnalyseSampling:
         }
 
     def _latex_equation(self, equation):
+
         r, p = equation.split("=")
         reacs = r.split(" ")
         prods = p.split(" ")
 
-        def _latex_format(reaction_elements):
+        def _latex_format(reaction_elements: list[str]) -> str:
             reacs_adjusted = []
             for i in reaction_elements:
                 try:
@@ -41,11 +45,7 @@ class AnalyseSampling:
                         new_i = []
                         for x in i:
                             try:
-                                x = int(x)
-                                if self.markdown is True:
-                                    new_i.append("<sub>{}</sub>".format(x))
-                                else:
-                                    new_i.append("$_{}$".format(x))
+                                new_i.append("<sub>{}</sub>".format(int(x)))
                             except ValueError:
                                 new_i.append(x)
                         reacs_adjusted.append("".join(new_i))
@@ -55,15 +55,14 @@ class AnalyseSampling:
         ps = _latex_format(prods)
         return "".join([rs, " = ", ps])
 
-    def _sci_notation(self, number, sig_fig=2):
+    def _sci_notation(self, number: float, sig_fig: int = 2) -> str:
         ret_string = "{0:.{1:d}e}".format(number, sig_fig)
         a, b = ret_string.split("e")
         # remove leading "+" and strip leading zeros
-        b = int(b)
-        return a + " * 10^" + str(b)
+        return a + " * 10^" + str(int(b))
 
-    def _get_stats(self, equations):
-        appearances = defaultdict(int)
+    def _get_stats(self, equations: list[list[str]]) -> dict[Hashable, Any]:
+        appearances: dict[str, int] = defaultdict(int)
         for sample in equations:
             for i in sample:
                 appearances[i] += 1
@@ -71,40 +70,34 @@ class AnalyseSampling:
         equation_statistics = {}
         for equation, frequency in appearances.items():
             eq, k = equation.split(";")
-            if self.markdown is True:
-                equation_statistics[eq] = {
-                    "k": k.split("\n")[0],
-                    "frequency": frequency,
-                }
-            else:
-                equation_statistics[self._latex_equation(eq)] = {
-                    "k": k.split("\n")[0],
-                    "frequency": frequency,
-                }
+            equation_statistics[eq] = {
+                "k": k.split("\n")[0],
+                "frequency": frequency,
+            }
         try:
             d = pd.DataFrame(equation_statistics).T.sort_values(
                 by="frequency", ascending=False
             )
             d = d.reset_index()
             d.T["index"] = "reaction"
-            d = d.to_dict()
+            return d.to_dict()
         except Exception:
-            d = {}
-        return d
+            pass
+        return {}
 
-    def reaction_statistics(self):
-        equations = []
+    def reaction_statistics(self) -> None:
+        equations: list[list[str]] = []
         for x in self.data:
             eqs = self.data[x]["equation_statistics"]
             if eqs:
                 equations.append(eqs)
         self.stats = self._get_stats(equations)
 
-    def mean_sampling(self):
+    def mean_sampling(self) -> None:
         final_concentrations = {}
         mean_values = {}
 
-        compounds = set()
+        compounds: set[str] = set()
         for sample in self.data.values():
             compounds.update(sample["data"].keys())
 
@@ -126,9 +119,10 @@ class AnalyseSampling:
         self.mean_data = mean_values
         self.final_concs = final_concentrations
 
-    def reaction_paths(self, index_override=None):
+    def reaction_paths(self, index_override: int | None = None) -> None:
         """currently chooses the top reaction, and only does what comes after"""
 
+        @no_type_check
         def _eqpath(pathsstats):
             _dict = {}
             _dict["paths"] = {}
@@ -164,7 +158,6 @@ class AnalyseSampling:
                 index = 0
             else:
                 index = index_override
-            self.cancel_markdown = True
             self.reaction_statistics()
             tr = str(self.stats["index"][index])
         except Exception:
@@ -177,8 +170,6 @@ class AnalyseSampling:
                 for y in stats[x]:
                     if tr in stats[x][y]["reaction"]:
                         vs.append(x)
-
-        self.cancel_markdown = False
 
         p2l = []
         for x in vs:
@@ -220,7 +211,7 @@ class AnalyseSampling:
             }
             df = pd.DataFrame(dict(reversed(sorted(fs.items())))).T.reset_index()
 
-            df.columns = "frequency", "reaction 1", "reaction 2"
+            df.columns = pd.Index(("frequency", "reaction 1", "reaction 2"))
             df.set_index("frequency")
             dict_ = df.to_dict()
             df1 = _eqpath(dict_)
@@ -228,5 +219,4 @@ class AnalyseSampling:
             df1 = {"frequency": [None], "paths": [None], "k": [None]}
 
         self.common_paths = df1
-        self.cancel_markdown = False
         self.reaction_statistics()

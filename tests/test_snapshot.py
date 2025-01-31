@@ -43,7 +43,7 @@ def test_snapshot(snapshot):
         probability_threshold=0.05,
     )
 
-    analysis = AnalyseSampling(results.data, markdown=True)
+    analysis = AnalyseSampling(results.data)
     analysis.reaction_statistics()
 
     df = pd.DataFrame(analysis.stats)

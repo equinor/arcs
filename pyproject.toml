@@ -57,10 +57,30 @@ azure-identity = "^1.19.0"
 pytest = "^8.3.3"
 ruff = "^0.7.1"
 pytest-snapshot = "^0.9.0"
+mypy = "^1.14.1"
+types-tqdm = "^4.67.0.20241221"
+types-psutil = "^6.1.0.20241221"
+pandas-stubs = "^2.2.3.241126"
 
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.6.1"
+
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+  "chempy",
+  "chempy.equilibria",
+  "networkx",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "arcs.dash_app.server"
+ignore_missing_imports = true
+ignore_errors = true
 
 [build-system]
 requires = ["poetry-core"]

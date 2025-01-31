@@ -1,7 +1,8 @@
 from __future__ import annotations
 from collections import defaultdict
+from collections.abc import Collection
 from dataclasses import dataclass
-from typing import Literal, Any
+from typing import Literal, Any, TypedDict
 
 from chempy.equilibria import Equilibrium, EqSystem
 from chempy import Substance
@@ -25,7 +26,7 @@ class TraversalResult:
     initfinaldiff: Any
     final_concs: Any
     metadata: dict[str, Any]
-    data: dict[str, Any]
+    data: dict[int, Any]
 
     def to_dict(self):
         return {
@@ -99,7 +100,9 @@ def _get_weighted_random_compounds(
     return selected_compounds
 
 
-def _length_multiplier(candidate, *, rank_small_reactions_higher: bool):
+def _length_multiplier(
+    candidate: list[Any], *, rank_small_reactions_higher: bool
+) -> int:
     if rank_small_reactions_higher:
         return len(list(candidate))
     else:
@@ -109,13 +112,13 @@ def _length_multiplier(candidate, *, rank_small_reactions_higher: bool):
 def _get_weighted_reaction_rankings(
     tempreature: int,
     pressure: int,
-    choices: list[str],
+    choices: Collection[str],
     *,
     max_rank: int,
     method: Literal["Bellman-Ford", "Dijkstra"],
     rank_small_reactions_higher: bool,
     graph: nx.MultiDiGraph,
-):
+) -> dict[Any, dict[str, Any]] | None:
     reaction_rankings = {}
     if len(choices) > 1:
         possible_shortest_reaction_paths = list(
@@ -217,6 +220,12 @@ def _equilibrium_concentrations(
     return (dict(concs), eq)
 
 
+class _RandomWalk(TypedDict):
+    data: dict[str, float]
+    equation_statistics: list[Equilibrium]
+    path_length: int
+
+
 def _random_walk(
     temperature: int,
     pressure: int,
@@ -234,9 +243,9 @@ def _random_walk(
     rng: np.random.Generator,
     reactions: dict[int, Any],
     graph: nx.MultiDiGraph,
-):
+) -> _RandomWalk:
     conc_history = [concs]
-    reaction_history = []
+    reaction_history: list[str] = []
 
     for _ in range(path_depth):
         previous_conc_step = conc_history[-1]
@@ -289,6 +298,7 @@ def _random_walk(
         # if reaction was previous reaction then break
         path_available = [r for r in reaction_history if r is not None]
         if path_available:
+            assert eqsyst is not None
             if (
                 eqsyst.string() == path_available[-1]
                 and eqsyst.string() == path_available[-1]
@@ -322,12 +332,14 @@ def _sample(
     ceiling: int,
     scale_highest: float,
     rank_small_reactions_higher: bool,
-    method: Literal["Bellman-Ford"],
+    method: Literal["Bellman-Ford", "Dijkstra"],
     rng: np.random.Generator,
     reactions: dict[int, Any],
     graph: nx.MultiDiGraph,
 ) -> dict[int, Any]:
-    result_dict = {0: {"data": concs, "equation_statistics": [], "path_length": None}}
+    result_dict: dict[int, _RandomWalk] = {
+        0: {"data": concs, "equation_statistics": [], "path_length": 0}
+    }
     with tqdm(
         total=sample_length,
         bar_format="progress: {desc:<10}|{bar:50}|",
@@ -429,7 +441,7 @@ def traverse(
         ],
         index=["initial", "final", "change"],
     ).T
-    conc_diff_summary = conc_diff_summary.dropna(how="all").fillna(0.0).to_dict()
+    conc_diff_summary = conc_diff_summary.dropna(how="all").fillna(0.0)
     avg_path_length = np.median(
         [
             samples[i]["path_length"]
@@ -463,7 +475,7 @@ def traverse(
     }
 
     return TraversalResult(
-        initfinaldiff=conc_diff_summary,
+        initfinaldiff=conc_diff_summary.to_dict(),
         final_concs=final_concs,
         data=samples,
         metadata=metadata,
