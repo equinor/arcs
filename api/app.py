@@ -34,7 +34,6 @@ app.add_middleware(
 )
 
 
-
 job_manager = JobManager(baseurl="http://runsimulation:8000")
 router = APIRouter()
 

@@ -13,7 +13,6 @@ class JobManager:
         payload = {
             "payload": json.dumps(form.model_dump()),
             "resources": json.dumps(resources.model_dump()),
-
         }
         print(f"Starting job with payload: {payload}")
         try:

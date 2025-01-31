@@ -36,6 +36,7 @@ class TraversalResult:
             "data": {k: v for k, v in self.data.items()},
         }
 
+
 def _get_weighted_random_compounds(
     temperature: int,
     pressure: int,

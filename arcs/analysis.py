@@ -3,12 +3,10 @@ import pandas as pd
 from collections import defaultdict
 import numpy as np
 from collections import Counter
-
-from .traversal import _RandomWalk
+from monty.serialization import loadfn
 
 
 class AnalyseSampling:
-
     def __init__(self, data, markdown=False):
         if isinstance(data, str):
             self.data = loadfn(data)
@@ -27,7 +25,6 @@ class AnalyseSampling:
         }
 
     def _latex_equation(self, equation):
-
         r, p = equation.split("=")
         reacs = r.split(" ")
         prods = p.split(" ")

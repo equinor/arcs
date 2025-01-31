@@ -38,8 +38,8 @@ def run_simulation(form: SimulationRequest):
         "chart_data": result_stats.to_dict(orient="records"),
     }
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     scope = os.environ.get("API_SCOPE")
     credential = DefaultAzureCredential()
     token = credential.get_token(scope)
@@ -59,15 +59,10 @@ if __name__ == "__main__":
         post_data = {
             "scenario_id": scenario_id,
             "raw_results": json.dumps(result),
-       }
+        }
 
         httpx.post(
             f"https://backend-acidwatch-dev.radix.equinor.com/project/{project_id}/scenario/{scenario_id}/result",
             json=post_data,
             headers={"Authorization": "Bearer " + token.token},
         )
-
-
-
-
-
