@@ -9,8 +9,7 @@ from chempy import Substance
 import copy
 import networkx as nx
 import itertools as it
-
-from tqdm import tqdm
+import concurrent.futures
 import platform
 import psutil
 
@@ -20,6 +19,15 @@ import pandas as pd
 
 from arcs.model import get_graph, get_reactions
 
+import logging
+import warnings
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
+
+
+warnings.filterwarnings("ignore")
+
 
 @dataclass
 class TraversalResult:
@@ -27,6 +35,14 @@ class TraversalResult:
     final_concs: Any
     metadata: dict[str, Any]
     data: dict[int, Any]
+
+    def to_dict(self) -> dict[Any, Any]:
+        return {
+            "initfinaldiff": self.initfinaldiff,
+            "final_concs": self.final_concs,
+            "metadata": self.metadata,
+            "data": {k: v for k, v in self.data.items()},
+        }
 
 
 def _get_weighted_random_compounds(
@@ -311,6 +327,15 @@ def _random_walk(
     }
 
 
+def _sample_chunk(
+    chunk_id: int, chunk_length: int, config: dict[str, Any]
+) -> dict[int, _RandomWalk]:
+    result_dict: dict[int, _RandomWalk] = {}
+    for sample in range(chunk_length):
+        result_dict[sample + chunk_id * chunk_length] = _random_walk(**config)
+    return result_dict
+
+
 def _sample(
     temperature: int,
     pressure: int,
@@ -330,35 +355,43 @@ def _sample(
     reactions: dict[int, Any],
     graph: nx.MultiDiGraph,
 ) -> dict[int, Any]:
+    config = {
+        "temperature": temperature,
+        "pressure": pressure,
+        "concs": concs,
+        "co2": co2,
+        "max_compounds": max_compounds,
+        "probability_threshold": probability_threshold,
+        "max_rank": max_rank,
+        "path_depth": path_depth,
+        "ceiling": ceiling,
+        "scale_highest": scale_highest,
+        "rank_small_reactions_higher": rank_small_reactions_higher,
+        "method": method,
+        "rng": rng,
+        "reactions": reactions,
+        "graph": graph,
+    }
+
+    max_workers = psutil.cpu_count()
+    chunk_size = sample_length // (max_workers or 1)
+    print(f"Chunk size: {chunk_size}")
     result_dict: dict[int, _RandomWalk] = {
         0: {"data": concs, "equation_statistics": [], "path_length": 0}
     }
-    with tqdm(
-        total=sample_length,
-        bar_format="progress: {desc:<10}|{bar:50}|",
-        ascii=" >=",
-        position=0,
-        leave=False,
-    ) as pbar:
-        for sample in range(sample_length):
-            result_dict[sample + 1] = _random_walk(
-                temperature,
-                pressure,
-                concs,
-                probability_threshold=probability_threshold,
-                path_depth=path_depth,
-                max_compounds=max_compounds,
-                max_rank=max_rank,
-                co2=co2,
-                scale_highest=scale_highest,
-                ceiling=ceiling,
-                method=method,
-                rank_small_reactions_higher=rank_small_reactions_higher,
-                rng=rng,
-                reactions=reactions,
-                graph=graph,
-            )
-            pbar.update(1)
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_sample_chunk, chunk_id, chunk_size, config): chunk_id
+            for chunk_id in range(max_workers or 1)
+        }
+        for future in concurrent.futures.as_completed(futures):
+            chunk_id = futures[future]
+            try:
+                result_dict.update(future.result())
+            except Exception as exc:
+                print(f"Chunk {chunk_id} generated an exception: {exc}")
+
     return result_dict
 
 
