@@ -18,13 +18,7 @@ import numpy as np
 import pandas as pd
 
 from arcs.model import get_graph, get_reactions
-
-import logging
 import warnings
-
-logging.basicConfig(level=logging.INFO, format="%(message)s")
-logger = logging.getLogger(__name__)
-
 
 warnings.filterwarnings("ignore")
 
@@ -354,6 +348,7 @@ def _sample(
     rng: np.random.Generator,
     reactions: dict[int, Any],
     graph: nx.MultiDiGraph,
+    num_cpu: int,
 ) -> dict[int, Any]:
     config = {
         "temperature": temperature,
@@ -374,23 +369,27 @@ def _sample(
     }
 
     max_workers = psutil.cpu_count()
+
     chunk_size = sample_length // (max_workers or 1)
-    print(f"Chunk size: {chunk_size}")
+    print(f"CPU count: {max_workers}, chunk size: {chunk_size}")
     result_dict: dict[int, _RandomWalk] = {
         0: {"data": concs, "equation_statistics": [], "path_length": 0}
     }
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(_sample_chunk, chunk_id, chunk_size, config): chunk_id
-            for chunk_id in range(max_workers or 1)
-        }
-        for future in concurrent.futures.as_completed(futures):
-            chunk_id = futures[future]
-            try:
-                result_dict.update(future.result())
-            except Exception as exc:
-                print(f"Chunk {chunk_id} generated an exception: {exc}")
+    if max_workers == 1:
+        result_dict.update(_sample_chunk(0, chunk_size, config))
+    else:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(_sample_chunk, chunk_id, chunk_size, config): chunk_id
+                for chunk_id in range(max_workers or 1)
+            }
+            for future in concurrent.futures.as_completed(futures):
+                chunk_id = futures[future]
+                try:
+                    result_dict.update(future.result())
+                except Exception as exc:
+                    print(f"Chunk {chunk_id} generated an exception: {exc}")
 
     return result_dict
 
@@ -413,7 +412,10 @@ def traverse(
     rng: np.random.Generator | None = None,
     reactions: dict[int, Any] | None = None,
     graph: nx.MultiDiGraph | None = None,
+    num_cpu: int | None = None,
 ) -> TraversalResult:
+    if num_cpu is None:
+        num_cpu = psutil.cpu_count()
     if rng is None:
         rng = np.random.default_rng()
     if graph is None:
@@ -443,6 +445,7 @@ def traverse(
         rng=rng,
         reactions=reactions,
         graph=graph,
+        num_cpu=num_cpu,
     )
 
     sample_concs = [
