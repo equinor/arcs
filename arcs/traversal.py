@@ -326,7 +326,8 @@ def _sample_chunk(
 ) -> dict[int, _RandomWalk]:
     result_dict: dict[int, _RandomWalk] = {}
     for sample in range(chunk_length):
-        result_dict[sample + chunk_id * chunk_length] = _random_walk(**config)
+        result_dict[1 + sample + chunk_id * chunk_length] = _random_walk(**config)
+        # +1 because we don't want to overwrite initial concs
     return result_dict
 
 
@@ -385,10 +386,10 @@ def _sample(
                 for chunk_id in range(nproc)
             }
             for future in concurrent.futures.as_completed(futures):
-                chunk_id = futures[future]
                 try:
                     result_dict.update(future.result())
                 except Exception as exc:
+                    chunk_id = futures[future]
                     print(f"Chunk {chunk_id} generated an exception: {exc}")
 
     return result_dict
