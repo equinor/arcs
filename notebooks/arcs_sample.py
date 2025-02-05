@@ -3,11 +3,11 @@ from arcs.traversal import traverse
 import warnings
 import argparse
 import time
+
 warnings.filterwarnings("ignore")
 
 
 def run_simulation(sample_length=100):
-
     start = time.time()
     temperature = 300
     pressure = 10
@@ -25,6 +25,7 @@ def run_simulation(sample_length=100):
 
     end = time.time()
     print(f"Simulation took {end - start:.2f} seconds.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

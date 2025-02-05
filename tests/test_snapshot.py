@@ -41,6 +41,7 @@ def test_snapshot(snapshot):
         method="Dijkstra",
         rng=np.random.default_rng([0]),
         probability_threshold=0.05,
+        nproc=1,
     )
 
     analysis = AnalyseSampling(results.data)
@@ -96,6 +97,7 @@ def test_synthetic(k, expected_left_shift, expected_right_shift):
         reactions=reactions,
         sample_length=1,
         path_depth=1,
+        nproc=1,
     )
 
     first_product_change = res.initfinaldiff["change"][products[0]]
