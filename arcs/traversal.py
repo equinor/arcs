@@ -22,6 +22,19 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+import time
+import functools
+
+def timing_decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Function {func.__name__} took {end_time - start_time:.4f} seconds")
+        return result
+    return wrapper
+
 
 @dataclass
 class TraversalResult:
@@ -38,7 +51,7 @@ class TraversalResult:
             "data": {k: v for k, v in self.data.items()},
         }
 
-
+@timing_decorator
 def _get_weighted_random_compounds(
     temperature: int,
     pressure: int,
@@ -111,7 +124,7 @@ def _length_multiplier(
     else:
         return 1
 
-
+@timing_decorator
 def _get_weighted_reaction_rankings(
     tempreature: int,
     pressure: int,
@@ -169,7 +182,7 @@ def _get_weighted_reaction_rankings(
     else:
         return None
 
-
+@timing_decorator
 def _generate_eqsystem(
     index: int, temperature: int, pressure: int, *, reactions: dict[int, Any]
 ) -> EqSystem | None:
@@ -204,7 +217,7 @@ def _generate_eqsystem(
     except Exception:
         return None
 
-
+@timing_decorator
 def _equilibrium_concentrations(
     concs: dict[str, float], eq: EqSystem
 ) -> tuple[dict[str, float], str]:
@@ -228,7 +241,7 @@ class _RandomWalk(TypedDict):
     equation_statistics: list[Equilibrium]
     path_length: int
 
-
+@timing_decorator
 def _random_walk(
     temperature: int,
     pressure: int,
@@ -330,7 +343,7 @@ def _sample_chunk(
         # +1 because we don't want to overwrite initial concs
     return result_dict
 
-
+@timing_decorator
 def _sample(
     temperature: int,
     pressure: int,
