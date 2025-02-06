@@ -372,14 +372,16 @@ def _sample(
         nproc = psutil.cpu_count() or 1  # because cpu_count can return None
 
     chunk_size = sample_length // nproc
-    print(f"CPU count: {nproc}, chunk size: {chunk_size}")
+
     result_dict: dict[int, _RandomWalk] = {
         0: {"data": concs, "equation_statistics": [], "path_length": 0}
     }
 
-    if nproc == 1:
-        result_dict.update(_sample_chunk(0, chunk_size, config))
+    if nproc == 1 or sample_length < nproc:
+        print("Single process")
+        result_dict.update(_sample_chunk(0, sample_length, config))
     else:
+        print(f"CPU count: {nproc}, chunk size: {chunk_size}")
         with concurrent.futures.ProcessPoolExecutor(max_workers=nproc) as executor:
             futures = {
                 executor.submit(_sample_chunk, chunk_id, chunk_size, config): chunk_id
