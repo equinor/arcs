@@ -449,37 +449,15 @@ def traverse(
         nproc=nproc,
     )
 
-    sample_concs = [
-        {k: v for k, v in samples[sample]["data"].items()} for sample in samples
-    ]
-    mean_concs = (
-        pd.Series(
-            {k: v for k, v in pd.DataFrame(sample_concs).mean().items() if v > 0.5e-6}
-        )
-        / 1e-6
-    )
+    mean_concs = pd.DataFrame([s["data"] for s in samples.values()]).mean()
+    df_summary = pd.DataFrame({"initial": concs, "final": mean_concs}) * 1e6
+    df_summary = df_summary.dropna(how="all").fillna(0.0)
+    df_summary["change"] = df_summary["final"] - df_summary["initial"]
+    df_summary = df_summary.loc[(df_summary.abs() >= 1e-6).any(axis=1)]
 
-    final_concs = mean_concs.to_dict()
-    diff_concs = pd.Series(mean_concs.to_dict()) - pd.Series(
-        {k: v / 1e-6 for k, v in concs.items()}
-    )
-    conc_diff_summary = pd.DataFrame(
-        [
-            {k: v / 1e-6 for k, v in concs.items() if v > 0},
-            mean_concs.to_dict(),
-            diff_concs.to_dict(),
-        ],
-        index=["initial", "final", "change"],
-    ).T
-    conc_diff_summary = conc_diff_summary.dropna(how="all").fillna(0.0)
     avg_path_length = np.median(
-        [
-            samples[i]["path_length"]
-            for i in samples
-            if samples[i]["path_length"] is not None
-        ]
+        [s["path_length"] for s in samples.values() if s["path_length"] is not None]
     )
-
     path_lengths.append(avg_path_length)
 
     metadata = {
@@ -505,8 +483,8 @@ def traverse(
     }
 
     return TraversalResult(
-        initfinaldiff=conc_diff_summary.to_dict(),
-        final_concs=final_concs,
+        initfinaldiff=df_summary.to_dict(),
+        final_concs=mean_concs.to_dict(),
         data=samples,
         metadata=metadata,
     )
