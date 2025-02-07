@@ -11,13 +11,22 @@ def run_simulation(sample_length=100):
     start = time.time()
     temperature = 300
     pressure = 10
-    concs = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
+    concs = {"SO2": 10e-6, "NO2": 0, "H2S": 10e-6, "H2O": 30e-6,"O2": 10e-6}
 
     results = traverse(
         temperature,
         pressure,
         concs,
-        sample_length=sample_length,
+        max_compounds = 5,
+        probability_threshold = 0.05,
+        max_rank = 5,
+        sample_length = 500,
+        path_depth = 5,
+        ceiling = 500,
+        scale_highest = 0.1,
+        rank_small_reactions_higher = True,
+        method= "Dijkstra",
+        nproc = 0,
     )
 
     df_d = pd.DataFrame(results.initfinaldiff)
