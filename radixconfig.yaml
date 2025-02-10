@@ -28,6 +28,11 @@ spec:
           cpu: 500m
           memory: 8000M
     - name: api
+      network:
+        ingress:
+          public:
+            proxyReadTimeout: 300
+            proxySendTimeout: 300
       environmentConfig:
         - environment: legacy-dash
           enabled: false
