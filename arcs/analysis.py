@@ -200,7 +200,7 @@ class AnalyseSampling:
             dict_ = df.to_dict()
             df1 = _eqpath(dict_)
         except Exception:
-            df1 = {"frequency": [None], "paths": [None], "k": [None]}
+            df1 = {"frequency": None, "paths": None, "k": None}
 
         self.common_paths = df1
         self.reaction_statistics()
