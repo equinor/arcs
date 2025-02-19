@@ -235,7 +235,7 @@ def _random_walk(
     concs: dict[str, float],
     *,
     probability_threshold: float,
-    path_depth: int,
+    iter: int,
     max_compounds: int,
     max_rank: int,
     co2: bool,
@@ -250,7 +250,7 @@ def _random_walk(
     conc_history = [concs]
     reaction_history: list[str] = []
 
-    for _ in range(path_depth):
+    for _ in range(iter):
         previous_conc_step = conc_history[-1]
         try:
             choices = _get_weighted_random_compounds(
@@ -340,8 +340,8 @@ def _sample(
     max_compounds: int,
     probability_threshold: float,
     max_rank: int,
-    sample_length: int,
-    path_depth: int,
+    samples: int,
+    iter: int,
     ceiling: int,
     scale_highest: float,
     rank_small_reactions_higher: bool,
@@ -359,7 +359,7 @@ def _sample(
         "max_compounds": max_compounds,
         "probability_threshold": probability_threshold,
         "max_rank": max_rank,
-        "path_depth": path_depth,
+        "iter": iter,
         "ceiling": ceiling,
         "scale_highest": scale_highest,
         "rank_small_reactions_higher": rank_small_reactions_higher,
@@ -371,21 +371,24 @@ def _sample(
     if nproc == 0:
         nproc = psutil.cpu_count() or 1  # because cpu_count can return None
 
-    chunk_size = sample_length // nproc
+    chunk_size = samples // nproc
 
     result_dict: dict[int, _RandomWalk] = {
         0: {"data": concs, "equation_statistics": [], "path_length": 0}
     }
 
-    if nproc == 1 or sample_length < nproc:
+    if nproc == 1 or samples < nproc:
         print("Single process")
-        result_dict.update(_sample_chunk(0, sample_length, config))
+        result_dict.update(_sample_chunk(0, samples, config))
     else:
         print(f"CPU count: {nproc}, chunk size: {chunk_size}")
+        rngs = rng.spawn(nproc)
         with concurrent.futures.ProcessPoolExecutor(max_workers=nproc) as executor:
             futures = {
-                executor.submit(_sample_chunk, chunk_id, chunk_size, config): chunk_id
-                for chunk_id in range(nproc)
+                executor.submit(
+                    _sample_chunk, chunk_id, chunk_size, {**config, "rng": rng}
+                ): chunk_id
+                for chunk_id, rng in enumerate(rngs)
             }
             for future in concurrent.futures.as_completed(futures):
                 try:
@@ -406,8 +409,8 @@ def traverse(
     max_compounds: int = 5,
     probability_threshold: float = 0.05,
     max_rank: int = 5,
-    sample_length: int = 1000,
-    path_depth: int = 5,
+    samples: int = 1000,
+    iter: int = 5,
     ceiling: int = 500,
     scale_highest: float = 0.1,
     rank_small_reactions_higher: bool = True,
@@ -429,7 +432,7 @@ def traverse(
         del concstring["CO2"]
 
     path_lengths = []
-    samples = _sample(
+    results = _sample(
         temperature,
         pressure,
         concs,
@@ -437,8 +440,8 @@ def traverse(
         max_compounds=max_compounds,
         probability_threshold=probability_threshold,
         max_rank=max_rank,
-        sample_length=sample_length,
-        path_depth=path_depth,
+        samples=samples,
+        iter=iter,
         ceiling=ceiling,
         scale_highest=scale_highest,
         rank_small_reactions_higher=rank_small_reactions_higher,
@@ -449,14 +452,14 @@ def traverse(
         nproc=nproc,
     )
 
-    mean_concs = pd.DataFrame([s["data"] for s in samples.values()]).mean()
+    mean_concs = pd.DataFrame([s["data"] for s in results.values()]).mean()
     df_summary = pd.DataFrame({"initial": concs, "final": mean_concs}) * 1e6
     df_summary = df_summary.dropna(how="all").fillna(0.0)
     df_summary["change"] = df_summary["final"] - df_summary["initial"]
     df_summary = df_summary.loc[(df_summary.abs() >= 1e-6).any(axis=1)]
 
     avg_path_length = np.median(
-        [s["path_length"] for s in samples.values() if s["path_length"] is not None]
+        [s["path_length"] for s in results.values() if s["path_length"] is not None]
     )
     path_lengths.append(avg_path_length)
 
@@ -468,8 +471,8 @@ def traverse(
         "probability_threshold": probability_threshold,
         "shortest_path_method": method,
         "max_rank": max_rank,
-        "sample_length": sample_length,
-        "path_depth": path_depth,
+        "samples": samples,
+        "iter": iter,
         "ceiling": ceiling,
         "scale_highest": scale_highest,
         "rank_small_reactions_higher": rank_small_reactions_higher,
@@ -485,6 +488,6 @@ def traverse(
     return TraversalResult(
         initfinaldiff=df_summary.to_dict(),
         final_concs=mean_concs.to_dict(),
-        data=samples,
+        data=results,
         metadata=metadata,
     )

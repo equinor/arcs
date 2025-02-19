@@ -32,8 +32,8 @@ def test_snapshot(snapshot):
         temperature,
         pressure,
         concs,
-        sample_length=100,
-        path_depth=5,
+        samples=100,
+        iter=5,
         ceiling=500,
         scale_highest=0.1,
         max_rank=5,
@@ -49,7 +49,7 @@ def test_snapshot(snapshot):
 
     df = pd.DataFrame(analysis.stats)
 
-    snapshot.assert_match(df.to_csv(), "snapshot.csv")
+    snapshot.assert_match(df.to_csv(lineterminator="\n"), "snapshot.csv")
 
 
 @pytest.mark.parametrize(
@@ -95,8 +95,8 @@ def test_synthetic(k, expected_left_shift, expected_right_shift):
         concs=concs,
         graph=graph,
         reactions=reactions,
-        sample_length=1,
-        path_depth=1,
+        samples=1,
+        iter=1,
         nproc=1,
     )
 
@@ -167,7 +167,7 @@ def test_function_random_walk(snapshot):
         pressure=10,
         concs=concentrations,
         probability_threshold=0.06,
-        path_depth=18,
+        iter=18,
         max_compounds=5,
         max_rank=5,
         co2=False,

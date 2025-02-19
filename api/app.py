@@ -68,7 +68,7 @@ def run_simulation(form: SimulationRequest):
         form.temperature,
         form.pressure,
         form.concs,
-        sample_length=form.samples,
+        samples=form.samples,
     )
 
     analysis = AnalyseSampling(results.data)

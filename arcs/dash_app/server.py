@@ -103,11 +103,11 @@ sliders = make_sliders(g, labels={0: "T (K)", 1: "P (bar)"})
 
 concs: dict[str, float] = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
 settings = {
-    "sample_length": 320,
+    "samples": 320,
     "max_rank": 10,
     "max_compounds": 5,
     "probability_threshold": 0.1,
-    "path_depth": 5,
+    "iter": 5,
     "ceiling": 2000,
     "scale_highest": 0.2,
     "rank_small_reactions_higher": True,
@@ -659,8 +659,8 @@ def update_concentrations(rows):
     ],
 )
 def update_settings(*inputs):
-    settings["sample_length"] = int(inputs[0])
-    settings["path_depth"] = int(inputs[1])
+    settings["samples"] = int(inputs[0])
+    settings["iter"] = int(inputs[1])
     settings["probability_threshold"] = float(inputs[2]) / 100
     settings["ceiling"] = int(inputs[3])
     settings["scale_highest"] = float(inputs[4])
