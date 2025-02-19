@@ -7,10 +7,9 @@ from arcs.traversal import (
     _get_weighted_random_compounds,
     _random_walk,
 )
-from arcs.model import get_graph, get_reactions
+from arcs.model import Table, get_reaction_compounds, get_reactions, get_table
 from arcs.analysis import AnalyseSampling
 from chempy import Equilibrium
-import networkx as nx
 import pytest
 import math
 
@@ -38,7 +37,6 @@ def test_snapshot(snapshot):
         scale_highest=0.1,
         max_rank=5,
         max_compounds=5,
-        method="Dijkstra",
         rng=np.random.default_rng([0]),
         probability_threshold=0.05,
         nproc=1,
@@ -63,25 +61,14 @@ def test_synthetic(k, expected_left_shift, expected_right_shift):
             "k": k,
         }
     }
-    graph = nx.MultiDiGraph(directed=True)
-
-    for i, reac in reactions.items():
-        f_cost = 1
-        b_cost = 1
-        reactants = list(reac["e"].reac)
-        products = list(reac["e"].prod)
-        graph.add_weighted_edges_from(
-            [c, i, f_cost] for c in reactants
-        )  # reactants -> reaction
-        graph.add_weighted_edges_from(
-            [i, c, b_cost] for c in reactants
-        )  # reaction -> reactants
-        graph.add_weighted_edges_from(
-            [i, c, f_cost] for c in products
-        )  # reaction -> products
-        graph.add_weighted_edges_from(
-            [c, i, b_cost] for c in products
-        )  # products -> reaction
+    table: Table = {
+        ("H2", "Br2"): ([1], [1.0]),
+        ("H2", "HBr"): ([1], [1.0]),
+        ("Br2", "H2"): ([1], [1.0]),
+        ("Br2", "HBr"): ([1], [1.0]),
+        ("HBr", "H2"): ([1], [1.0]),
+        ("HBr", "Br2"): ([1], [1.0]),
+    }
 
     concs = {
         "H2": 1e-6,
@@ -93,14 +80,14 @@ def test_synthetic(k, expected_left_shift, expected_right_shift):
         temperature=10,
         pressure=10,
         concs=concs,
-        graph=graph,
+        table=table,
         reactions=reactions,
         samples=1,
         iter=1,
         nproc=1,
     )
 
-    first_product_change = res.initfinaldiff["change"][products[0]]
+    first_product_change = res.initfinaldiff["change"]["HBr"]
     if not expected_left_shift and not expected_right_shift:
         assert math.isclose(first_product_change, 0, abs_tol=1e-15)
 
@@ -131,7 +118,8 @@ def test_function_get_weighted_random_compounds(snapshot):
 
 
 def test_function_get_weighted_reaction_rankings(snapshot):
-    graph = get_graph(300, 10)
+    reactions = get_reactions(300, 100)
+    table = get_table(300, 10)
     concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
 
     weighted_random_compounds = _get_weighted_random_compounds(
@@ -146,21 +134,20 @@ def test_function_get_weighted_reaction_rankings(snapshot):
         rng=np.random.default_rng([0]),
     )
     ranking = _get_weighted_reaction_rankings(
-        tempreature=300,
-        pressure=10,
-        choices=weighted_random_compounds,
+        choices=list(weighted_random_compounds),
         max_rank=5,
-        method="Bellman-Ford",
-        rank_small_reactions_higher=True,
-        graph=graph,
+        table=table,
+        reaction_compounds=get_reaction_compounds(reactions),
     )
+    ranking = {int(k): float(v) for k, v in zip(*ranking)}
     snapshot.assert_match(json.dumps(ranking), "weighted_reaction_ranking.json")
 
 
 def test_function_random_walk(snapshot):
     concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
-    graph = get_graph(300, 10)
+    table = get_table(300, 10)
     reactions = get_reactions(300, 10)
+    reaction_compounds = get_reaction_compounds(reactions)
 
     walk = _random_walk(
         temperature=250,
@@ -173,10 +160,9 @@ def test_function_random_walk(snapshot):
         co2=False,
         scale_highest=0.1,
         ceiling=2100,
-        method="Bellman-Ford",
-        rank_small_reactions_higher=True,
         rng=np.random.default_rng([0]),
         reactions=reactions,
-        graph=graph,
+        table=table,
+        reaction_compounds=reaction_compounds,
     )
     snapshot.assert_match(json.dumps(walk), "random_walk.json")

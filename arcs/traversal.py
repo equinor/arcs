@@ -1,13 +1,11 @@
 from __future__ import annotations
 from collections import defaultdict
-from collections.abc import Collection
 from dataclasses import dataclass
-from typing import Literal, Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from chempy.equilibria import Equilibrium, EqSystem
 from chempy import Substance
 import copy
-import networkx as nx
 import itertools as it
 import concurrent.futures
 import platform
@@ -17,10 +15,14 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from arcs.model import get_graph, get_reactions
+from arcs.model import get_reaction_compounds, get_table, get_reactions, Table
 import warnings
 
 warnings.filterwarnings("ignore")
+
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
 
 @dataclass
@@ -50,7 +52,7 @@ def _get_weighted_random_compounds(
     scale_highest: float,
     ceiling: int,
     rng: np.random.Generator,
-) -> dict[Any, Any]:
+) -> dict[str, float]:
     concs = copy.deepcopy(init_concs)
     if co2 is False and "CO2" in concs:
         del concs["CO2"]
@@ -103,71 +105,37 @@ def _get_weighted_random_compounds(
     return selected_compounds
 
 
-def _length_multiplier(
-    candidate: list[Any], *, rank_small_reactions_higher: bool
-) -> int:
-    if rank_small_reactions_higher:
-        return len(list(candidate))
-    else:
-        return 1
-
-
 def _get_weighted_reaction_rankings(
-    tempreature: int,
-    pressure: int,
-    choices: Collection[str],
+    choices: list[str],
     *,
     max_rank: int,
-    method: Literal["Bellman-Ford", "Dijkstra"],
-    rank_small_reactions_higher: bool,
-    graph: nx.MultiDiGraph,
-) -> dict[Any, dict[str, Any]] | None:
-    reaction_rankings = {}
-    if len(choices) > 1:
-        possible_shortest_reaction_paths = list(
-            nx.shortest_paths.all_shortest_paths(
-                graph, list(choices)[0], list(choices)[1], method=method
-            )
-        )
-        for reaction_path in possible_shortest_reaction_paths:
-            reactant_compound = reaction_path[0]
-            reaction = reaction_path[1]
-            candidates = list(graph[reaction])
-            if len(choices) > 2:
-                for compound in list(choices)[2:]:
-                    if compound in candidates:
-                        weight = graph.get_edge_data(reactant_compound, reaction)[0][
-                            "weight"
-                        ] * 10 ** _length_multiplier(
-                            graph[reaction],
-                            rank_small_reactions_higher=rank_small_reactions_higher,
-                        )
-                        reaction_rankings[reaction] = {
-                            "candidates": candidates,
-                            "weight": weight,
-                        }
-            else:
-                weight = graph.get_edge_data(reactant_compound, reaction)[0][
-                    "weight"
-                ] * 10 ** _length_multiplier(
-                    graph[reaction],
-                    rank_small_reactions_higher=rank_small_reactions_higher,
-                )
-                reaction_rankings[reaction] = {
-                    "candidates": candidates,
-                    "weight": weight,
-                }
-    if reaction_rankings:
-        sorted_rankings = (
-            pd.DataFrame(reaction_rankings).sort_values(by="weight", axis=1).to_dict()
-        )
-        top_ranked_reactions = [
-            reaction for i, reaction in enumerate(sorted_rankings) if i <= max_rank
-        ]
-        reaction_rankings = {r: reaction_rankings[r] for r in top_ranked_reactions}
-        return reaction_rankings
-    else:
+    table: Table,
+    reaction_compounds: dict[int, set[str]],
+) -> tuple[npt.NDArray[np.int16], npt.NDArray[np.float64]] | None:
+    reactions, weights = table[(str(choices[0]), str(choices[1]))]
+
+    new_weights: list[np.float64] = []
+    new_reacts: list[np.int16] = []
+
+    for index, reaction in enumerate(reactions):
+        if len(new_weights) > max_rank:
+            break
+
+        if len(choices) <= 2 or any(
+            c in reaction_compounds[reaction] for c in choices[2:]
+        ):
+            new_reacts.append(reaction)
+            new_weights.append(weights[index])
+
+    weights = np.array(new_weights)
+    reactions = np.array(new_reacts)
+
+    sum = np.sum(weights)
+    if not sum:
         return None
+
+    weights /= sum
+    return (reactions, weights)
 
 
 def _generate_eqsystem(
@@ -212,6 +180,7 @@ def _equilibrium_concentrations(
     equilibrium_concentrations = defaultdict(lambda: 0.0, concs)
     try:
         root_concs, solution_data, sane = eq.root(equilibrium_concentrations)
+
         assert solution_data["success"] and sane
         for i, conc in enumerate(root_concs):
             equilibrium_concentrations[eq.substance_names()[i]] = conc
@@ -241,11 +210,10 @@ def _random_walk(
     co2: bool,
     scale_highest: float,
     ceiling: int,
-    method: Literal["Bellman-Ford", "Dijkstra"],
-    rank_small_reactions_higher: bool,
     rng: np.random.Generator,
     reactions: dict[int, Any],
-    graph: nx.MultiDiGraph,
+    table: Table,
+    reaction_compounds: dict[int, set[str]],
 ) -> _RandomWalk:
     conc_history = [concs]
     reaction_history: list[str] = []
@@ -268,35 +236,24 @@ def _random_walk(
             break
         if len(choices) <= 1:
             break
-        reaction_rankings = _get_weighted_reaction_rankings(
-            temperature,
-            pressure,
-            choices,
+        rankings = _get_weighted_reaction_rankings(
+            list(choices),
             max_rank=max_rank,
-            method=method,
-            rank_small_reactions_higher=rank_small_reactions_higher,
-            graph=graph,
+            table=table,
+            reaction_compounds=reaction_compounds,
         )
-        if not reaction_rankings:
-            break
-        reaction_weights = {
-            r: 1 / reaction_rankings[r]["weight"] for r in reaction_rankings
-        }
-        probabilities = {
-            k: v / sum(reaction_weights.values()) for k, v in reaction_weights.items()
-        }
+        if rankings is None:
+            continue
         chosen_reaction = rng.choice(
-            [
-                rng.choice(
-                    list(probabilities.keys()),
-                    len(probabilities),
-                    p=list(probabilities.values()),
-                )
-            ][0]
+            rng.choice(
+                rankings[0],
+                len(rankings[0]),
+                p=rankings[1],
+            )
         )
 
         eqsyst = _generate_eqsystem(
-            chosen_reaction, temperature, pressure, reactions=reactions
+            int(chosen_reaction), temperature, pressure, reactions=reactions
         )
         # if reaction was previous reaction then break
         path_available = [r for r in reaction_history if r is not None]
@@ -344,12 +301,11 @@ def _sample(
     iter: int,
     ceiling: int,
     scale_highest: float,
-    rank_small_reactions_higher: bool,
-    method: Literal["Bellman-Ford", "Dijkstra"],
     rng: np.random.Generator,
     reactions: dict[int, Any],
-    graph: nx.MultiDiGraph,
+    table: Table,
     nproc: int,
+    reaction_compounds: dict[int, set[str]],
 ) -> dict[int, Any]:
     config = {
         "temperature": temperature,
@@ -362,11 +318,10 @@ def _sample(
         "iter": iter,
         "ceiling": ceiling,
         "scale_highest": scale_highest,
-        "rank_small_reactions_higher": rank_small_reactions_higher,
-        "method": method,
         "rng": rng,
         "reactions": reactions,
-        "graph": graph,
+        "table": table,
+        "reaction_compounds": reaction_compounds,
     }
     if nproc == 0:
         nproc = psutil.cpu_count() or 1  # because cpu_count can return None
@@ -414,16 +369,19 @@ def traverse(
     ceiling: int = 500,
     scale_highest: float = 0.1,
     rank_small_reactions_higher: bool = True,
-    method: Literal["Bellman-Ford", "Dijkstra"] = "Dijkstra",
     rng: np.random.Generator | None = None,
     reactions: dict[int, Any] | None = None,
-    graph: nx.MultiDiGraph | None = None,
-    nproc: int = 0,
+    table: Table | None = None,
+    nproc: int = 1,
 ) -> TraversalResult:
     if rng is None:
         rng = np.random.default_rng()
-    if graph is None:
-        graph = get_graph(temperature, pressure)
+    if table is None:
+        table = get_table(
+            temperature,
+            pressure,
+            rank_small_reactions_higher=rank_small_reactions_higher,
+        )
     if reactions is None:
         reactions = get_reactions(temperature, pressure)
 
@@ -444,12 +402,11 @@ def traverse(
         iter=iter,
         ceiling=ceiling,
         scale_highest=scale_highest,
-        rank_small_reactions_higher=rank_small_reactions_higher,
-        method=method,
         rng=rng,
         reactions=reactions,
-        graph=graph,
+        table=table,
         nproc=nproc,
+        reaction_compounds=get_reaction_compounds(reactions),
     )
 
     mean_concs = pd.DataFrame([s["data"] for s in results.values()]).mean()
@@ -469,7 +426,6 @@ def traverse(
         "co2": co2,
         "max_compounds": max_compounds,
         "probability_threshold": probability_threshold,
-        "shortest_path_method": method,
         "max_rank": max_rank,
         "samples": samples,
         "iter": iter,
