@@ -17,6 +17,13 @@ spec:
       environment: legacy-dash
   components:
     - name: server
+      environmentConfig:
+        - environment: legacy-dash
+          enabled: true
+        - environment: dev
+          enabled: false
+        - environment: prod
+          enabled: false
       ports:
         - name: http
           port: 8050

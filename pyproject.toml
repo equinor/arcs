@@ -24,7 +24,6 @@ classifiers=[
 ]
 
 [tool.poetry.urls]
-"homepage" = "https://arcs.radix.equinor.com"
 "repository" = "https://github.com/equinor/arcs"
 "documentation" = "https://github.com/equinor/arcs"
 "Bug Tracker" = "https://github.com/equinor/arcs/issues"
@@ -38,16 +37,9 @@ numpy = "^2.1.2"
 chempy = "^0.9.0"
 tqdm = "^4.66.5"
 networkx = "^3.4.1"
-dash = "^2.18.1"
-dash-bootstrap-templates = "^1.2.4"
-dash-bootstrap-components = "^1.6.0"
-dash-loading-spinners = "^1.0.3"
-dash-core-components = "^2.0.0"
-setproctitle = "^1.3.3"
 fastapi = "^0.115.2"
 uvicorn = "^0.32.0"
 pydantic = "^2.9.2"
-gunicorn = "^23.0.0"
 pyjwt = {extras = ["crypto"], version = "^2.10.1"}
 python-dotenv = "^1.0.1"
 
@@ -75,11 +67,6 @@ module = [
   "networkx",
 ]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "arcs.dash_app.server"
-ignore_missing_imports = true
-ignore_errors = true
 
 [build-system]
 requires = ["poetry-core"]
