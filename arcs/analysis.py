@@ -93,10 +93,10 @@ class AnalyseSampling:
                 self.data[x]["data"].get(compound, 0) for x in self.data
             ]
             diff = [i - initial_concentrations[compound] for i in final_all_samples]
-            final_concentrations[compound] = np.mean(final_all_samples) / 1e-6
+            final_concentrations[compound] = np.mean(final_all_samples)
             mean_values[compound] = {
-                "value": np.mean(diff) / 1e-6,
-                "variance": np.var(diff) / 1e-6,
+                "value": np.mean(diff),
+                "variance": np.var(diff),
             }
             # 2nd value is the variance and not the std deviation
 

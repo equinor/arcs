@@ -122,7 +122,7 @@ def _get_weighted_reaction_rankings(
             break
 
         if len(choices) <= 2 or any(
-            c in reaction_compounds[reaction] for c in choices[2:]
+            c in reaction_compounds[int(reaction)] for c in choices[2:]
         ):
             new_reacts.append(reaction)
             new_weights.append(weights[index])
@@ -385,7 +385,7 @@ def traverse(
     if reactions is None:
         reactions = get_reactions(temperature, pressure)
 
-    concstring = pd.Series({k: v for k, v in concs.items() if v > 0}) / 1e-6
+    concstring = pd.Series({k: v for k, v in concs.items() if v > 0})
     if "CO2" in concstring:
         del concstring["CO2"]
 
@@ -410,10 +410,12 @@ def traverse(
     )
 
     mean_concs = pd.DataFrame([s["data"] for s in results.values()]).mean()
-    df_summary = pd.DataFrame({"initial": concs, "final": mean_concs}) * 1e6
+    df_summary = pd.DataFrame({"initial": concs, "final": mean_concs})
     df_summary = df_summary.dropna(how="all").fillna(0.0)
     df_summary["change"] = df_summary["final"] - df_summary["initial"]
-    df_summary = df_summary.loc[(df_summary.abs() >= 1e-6).any(axis=1)]
+
+    # Commented out on purpose to verify concentration conversions
+    # df_summary = df_summary.loc[(df_summary.abs() >= 1e-6).any(axis=1)]
 
     avg_path_length = np.median(
         [s["path_length"] for s in results.values() if s["path_length"] is not None]
