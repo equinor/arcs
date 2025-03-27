@@ -1,7 +1,6 @@
 from typing import Any, Hashable, no_type_check
 import pandas as pd
 from collections import defaultdict
-import numpy as np
 from collections import Counter
 
 from .traversal import _RandomWalk
@@ -78,30 +77,19 @@ class AnalyseSampling:
         self.stats = self._get_stats(equations)
 
     def mean_sampling(self) -> None:
-        final_concentrations = {}
-        mean_values = {}
+        df = pd.DataFrame({k: v["data"] for k, v in self.data.items()}).T.fillna(0)
 
-        compounds: set[str] = set()
-        for sample in self.data.values():
-            compounds.update(sample["data"].keys())
+        initial_concs = df.iloc[0]
+        final_concentrations = df.mean()
+        diff = df - initial_concs
 
-        # initial concentrations including zeros
-        initial_concentrations = {c: self.data[0]["data"].get(c, 0) for c in compounds}
-
-        for compound in compounds:
-            final_all_samples = [
-                self.data[x]["data"].get(compound, 0) for x in self.data
-            ]
-            diff = [i - initial_concentrations[compound] for i in final_all_samples]
-            final_concentrations[compound] = np.mean(final_all_samples)
-            mean_values[compound] = {
-                "value": np.mean(diff),
-                "variance": np.var(diff),
-            }
-            # 2nd value is the variance and not the std deviation
+        mean_values = {
+            compound: {"value": diff[compound].mean(), "variance": diff[compound].var()}
+            for compound in df.columns
+        }
 
         self.mean_data = mean_values
-        self.final_concs = final_concentrations
+        self.final_concs = final_concentrations.to_dict()
 
     def reaction_paths(self, index_override: int | None = None) -> None:
         """currently chooses the top reaction, and only does what comes after"""
