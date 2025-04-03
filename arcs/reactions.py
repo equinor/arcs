@@ -268,6 +268,7 @@ class MappingtoReaction:
             yield ((r,p))
             
     def remove_indices(self,reaction_indexes):
+        ''''''
         indexes =  tuple(self.compounds)
         approved = []
         for r in reaction_indexes:
@@ -318,10 +319,10 @@ class MappingtoReaction:
             re,pr = r
             try:
                 converted.append(balance_stoichiometry(list(re),list(pr),underdetermined=None))
-            except:
+            except Exception:
                 try:
                     converted.append(balance_stoichiometry(list(re),list(pr)))
-                except:
+                except Exception:
                     pass                            
         return(converted) 
     
@@ -341,7 +342,7 @@ class MappingtoReaction:
                 re,pr = _convert_ord_to_dict(r)
                 try:
                     screened.append(Equilibrium(re,pr))
-                except:
+                except Exception:
                     pass
             except Exception :
                 pass

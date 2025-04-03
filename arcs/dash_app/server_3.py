@@ -74,10 +74,10 @@ def start_dash(host: str,
     
     meta = dbc.Alert("Data Shown When Run", color="secondary")  # None #html.P('None')
     
-    functional_choice_dict = {'HSE06':file_location+'hse06_dft_data.json',
+    functional_choice_dict = {'HSE06':file_location+'test_hse06_small_graph.json',
                               'SCAN':file_location+'scan_dft_data.json'}
     
-    default_data,reactions = load_data(file_location+'hse06_dft_data.json',split_data=True)
+    default_data,reactions = load_data(file_location+'test_hse06_small_graph.json',split_data=True)
     compounds = [x for x in list(default_data) if not x == 'reactions']
     gic = GenerateInitialConcentrations(compounds=compounds)
     gic.all_zero(include_co2=False)
@@ -96,7 +96,7 @@ def start_dash(host: str,
     }
     ambient_settings = {"T": None, "P": None}
     
-    default_data = load_data(file_location+'hse06_dft_data.json')
+    default_data = load_data(file_location+'test_hse06_small_graph.json')
     ###################### layout of DASH template########################
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
     
@@ -202,7 +202,7 @@ def start_dash(host: str,
                             {"label": "HSE06", "value": "HSE06"},
                             {"label": "SCAN", "value": "SCAN"},
                         ],
-                        value="SCAN",
+                        value="HSE06",
                     )
                 ],
             ),
@@ -715,6 +715,7 @@ def start_dash(host: str,
         if "submit-val" == ctx.triggered_id:
             warnings.simplefilter("ignore")
             ### generate a graph with the given data
+            
             reaction_data = ApplyDataToReaction(
                 [ambient_settings['T']],
                 [ambient_settings['P']],

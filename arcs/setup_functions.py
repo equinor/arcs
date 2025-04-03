@@ -1,3 +1,4 @@
+import functools 
 import os
 import gzip
 from ase.io import read
@@ -115,9 +116,12 @@ class GetEnergyandVibrationsVASP:
         outcar = gzip.open('{}/OUTCAR.gz'.format(self.vibrations),'tr').readlines()
         frequencies = []
         for line in outcar:
-            if 'THz' in line:
+            if 'THz' in line: #thermochemistry now has an option to ignore imaginary modes...
                 if 'f/i' not in line: # we ignore imaginary modes
                     ev = float(line.split()[-2]) / 1000
+                    frequencies.append(ev)
+                else:
+                    ev = -float(line.split()[-2]) /1000
                     frequencies.append(ev)
         return(frequencies)      
     
@@ -251,7 +255,8 @@ class ReactionGibbsandEquilibrium:
                                         atoms=Atoms.fromdict(data['atoms']),
                                         symmetrynumber=data['rotation_num'],
                                         spin=data['spin'],
-                                        natoms=Atoms.fromdict(data['atoms']).get_global_number_of_atoms())
+                                        natoms=Atoms.fromdict(data['atoms']).get_global_number_of_atoms(),
+                                        ignore_imag_modes=True) # try setting to True as well?
         G = igt.get_gibbs_energy(self.temperature,self.pressure,verbose=False)
         H = igt.get_enthalpy(self.temperature,verbose=False)
         S = igt.get_entropy(self.temperature,self.pressure,verbose=False) 
@@ -276,7 +281,6 @@ class ReactionGibbsandEquilibrium:
     def as_dict(self,reaction):
         return({'e':reaction,'g':self.reaction_energy(reaction),'k':self.equilibrium_constant(reaction)})
 
-
 class ApplyDataToReaction:
     ''' this class applies the Gibbs data to a specific reaction'''
     
@@ -284,7 +288,10 @@ class ApplyDataToReaction:
         self.trange = trange
         self.prange = prange
         reactions = data['reactions']
-        self.reactions = {i:Equilibrium.from_string(r) for i,r in enumerate(reactions)}
+        try:
+            self.reactions = {i:Equilibrium.from_string(r) for i,r in enumerate(reactions)}
+        except Exception:
+            self.reactions = {i:r for i,r in enumerate(reactions)}
         self.compound_data = {k:data[k] for k in data.keys() if not k == 'reactions'}
         self.nprocs = nprocs
         self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
@@ -332,7 +339,8 @@ class ApplyDataToReaction:
             pr.join()
 
         return(resultdict)
-        
+
+
     def apply(self,serial=False):
         data = {}
         for t in self.trange:
@@ -350,7 +358,6 @@ class ApplyDataToReaction:
         pickle.dump(self.data,open(filename,'wb'))
         print('data saved to: {}'.format(filename))
 
-        
 class GraphGenerator:    
     
     def __init__(self,applied_reactions,ncores=4):
