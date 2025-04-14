@@ -42,7 +42,6 @@ pydantic = "^2.9.2"
 pyjwt = {extras = ["crypto"], version = "^2.10.1"}
 python-dotenv = "^1.0.1"
 
-
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
 ruff = "^0.7.1"
@@ -52,9 +51,13 @@ types-tqdm = "^4.67.0.20241221"
 types-psutil = "^6.1.0.20241221"
 pandas-stubs = "^2.2.3.241126"
 
-
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.6.1"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
 
 [tool.mypy]
 strict = true
