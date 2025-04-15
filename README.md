@@ -4,16 +4,31 @@
 </p>
 
 ## Installation
-To install Arcs using the standard `pip` Python package manager, after having checked out this repository, use:
+
+To install ARCS using the standard `pip` Python package manager, follow these steps after cloning this repository:
 
 ```
 pip install .
 ```
 
-Arcs uses the [Poetry](https://python-poetry.org) package and dependency manager. For development and testing, install `poetry` (using `brew install poetry`, `pipx install poetry` or using your favourite package manager), then:
+ARCS uses the [Poetry](https://python-poetry.org) package and dependency manager. For development and testing, install `poetry` (using `brew install poetry`, `pipx install poetry` or using your preferred package manager), then:
 
 ```
-poetry install
+poetry sync
 ```
 
-Refer to the Poetry documentation for more information.
+Refer to the [Poetry documentation](https://python-poetry.org/docs/) for more information.
+
+### Fetching Model Files
+
+To fetch the necessary large model files (pre-computed equations and Gibbs free energy), run:
+
+```
+git lfs pull
+```
+
+This command assumes you have `git lfs` installed. On macOS you can install it using Homebrew:
+```
+brew install git-lfs
+git lfs install
+```
