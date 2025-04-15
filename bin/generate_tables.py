@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
+from pathlib import Path
 from collections import defaultdict
-from typing import IO, TYPE_CHECKING
+import os
+import string
+from typing import IO, TYPE_CHECKING, Any, List
 import numpy as np
 from pathlib import Path
 import pickle
@@ -22,8 +24,7 @@ def _num_atoms(name: str) -> int:
 
 
 def _cost_function(
-    gibbs: float, temperature: float, compounds: dict[str, int]
-) -> float:
+    gibbs: float, temperature: float, compounds: dict[str, int],) -> float:
     num_atoms = sum(_num_atoms(k) * v for k, v in compounds.items())
     return np.log(1 + (273 / temperature) * np.exp(gibbs / num_atoms))
 
@@ -106,6 +107,29 @@ def _process_file(filepath: Path) -> None:
         _write_table(f, pre_table, value_column=2)
 
 
+def process_generic_inputs(reactions : List[dict[Any, dict[str, Any]]], temperature : int, pressure : int, path : Path):
+    
+    directory_name = path / f"T{temperature}_P{pressure}"
+    
+    try:
+        os.makedirs(directory_name, exist_ok=True)  
+        print(f"Directory created successfully", directory_name)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    pre_table: _PreTable = defaultdict(list)
+
+    for r in reactions:
+        for index, values in r.items():
+            _process_reaction(pre_table, temperature, index, values)
+
+    with (directory_name / "table.p").open("wb") as f:
+        _write_table(f, pre_table)
+    
+    with (directory_name /  "table-rank_small_reactions_higher.p").open("wb") as f:
+        _write_table(f, pre_table, value_column=2)
+    
 def main() -> None:
     with Pool() as pool:
         _ = pool.map(_process_file, Path().glob("model/*/reactions.p"))
