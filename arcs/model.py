@@ -164,6 +164,8 @@ def _get_gibbs_constant(
 
 def _find_enclosing(target: int, values: List[int]):
 
+    if (target in values):
+        return target, target
     lower_candidate = max(list(filter(lambda x: x < target, values)))
     upper_candidate = min(list(filter(lambda x: x > target, values)))
 
