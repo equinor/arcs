@@ -8,7 +8,7 @@ from typing import List, Tuple, TypedDict, Dict
 import chempy
 import numpy as np
 import numpy.typing as npt
-from scipy import interpolate
+from scipy import interpolate  # type: ignore
 from bin.generate_tables import process_generic_inputs
 
 MODEL_PATH = Path(__file__).parent.parent / "model"
@@ -39,18 +39,22 @@ def get_table(
     file_path = MODEL_PATH / f"T{temperature}_P{pressure}" / f"table{suffix}.p"
 
     if not file_path.exists():
-        
-        g,e,id = run_reaction_calc(pressure, temperature)
+        g, e, id = run_reaction_calc(pressure, temperature)
         restructured_reactions = [
-            {_id:{
-                "e":_e,
-                "k": np.nan,# Oneline of FunctionCall(),
-                "g":_g ,        
-            }}
-            for _id, _e, _g in zip(id, e, g)]
-        
-        process_generic_inputs(restructured_reactions, temperature, pressure, MODEL_PATH)
-        
+            {
+                _id: {
+                    "e": _e,
+                    "k": np.nan,  # Oneline of FunctionCall(),
+                    "g": _g,
+                }
+            }
+            for _id, _e, _g in zip(id, e, g)
+        ]
+
+        process_generic_inputs(
+            restructured_reactions, temperature, pressure, MODEL_PATH
+        )
+
         source_file = MODEL_PATH / "T200_P1" / "reactions.p"
         destination_directory = MODEL_PATH / f"T{temperature}_P{pressure}"
         shutil.copy(source_file, destination_directory / "reactions.p")
@@ -59,7 +63,9 @@ def get_table(
         return pickle.load(stream)  # type: ignore
 
 
-def run_reaction_calc(pressure: int, temperature: int):
+def run_reaction_calc(
+    pressure: int, temperature: int
+) -> Tuple[List[float], List[chempy.Equilibrium], List[int]]:
     pressure_list = [
         1,
         2,
@@ -106,7 +112,7 @@ def _get_gibbs_constant(
     pt_combinations: List[Tuple[int, int]],
     pressure: int,
     temperature: int,
-) -> List[np.float64]:
+) -> Tuple[List[float], List[chempy.Equilibrium], List[int]]:
     """
     Input Arguments
     pt_combinations = [(T0,P0), (T0, P1), (T1,P0), (T1,P1)]
@@ -114,22 +120,24 @@ def _get_gibbs_constant(
 
     """
 
-    gibbs_values = []
-    equilibrium = []
+    gibbs_values: List[float] = []
+    equilibrium: List[chempy.Equilibrium] = []
 
-    for reaction in reactions: # - runs 4 times because we have 4 combinations of P and T
+    for (
+        reaction
+    ) in reactions:  # - runs 4 times because we have 4 combinations of P and T
         reaction_gibbs_values = []
         reaction_ids = []
-        for reaction_id, reaction_data in reaction.items(): # runs 9113 times 
+        for reaction_id, reaction_data in reaction.items():  # runs 9113 times
             g_value = reaction_data["g"]
             _e = reaction_data["e"]
-            equilibrium.append(_e) 
+            equilibrium.append(_e)
             reaction_gibbs_values.append(g_value)
             reaction_ids.append(reaction_id)
 
-        gibbs_values.append(reaction_gibbs_values)
+        gibbs_values.append(reaction_gibbs_values)  # type: ignore
 
-    gibbs_values = np.array(gibbs_values) #[4 numpy arrays - with 9113 elements 4 x 9113, but i need transpose of this]
+    gibbs_values = np.array(gibbs_values)  # type: ignore
 
     # Unpack list of tuples
     (T0, P0), (T0, P1), (T1, P0), (T1, P1) = pt_combinations
@@ -159,12 +167,11 @@ def _get_gibbs_constant(
 
     calculated_gibbs_values = [g(pressure) for g in interpolation_g]
 
-    return [calculated_gibbs_values, equilibrium, reaction_ids]
+    return [calculated_gibbs_values, equilibrium, reaction_ids]  # type: ignore
 
 
-def _find_enclosing(target: int, values: List[int]):
-
-    if (target in values):
+def _find_enclosing(target: int, values: List[int]) -> Tuple[int, int]:
+    if target in values:
         return target, target
     lower_candidate = max(list(filter(lambda x: x < target, values)))
     upper_candidate = min(list(filter(lambda x: x > target, values)))
