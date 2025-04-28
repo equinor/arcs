@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
-from collections import defaultdict
-from typing import IO, TYPE_CHECKING
-import numpy as np
 from pathlib import Path
+from collections import defaultdict
+import os
+from typing import IO, TYPE_CHECKING, Any, Set
+import numpy as np
 import pickle
 import re
 from multiprocessing import Pool
@@ -22,7 +22,9 @@ def _num_atoms(name: str) -> int:
 
 
 def _cost_function(
-    gibbs: float, temperature: float, compounds: dict[str, int]
+    gibbs: float,
+    temperature: float,
+    compounds: dict[str, int],
 ) -> float:
     num_atoms = sum(_num_atoms(k) * v for k, v in compounds.items())
     return np.log(1 + (273 / temperature) * np.exp(gibbs / num_atoms))
@@ -45,7 +47,7 @@ def _compute_edge(
         return _cost_function(-gibbs, temperature, prod)
 
 
-type _PreTable = dict[tuple[str, str], list[tuple[int, float, float]]]
+_PreTable = dict[tuple[str, str], list[tuple[int, float, float]]]
 
 
 def _process_reaction(
@@ -103,6 +105,34 @@ def _process_file(filepath: Path) -> None:
     with (filepath.parent / "table.p").open("wb") as f:
         _write_table(f, pre_table)
     with (filepath.parent / "table-rank_small_reactions_higher.p").open("wb") as f:
+        _write_table(f, pre_table, value_column=2)
+
+
+def process_generic_inputs(
+    reactions: Set[dict[Any, dict[str, Any]]],
+    temperature: int,
+    pressure: int,
+    path: Path,
+):
+    directory_name = path / f"T{temperature}_P{pressure}"
+
+    try:
+        os.makedirs(directory_name, exist_ok=True)
+        print("Directory created successfully", directory_name)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    pre_table: _PreTable = defaultdict(list)
+
+    for r in reactions:
+        for index, values in r.items():
+            _process_reaction(pre_table, temperature, index, values)
+
+    with (directory_name / "table.p").open("wb") as f:
+        _write_table(f, pre_table)
+
+    with (directory_name / "table-rank_small_reactions_higher.p").open("wb") as f:
         _write_table(f, pre_table, value_column=2)
 
 
