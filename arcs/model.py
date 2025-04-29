@@ -40,12 +40,10 @@ def get_table(
     if not file_path.exists():
         g, e, id = run_reaction_calc(pressure, temperature)
         restructured_reactions = {
-            {
-                _id: {
-                    "e": _e,
-                    "k": np.nan,  # Oneline of FunctionCall(),
-                    "g": _g,
-                }
+            _id: {
+                "e": _e,
+                "k": np.nan,  # Oneline of FunctionCall(),
+                "g": _g,
             }
             for _id, _e, _g in zip(id, e, g)
         }

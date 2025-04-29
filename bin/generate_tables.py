@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from collections import defaultdict
 import os
-from typing import IO, TYPE_CHECKING, Any, Set
+from typing import IO, TYPE_CHECKING, Any
 import numpy as np
 import pickle
 import re
@@ -109,7 +109,7 @@ def _process_file(filepath: Path) -> None:
 
 
 def process_generic_inputs(
-    reactions: Set[dict[Any, dict[str, Any]]],
+    reactions: dict[Any, dict[str, Any]],
     temperature: int,
     pressure: int,
     path: Path,
@@ -125,9 +125,8 @@ def process_generic_inputs(
 
     pre_table: _PreTable = defaultdict(list)
 
-    for r in reactions:
-        for index, values in r.items():
-            _process_reaction(pre_table, temperature, index, values)
+    for index, values in reactions.items():
+        _process_reaction(pre_table, temperature, index, values)
 
     with (directory_name / "table.p").open("wb") as f:
         _write_table(f, pre_table)
