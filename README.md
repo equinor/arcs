@@ -1,9 +1,9 @@
-## `ARCS` -  Automated Reactions for CO2 storage <img src="./static/ARCS_Logo.png" width="300" align="left" alt="ARCS Logo seasoned by ChatGPT">
+## `ARCS` -  Automated Reactions for CO2 storage <img src="./static/ARCS_Logo.png" width="100" align="left" alt="ARCS Logo seasoned by ChatGPT">
 
 
 Version 1.5.0
 
-## Installation
+### Installation
 
 ```
 git clone https://github.com/badw/arcs.git
@@ -11,7 +11,7 @@ cd arcs
 pip install . 
 ```
 
-## GUI
+### GUI
 
 The GUI is created using the `plotly DASH` ([https://github.com/plotly/dash](https://github.com/plotly/dash)) framework.  
 
