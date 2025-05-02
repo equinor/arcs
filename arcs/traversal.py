@@ -22,6 +22,7 @@ import psutil
 import time
 import pickle
 import datetime
+import os
 
 class Traversal:
     def __init__(self,graph,reactions):
@@ -479,7 +480,7 @@ version:1.2
                          'platform':platform.platform(),
                          'python_version':platform.python_version(),
                          'processor':platform.processor(),
-                         'available_cores':psutil.cpu_count(),
+                         'available_cores':os.cpu_count(),
                          'available_memory':str(int(psutil.virtual_memory()[0] / 1000/1000/1000))+'Gb',
                          'date':str(datetime.now())}
         
