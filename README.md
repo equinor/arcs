@@ -1,4 +1,4 @@
-## `ARCS` -  Automated Reactions for CO2 storage <img src="./static/reactit.png" width="300" align="left" alt="ARCS Logo seasoned by ChatGPT">
+## `ARCS` -  Automated Reactions for CO2 storage <img src="./static/ARCS_Logo.png" width="300" align="left" alt="ARCS Logo seasoned by ChatGPT">
 
 
 Version 1.5.0
@@ -31,5 +31,5 @@ directory
 
 
 <p align="center">
- <img src="./assets/ARCS-gui.png" width="300" height="300">
+ <img src="./static/ARCS-gui.png" width="300" height="300">
 </p>
