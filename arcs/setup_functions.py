@@ -161,35 +161,28 @@ class ReactionGibbsandEquilibrium:
     
     def __init__(
         self,
-            #temperature: float,
-            #pressure: float, # perhaps these isn't needed - can add at a later date
             reaction_input: dict
     ):
-        
-        #self.temperature = temperature
-        #self.pressure = pressure*100000 #pressure in bar -> Pa
+
         self.reaction_input = reaction_input
     
+    @staticmethod
     def Gibbs(
-            self,
-            compound: str,
+            dft_dict:dict,
             temperature: float, # in K
             pressure: float # in bar
     ) -> float:
         """
         uses ASE's IdealGasThermo to calculate the relevant Gibbs Free Energy of a given compound at a specific temperature (K) and pressure (bar converted to Pa automatically)
         """
-
-
-        data = self.reaction_input[compound]
         igt = IdealGasThermo(
-            vib_energies=data['vibrations'],
-            geometry=data['islinear'],
-            potentialenergy=data['energy'],
-            atoms=Atoms.fromdict(data['atoms']),
-            symmetrynumber=data['rotation_num'],
-            spin=data['spin'],
-            natoms=Atoms.fromdict(data['atoms']).get_global_number_of_atoms(),
+            vib_energies=dft_dict['vibrations'],
+            geometry=dft_dict['islinear'],
+            potentialenergy=dft_dict['energy'],
+            atoms=Atoms.fromdict(dft_dict['atoms']),
+            symmetrynumber=dft_dict['rotation_num'],
+            spin=dft_dict['spin'],
+            natoms=Atoms.fromdict(dft_dict['atoms']).get_global_number_of_atoms(),
             ignore_imag_modes=True
         )
         gibbs_free_energy = igt.get_gibbs_energy(temperature,pressure*100000,verbose=False)
@@ -211,23 +204,48 @@ class ReactionGibbsandEquilibrium:
         reaction_compounds = list(prod)+list(reac)
         gibbs = {
             compound:self.Gibbs(
-                compound=compound,
+                dft_dict=self.reaction_input[compound],
                 temperature=temperature,
                 pressure=pressure,
                 ) for compound in reaction_compounds
                 }
-        prod_sum = np.sum([gibbs[compound]*prod[compound] for compound in gibbs if compound in prod])
-        reac_sum = np.sum([gibbs[compound]*reac[compound] for compound in gibbs if compound in reac])
+        prod_sum = np.sum(
+            [gibbs[compound]*prod[compound] for compound in gibbs if compound in prod]
+            )
+        reac_sum = np.sum(
+            [gibbs[compound]*reac[compound] for compound in gibbs if compound in reac]
+            )
 
         return(float(prod_sum - reac_sum))
     
-    def equilibrium_constant(self,reaction):
-        '''double check this...values can be enormously large...'''
-        K = np.exp(-(self.reaction_energy(reaction)*e)/(Boltzmann*self.temperature))
+    @staticmethod
+    def equilibrium_constant(
+        gibbs_free_energy: float,
+        temperature=float,  # in K
+    )->float:
+        """
+        returns an equilibrium constant, K, from the Gibbs Free Energy of Reaction (in eV)
+        from DeltaG = -k_B T ln(K)
+        """
+        K = np.exp(
+            -(gibbs_free_energy*e)/(Boltzmann*temperature)
+            )
         return(K)
     
-    def as_dict(self,reaction):
-        return({'e':reaction,'g':self.reaction_energy(reaction),'k':self.equilibrium_constant(reaction)})
+    def get_reaction_gibbs_and_equilibrium(self,
+                                           reaction:chempy.Equilibrium,
+                                           temperature=float,# in K
+                                           pressure=float,#in bar
+                                           )->dict:
+        """
+        given a chempy.Equilibrium reaction object, the function generates a dictionary with both gibbs free energy and equilibrium constant
+        """
+        gibbs_free_energy = self.reaction_gibbs(reaction=reaction,temperature=temperature,pressure=pressure)
+        equilibrium_constant = self.equilibrium_constant(gibbs_free_energy=gibbs_free_energy,temperature=temperature)
+        return (
+            {'g': gibbs_free_energy,
+             'k': equilibrium_constant}
+        )
 
 class ApplyDataToReaction:
     ''' this class applies the Gibbs data to a specific reaction'''
