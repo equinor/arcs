@@ -1,3 +1,4 @@
+from csv import Error
 from re import A
 import numpy as np 
 import json 
@@ -6,6 +7,7 @@ from chempy import Equilibrium
 from arcs.setup_functions import GetEnergyandVibrationsVASP
 from arcs.setup_functions import ReactionGibbsandEquilibrium
 from arcs.setup_functions import GraphGenerator
+from arcs.setup_functions import GenerateInitialConcentrations 
 from ase.io import read
 from ase.atoms import Atoms
 from array import array
@@ -71,7 +73,15 @@ def test_get_vibrations():
     gevv = GetEnergyandVibrationsVASP(relax_directory='./vaspdata/relax/',vibrations_directory='./vaspdata/vibrations/')
     vibrations = gevv.get_vibrations()
 
-    assert vibrations == [0.304843445, 0.172210317, 0.08320696, 0.082896424, 0.001993745, 0.000983726,-7.8669e-05, -0.000301184, 0.001327542]
+    assert vibrations == [0.304843445,
+                          0.172210317,
+                          0.08320696,
+                          0.082896424,
+                          0.001993745,
+                          0.000983726,
+                          -7.8669e-05,
+                          -0.000301184,
+                          -0.001327542]
     
 def test_as_dict():
     gevv = GetEnergyandVibrationsVASP(relax_directory='./vaspdata/relax/',vibrations_directory='./vaspdata/vibrations/')
@@ -217,6 +227,163 @@ def test_generate_multidigraph():
     assert dict(graph.adjacency()) == adjacency_list
 
     assert list(graph.nodes()) == nodes
+
+
+#GenerateInitialConcentrations
+
+def test_all_random():
+    applied_reactions = [{'g': 4.747780176970167,
+                          'k': 5.277282624067824e-240,
+                          'r': {'reaction_string': '2 H2O = 1 O2 + 2 H2',
+                                'reactants': {'H2O': 2},
+                                'products': {'O2': 1, 'H2': 2}}},
+                         {'g': 0.22399682291949574,
+                          'k': 5.141111023488729e-12,
+                          'r': {'reaction_string': '1 CO2 + 1 CH4 = 1 CH3COOH',
+                                'reactants': {'CO2': 1, 'CH4': 1},
+                                'products': {'CH3COOH': 1}}},
+                         {'g': 0.7892106026904457,
+                          'k': 1.6808780628806743e-40,
+                          'r': {'reaction_string': '1 CO + 1 CH3OH = 2 H2CO',
+                                'reactants': {'CO': 1, 'CH3OH': 1},
+                                'products': {'H2CO': 2}}},
+                         {'g': -1.2923694047965597,
+                          'k': 1.356910917936724e+65,
+                          'r': {'reaction_string': '1 O2 + 2 HNO2 = 2 HNO3',
+                                'reactants': {'O2': 1, 'HNO2': 2},
+                                'products': {'HNO3': 2}}},
+                         {'g': -3.112355307239554,
+                          'k': 7.174701288889934e+156,
+                          'r': {'reaction_string': '1 O2 + 1 CH3COOH = 2 CH2O2',
+                                'reactants': {'O2': 1, 'CH3COOH': 1},
+                                'products': {'CH2O2': 2}}}]
+    
+    gg = GraphGenerator(applied_reactions = applied_reactions)
+    graph = gg.generate_multidigraph(temperature=100)
+    gic = GenerateInitialConcentrations(graph=graph)
+    
+    try:
+        gic.all_random()
+    except Exception as e:
+        raise(Error)
+    
+def test_all_zero():
+    applied_reactions = [{'g': 4.747780176970167,
+                          'k': 5.277282624067824e-240,
+                          'r': {'reaction_string': '2 H2O = 1 O2 + 2 H2',
+                                'reactants': {'H2O': 2},
+                                'products': {'O2': 1, 'H2': 2}}},
+                         {'g': 0.22399682291949574,
+                          'k': 5.141111023488729e-12,
+                          'r': {'reaction_string': '1 CO2 + 1 CH4 = 1 CH3COOH',
+                                'reactants': {'CO2': 1, 'CH4': 1},
+                                'products': {'CH3COOH': 1}}},
+                         {'g': 0.7892106026904457,
+                          'k': 1.6808780628806743e-40,
+                          'r': {'reaction_string': '1 CO + 1 CH3OH = 2 H2CO',
+                                'reactants': {'CO': 1, 'CH3OH': 1},
+                                'products': {'H2CO': 2}}},
+                         {'g': -1.2923694047965597,
+                          'k': 1.356910917936724e+65,
+                          'r': {'reaction_string': '1 O2 + 2 HNO2 = 2 HNO3',
+                                'reactants': {'O2': 1, 'HNO2': 2},
+                                'products': {'HNO3': 2}}},
+                         {'g': -3.112355307239554,
+                          'k': 7.174701288889934e+156,
+                          'r': {'reaction_string': '1 O2 + 1 CH3COOH = 2 CH2O2',
+                                'reactants': {'O2': 1, 'CH3COOH': 1},
+                                'products': {'CH2O2': 2}}}]
+    
+    gg = GraphGenerator(applied_reactions = applied_reactions)
+    graph = gg.generate_multidigraph(temperature=100)
+    gic = GenerateInitialConcentrations(graph=graph)
+    all_zero = gic.all_zero()
+
+    assert all_zero == {'H2O': 0,
+                        'O2': 0,
+                        'H2': 0,
+                        'CO2': 0,
+                        'CH4': 0,
+                        'CH3COOH': 0,
+                        'CO': 0,
+                        'CH3OH': 0,
+                        'H2CO': 0,
+                        'HNO2': 0,
+                        'HNO3': 0,
+                        'CH2O2': 0}
+    
+def test_specific_random():
+    applied_reactions = [{'g': 4.747780176970167,
+                          'k': 5.277282624067824e-240,
+                          'r': {'reaction_string': '2 H2O = 1 O2 + 2 H2',
+                                'reactants': {'H2O': 2},
+                                'products': {'O2': 1, 'H2': 2}}},
+                         {'g': 0.22399682291949574,
+                          'k': 5.141111023488729e-12,
+                          'r': {'reaction_string': '1 CO2 + 1 CH4 = 1 CH3COOH',
+                                'reactants': {'CO2': 1, 'CH4': 1},
+                                'products': {'CH3COOH': 1}}},
+                         {'g': 0.7892106026904457,
+                          'k': 1.6808780628806743e-40,
+                          'r': {'reaction_string': '1 CO + 1 CH3OH = 2 H2CO',
+                                'reactants': {'CO': 1, 'CH3OH': 1},
+                                'products': {'H2CO': 2}}},
+                         {'g': -1.2923694047965597,
+                          'k': 1.356910917936724e+65,
+                          'r': {'reaction_string': '1 O2 + 2 HNO2 = 2 HNO3',
+                                'reactants': {'O2': 1, 'HNO2': 2},
+                                'products': {'HNO3': 2}}},
+                         {'g': -3.112355307239554,
+                          'k': 7.174701288889934e+156,
+                          'r': {'reaction_string': '1 O2 + 1 CH3COOH = 2 CH2O2',
+                                'reactants': {'O2': 1, 'CH3COOH': 1},
+                                'products': {'CH2O2': 2}}}]
+    
+    gg = GraphGenerator(applied_reactions = applied_reactions)
+    graph = gg.generate_multidigraph(temperature=100)
+    gic = GenerateInitialConcentrations(graph=graph)
+    specific_random = gic.specific_random(compounds=['H2O','CO'])
+
+    assert specific_random['H2O'] > 0
+    assert specific_random['CO'] > 0
+    assert specific_random['O2'] == 0
+
+def test_update_ic():
+    applied_reactions = [{'g': 4.747780176970167,
+                          'k': 5.277282624067824e-240,
+                          'r': {'reaction_string': '2 H2O = 1 O2 + 2 H2',
+                                'reactants': {'H2O': 2},
+                                'products': {'O2': 1, 'H2': 2}}},
+                         {'g': 0.22399682291949574,
+                          'k': 5.141111023488729e-12,
+                          'r': {'reaction_string': '1 CO2 + 1 CH4 = 1 CH3COOH',
+                                'reactants': {'CO2': 1, 'CH4': 1},
+                                'products': {'CH3COOH': 1}}},
+                         {'g': 0.7892106026904457,
+                          'k': 1.6808780628806743e-40,
+                          'r': {'reaction_string': '1 CO + 1 CH3OH = 2 H2CO',
+                                'reactants': {'CO': 1, 'CH3OH': 1},
+                                'products': {'H2CO': 2}}},
+                         {'g': -1.2923694047965597,
+                          'k': 1.356910917936724e+65,
+                          'r': {'reaction_string': '1 O2 + 2 HNO2 = 2 HNO3',
+                                'reactants': {'O2': 1, 'HNO2': 2},
+                                'products': {'HNO3': 2}}},
+                         {'g': -3.112355307239554,
+                          'k': 7.174701288889934e+156,
+                          'r': {'reaction_string': '1 O2 + 1 CH3COOH = 2 CH2O2',
+                                'reactants': {'O2': 1, 'CH3COOH': 1},
+                                'products': {'CH2O2': 2}}}]
+    
+    gg = GraphGenerator(applied_reactions = applied_reactions)
+    graph = gg.generate_multidigraph(temperature=100)
+    gic = GenerateInitialConcentrations(graph=graph)
+    specific_random = gic.update_ic(update_dict={'CO2':1,'H2O':3})
+
+    assert specific_random['H2O'] == 3
+    assert specific_random['CO2'] == 1
+    assert specific_random['O2'] == 0
+
 
 
 

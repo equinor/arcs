@@ -396,74 +396,69 @@ class GraphGenerator:
         return(graph)
 
 class GenerateInitialConcentrations:
-    
-    '''all concentrations are given in x10^-6 (ppm)'''
+    """
+    a class for generating initial concentrations in a standardised way
+    typically in ppm or 1e-6
 
-    def __init__(self,graph=None,compounds=None):
-        if graph:
-            self.graph = graph
-            self.T = list(graph)[0] # dummy temp
-            self.P = list(graph[self.T])[0] # dummy pressure
-        elif compounds:
-            self.compounds = compounds
-        else:
-            print('need graph or list of compounds')
+    this should be used to update concentrations and log them as well in future
+    """
 
-    def all_random(self,include_co2=True):
-        try:
-            hasattr(self.compounds,'compounds')
-            compounds = self.compounds
-        except Exception:
-            compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
+    def __init__(self,graph:nx.MultiDiGraph):
+        self.graph = graph
+
+    def all_random(self,include_co2=True)->dict:
+        """
+        generate fully random concentrations
+        returns a dictionary of compounds with a random concentration 
+        """
+        compounds = [node for node in self.graph.nodes() if isinstance(node,str)]
         ic = {c:np.random.random()/1e5 for c in compounds}
         if not include_co2:
             ic['CO2'] = 1
         self.ic = ic
+        return(self.ic)
     
-    def all_zero(self,include_co2=True):
-        try:
-            hasattr(self.compounds,'compounds')
-            compounds = self.compounds
-        except Exception:
-            compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
+    def all_zero(self,include_co2=True)->dict:
+        """
+        makes a dictionary of blank concentrations
+        returns a dictionary of compounds with 0 concentration 
+        """
+        compounds = [node for node in self.graph.nodes() if isinstance(node,str)]
         ic = {c:0 for c in compounds}
         if not include_co2:
             ic['CO2'] = 1
         self.ic = ic
+        return(self.ic)
 
-    def specific_random(self,compounds=None):
-        try:
-            hasattr(self.compounds,'compounds')
-        except Exception:
-            full_list = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
+    def specific_random(self,compounds=list,include_co2=True)->dict:
+        """
+        makes a dictionary of compounds with only certain compounds given random concentrations 
+        i.e. 
+        specific_random(compounds=['CO2','H2O','O2'])
+        """
+        full_list = [n for n in self.graph.nodes() if isinstance(n,str)]
         ic = {}
         for c in full_list:
-            if c  in self.compounds:
+            if c in compounds:
                 ic[c] = np.random.random()/1e6
             else:
                 ic[c] = 0 
-        ic['CO2'] = 1
+        if not include_co2:
+            ic['CO2'] = 1
         self.ic = ic
+        return(self.ic)
     
-    def update_ic(self,update_dict,include_co2=True):
-        ''' update dict = {'CO2':1e-6,'H2O':300e-5} etc.'''
+    def update_ic(self,update_dict,include_co2=True)->dict:
+        """
+        update dict = {'CO2':1e-6,'H2O':300e-5} etc.
+        used to update dictionary items
+        need to have this log previous concentrations as well. 
+        """
         try:
             hasattr(self.ic,'ic')
         except Exception:
+            # if not initial concentrations created previously 
             self.all_zero(include_co2=include_co2)
         for k,v in update_dict.items():
             self.ic[k] = v
-
-    def from_file(self,file_name):
-        nodes = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
-        file_concentrations = loadfn(file_name)
-        loaded_compounds = list(file_concentrations.keys())
-        ic = {}
-        for c in nodes:
-            if c not in loaded_compounds:
-                ic[c] = 0
-            else:
-                ic[c] = file_concentrations[c]
-        ic['CO2'] = 1
-        self.ic = ic
-        return(ic)
+        return(self.ic)
