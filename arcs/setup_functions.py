@@ -1,6 +1,5 @@
 import os
 from ase.io import read
-from networkx import MultiDiGraph
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from ase.thermochemistry import IdealGasThermo
