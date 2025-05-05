@@ -25,7 +25,9 @@ import datetime
 import os
 
 class Traversal:
+
     def __init__(self,graph,reactions):
+
         if isinstance(graph,str):
             self.graph = pickle.load(open(graph,'rb'))
         else:
@@ -34,10 +36,10 @@ class Traversal:
             self.reactions = pickle.load(open(reactions,'rb'))
         else:
             self.reactions = reactions
+
         #self.concs = copy.deepcopy(concs) # saves having to reload the class each time
         self.trange = list(self.graph)
         self.prange = list(self.graph[self.trange[0]])
-
 
         #default values:
         self.co2 = False
@@ -65,7 +67,7 @@ class Traversal:
         
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)] 
         concs = copy.deepcopy(init_concs)     # don't modify the original  
-        if co2 == False:
+        if not co2:
             del concs['CO2'] # CO2 will always be too large as it is the background
         #house keeping:
         num_not_zero = len([x for x in concs.values() if x > 0])
@@ -480,7 +482,7 @@ version:1.2
                          'platform':platform.platform(),
                          'python_version':platform.python_version(),
                          'processor':platform.processor(),
-                         'available_cores':os.cpu_count(),
+                         'available_cores':psutil.cpu_count(),
                          'available_memory':str(int(psutil.virtual_memory()[0] / 1000/1000/1000))+'Gb',
                          'date':str(datetime.now())}
         

@@ -68,16 +68,16 @@ def start_dash(host: str,
     #g = pickle.load(open(file_location+"SCAN_graph.p", "rb"))
     #t = Traversal(graph=g, reactions=file_location+"SCAN_reactions.p")
     
-    graph = html.P('None') #dbc.Alert("No Data", color="light")  # None #html.P('None')
-    table4 =html.P('None') # dbc.Alert("No Data", color="light")  # None #html.P('None')
-    table5 =html.P('None') # dbc.Alert("No Data", color="light")  # None #html.P('None')
+    graph = html.P('None') #dbc.Alert("No Data", color="light")
+    table4 =html.P('None') # dbc.Alert("No Data", color="light")
+    table5 =html.P('None') # dbc.Alert("No Data", color="light")
     
-    meta = dbc.Alert("Data Shown When Run", color="secondary")  # None #html.P('None')
+    meta = dbc.Alert("Data Shown When Run", color="secondary")  
     
-    functional_choice_dict = {'HSE06':file_location+'test_hse06_small_graph.json',
+    functional_choice_dict = {'HSE06':file_location+'hse06_dft_data.json',
                               'SCAN':file_location+'scan_dft_data.json'}
     
-    default_data,reactions = load_data(file_location+'test_hse06_small_graph.json',split_data=True)
+    default_data,reactions = load_data(file_location+'hse06_dft_data.json',split_data=True)
     compounds = [x for x in list(default_data) if not x == 'reactions']
     gic = GenerateInitialConcentrations(compounds=compounds)
     gic.all_zero(include_co2=False)
@@ -96,7 +96,7 @@ def start_dash(host: str,
     }
     ambient_settings = {"T": None, "P": None}
     
-    default_data = load_data(file_location+'test_hse06_small_graph.json')
+    default_data = load_data(file_location+'hse06_dft_data.json')
     ###################### layout of DASH template########################
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
     
