@@ -4,7 +4,6 @@ from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from ase.thermochemistry import IdealGasThermo
 from scipy.constants import Boltzmann, e
-from monty.serialization import loadfn
 import numpy as np 
 import networkx as nx
 from ase.atoms import Atoms
