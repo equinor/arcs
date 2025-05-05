@@ -291,7 +291,7 @@ class GraphGenerator:
     generates an nx.multidigraph object with weightings from the dft data gibbs free energy and equilibrium constants.
     """
     
-    def __init__(self,applied_reactions:list):
+    def __init__(self):
         self.applied_reactions = applied_reactions
 
     @staticmethod
