@@ -414,8 +414,7 @@ def traverse(
     df_summary = df_summary.dropna(how="all").fillna(0.0)
     df_summary["change"] = df_summary["final"] - df_summary["initial"]
 
-    # Commented out on purpose to verify concentration conversions
-    # df_summary = df_summary.loc[(df_summary.abs() >= 1e-6).any(axis=1)]
+    df_summary = df_summary.loc[(df_summary.abs() >= 1e-6).any(axis=1)]
 
     avg_path_length = np.median(
         [s["path_length"] for s in results.values() if s["path_length"] is not None]
