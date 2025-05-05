@@ -71,8 +71,7 @@ def test_get_vibrations():
     gevv = GetEnergyandVibrationsVASP(relax_directory='./vaspdata/relax/',vibrations_directory='./vaspdata/vibrations/')
     vibrations = gevv.get_vibrations()
 
-    assert vibrations == ([0.304843445, 0.172210317, 0.08320696, 0.082896424, 0.001993745, 0.000983726],
-                          [7.8669e-05, 0.000301184, 0.001327542])
+    assert vibrations == [0.304843445, 0.172210317, 0.08320696, 0.082896424, 0.001993745, 0.000983726,-7.8669e-05, -0.000301184, 0.001327542]
     
 def test_as_dict():
     gevv = GetEnergyandVibrationsVASP(relax_directory='./vaspdata/relax/',vibrations_directory='./vaspdata/vibrations/')

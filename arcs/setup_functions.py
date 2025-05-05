@@ -1,6 +1,4 @@
-import functools 
 import os
-import gzip
 from ase.io import read
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
@@ -8,10 +6,11 @@ from ase.thermochemistry import IdealGasThermo
 from scipy.constants import Boltzmann, e
 from monty.serialization import loadfn
 import numpy as np 
-from chempy.reactionsystem import Substance
 import networkx as nx
 from ase.atoms import Atoms
 import ase
+import re 
+from collections import defaultdict
 
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
@@ -297,11 +296,34 @@ class GraphGenerator:
         self.applied_reactions = applied_reactions
 
     @staticmethod
+    def parse_molecule(formula:str)->dict: 
+        """
+        parses a molecule string i.e. 'H2O' into a dictionary broken down into elemental counts 
+        i.e. {'H':2,'O':1} 
+        taken with permission from https://github.com/badw/reactit.git
+        """
+        # Regular expression to match elements and their counts 
+        pattern = r'([A-Z][a-z]?)(\d*)' 
+        matches = re.findall(pattern, formula) 
+         
+        atom_count = defaultdict(int) 
+     
+        for element, count in matches: 
+            if count == '': 
+                count = 1  # Default count is 1 if not specified 
+            else: 
+                count = int(count)  # Convert count to integer 
+             
+            atom_count[element] += count 
+     
+        return dict(atom_count)      
+
     def cost_function(
-        gibbs_free_energy:float, # in eV
-        temperature:float, # in K
-        reactants:dict
-        )->float:
+            self,
+        gibbs_free_energy: float,  # in eV
+        temperature: float,  # in K
+        reactants: dict
+    ) -> float:
         """
         takes a gibbs free energy of reaction and normalises it using a cost function taken from:
         https://www.nature.com/articles/s41467-021-23339-x.pdf which takes the form:
@@ -324,7 +346,7 @@ class GraphGenerator:
             [
                 np.sum(
                     [
-                        y for x, y in Substance.from_formula(compound).composition.items() # need to remove chempy dependency here
+                        y for x, y in self.parse_molecule(compound).items() 
                     ]
                 )
                 for compound in compounds
@@ -372,7 +394,6 @@ class GraphGenerator:
                 ) #products -> reaction
 
         return(graph)
-
 
 class GenerateInitialConcentrations:
     

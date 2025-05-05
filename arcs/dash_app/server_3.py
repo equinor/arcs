@@ -15,10 +15,9 @@ from monty.serialization import loadfn
 from arcs.setup_functions import GenerateInitialConcentrations
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import Traversal
-import pickle
 import warnings
 from dash.exceptions import PreventUpdate
-from arcs.setup_functions import GraphGenerator, ApplyDataToReaction
+from arcs.setup_functions import GraphGenerator
 
 def start_dash(host: str, 
                port: int, 
