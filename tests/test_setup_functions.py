@@ -5,6 +5,7 @@ from chempy import Equilibrium
 from arcs.setup_functions import ReactionGibbsandEquilibrium
 
 
+#ReactionGibbsandEquilibrium
 def test_json_data_loader():
     json.load(open('test_dft_data.json'))
 
@@ -17,14 +18,13 @@ def test_Gibbs():
 def test_reaction_gibbs():
     dft_data = loadfn('test_dft_data.json')
     rge = ReactionGibbsandEquilibrium(reaction_input=dft_data)
-    reaction = 'CO + H2O = H2 + CO2'
-    eq = Equilibrium.from_string(reaction)
+    reaction = dft_data['reactions'][str(307)]
     reaction_gibbs = rge.reaction_gibbs(
-        reaction=eq,
+        reaction=reaction,
         pressure=1,
         temperature=100
     )
-    assert reaction_gibbs == -0.6184489112909475
+    assert reaction_gibbs == 0.6184489112909475
 
 def test_equilibrium_constant():
     dft_data = loadfn('test_dft_data.json')
@@ -35,11 +35,11 @@ def test_equilibrium_constant():
 
 def test_get_reaction_gibbs_and_equilibrium():
     dft_data = loadfn('test_dft_data.json')
-    reaction = 'CO + H2O = H2 + CO2'
+    reaction = dft_data['reactions'][str(307)]
     rge = ReactionGibbsandEquilibrium(reaction_input=dft_data)
-    _dict = rge.get_reaction_gibbs_and_equilibrium(reaction=Equilibrium.from_string(reaction),temperature=100,pressure=1)
+    _dict = rge.get_reaction_gibbs_and_equilibrium(reaction=reaction,temperature=100,pressure=1)
 
-    assert _dict == {'g': -0.6184489112909475, 'k': 1.4738501117040624e+31}
+    assert _dict == {'g': 0.6184489112909475, 'k': 6.784950464493314e-32}
 
 
 

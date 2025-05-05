@@ -191,17 +191,21 @@ class ReactionGibbsandEquilibrium:
     
     def reaction_gibbs(
             self,
-            reaction: chempy.Equilibrium,
+            reaction: dict,#chempy.Equilibrium,
             pressure: float,  # in in bar
             temperature: float,  #  in K
     ) -> float:
         """
-        returns the Gibbs Free Energy of Reaction for a given reaction (chempy.Equilibrium object).
-        currently does no checks on charge neutrality or mass balance. 
+        returns the Gibbs Free Energy of Reaction for a given reaction (dict).
+        example reaction:
+        {'reaction_string': '1 H2O + 1 H2CO = 1 H2 + 1 CH2O2',
+        'reactants': {'H2O': 1, 'H2CO': 1},
+        'products': {'H2': 1, 'CH2O2': 1}},
         """
-        prod = reaction.prod
-        reac = reaction.reac
-        reaction_compounds = list(prod)+list(reac)
+        products = reaction['products']
+        reactants = reaction['reactants']
+        reaction_compounds = list(products)+list(reactants)
+
         gibbs = {
             compound:self.Gibbs(
                 dft_dict=self.reaction_input[compound],
@@ -210,10 +214,14 @@ class ReactionGibbsandEquilibrium:
                 ) for compound in reaction_compounds
                 }
         prod_sum = np.sum(
-            [gibbs[compound]*prod[compound] for compound in gibbs if compound in prod]
+            [
+                gibbs[compound]*products[compound] for compound in gibbs if compound in products
+                ]
             )
         reac_sum = np.sum(
-            [gibbs[compound]*reac[compound] for compound in gibbs if compound in reac]
+            [
+                gibbs[compound]*reactants[compound] for compound in gibbs if compound in reactants
+                ]
             )
 
         return(float(prod_sum - reac_sum))
@@ -233,96 +241,27 @@ class ReactionGibbsandEquilibrium:
         return(K)
     
     def get_reaction_gibbs_and_equilibrium(self,
-                                           reaction:chempy.Equilibrium,
+                                           reaction,
                                            temperature=float,# in K
                                            pressure=float,#in bar
                                            )->dict:
         """
         given a chempy.Equilibrium reaction object, the function generates a dictionary with both gibbs free energy and equilibrium constant
         """
+        if isinstance(reaction,str):
+            from reactit import ReactionGenerator
+            try:
+                reaction_dict = ReactionGenerator.get_reactants_products(reaction)
+                reaction = {'reaction_string':reaction,'reactants':reaction_dict[0],'products':reaction_dict[1]}
+            except Exception as e:
+                print(e)
+
         gibbs_free_energy = self.reaction_gibbs(reaction=reaction,temperature=temperature,pressure=pressure)
         equilibrium_constant = self.equilibrium_constant(gibbs_free_energy=gibbs_free_energy,temperature=temperature)
         return (
             {'g': gibbs_free_energy,
              'k': equilibrium_constant}
         )
-
-class ApplyDataToReaction:
-    ''' this class applies the Gibbs data to a specific reaction'''
-    
-    def __init__(self,trange,prange,data,nprocs):
-        self.trange = trange
-        self.prange = prange
-        reactions = data['reactions']
-        try:
-            self.reactions = {i:Equilibrium.from_string(r) for i,r in enumerate(reactions)}
-        except Exception:
-            self.reactions = {i:r for i,r in enumerate(reactions)}
-        self.compound_data = {k:data[k] for k in data.keys() if not k == 'reactions'}
-        self.nprocs = nprocs
-        self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
-        
-#    def _generate_data_serial(self,t,p): #serial
-#        reactions = {i:{'e':r,
-#            'k':ReactionGibbsandEquilibrium(t,p,self.compound_data).#equilibrium_constant(r),
-#            'g':ReactionGibbsandEquilibrium(t,p,self.compound_data).#reaction_energy(r)} 
-#                     for i,r in self.reactions.items()}
-#        return(reactions)
-    
-    def _generate_data_serial(self,t,p):
-        rge = ReactionGibbsandEquilibrium(t,p,self.compound_data)
-        reactions = {i:rge.as_dict(r) for i,r in self.reactions.items()}
-        return(reactions)
-
-    def generate_data(self,t,p): #multiprocessed
-
-        manager = pmp.Manager()
-        queue = manager.Queue()
-        
-        def mp_function(reaction_keys,out_q):
-
-            data = {}
-            for r in reaction_keys:
-                rge = ReactionGibbsandEquilibrium(t,p,self.compound_data)
-                data[r] = rge.as_dict(self.reactions[r])
-            out_q.put(data)
-
-        resultdict = {}
-        r_keys = list(self.reactions.keys())
-        chunksize = int(math.ceil(len(self.reactions)/float(self.nprocs)))
-        processes = []
-
-        for i in range(self.nprocs):
-            pr = pmp.Process(target=mp_function,
-                            args=(r_keys[chunksize*i:chunksize*(i+1)],queue))
-            processes.append(pr)
-            pr.start()
-
-        for i in range(self.nprocs):
-            resultdict.update(queue.get(timeout=1800))
-
-        for pr in processes:
-            pr.join()
-
-        return(resultdict)
-
-
-    def apply(self,serial=False):
-        data = {}
-        for t in self.trange:
-            pdat = {}
-            for p in self.prange:
-                if serial:
-                    pdat[p] = self._generate_data_serial(t,p)
-                else:
-                    pdat[p] = self.generate_data(t,p)
-            data[t] = pdat
-        self.data = data
-        return(self.data) 
-    
-    def save(self,filename='applied_reactions.p'):
-        pickle.dump(self.data,open(filename,'wb'))
-        print('data saved to: {}'.format(filename))
 
 class GraphGenerator:    
     
