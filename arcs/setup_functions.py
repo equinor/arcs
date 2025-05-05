@@ -9,73 +9,106 @@ from scipy.constants import Boltzmann, e
 from monty.serialization import loadfn
 import numpy as np 
 from chempy.reactionsystem import Substance
-from tqdm import tqdm
 import networkx as nx
-from pathos.helpers import mp as pmp
-import math
-import pickle
 from ase.atoms import Atoms
-from chempy import Equilibrium
-import chempy 
+import ase
 
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
 
 class GetEnergyandVibrationsVASP:
-    '''Class to get the Total Energy and Vibrations from a directory containing a calculations'''
+    """Class to get the Total Energy and Vibrations from a directory containing a calculations
+    """
     def __init__(self,relax_directory,vibrations_directory):
         self.relax = relax_directory
         self.vibrations = vibrations_directory
+    
+    @staticmethod
+    def get_initial_magnetic_moments(aseatoms:ase.Atoms)->list:
+        magmoms = []
+        for atomic_number in aseatoms.get_atomic_numbers():
+            magmoms.append([0 if atomic_number %2 == 0 else 1][0])
+        return(magmoms)
         
-    def atoms(self):
-        def _get_initial_magnetic_moments(ats):
-            magmoms = []
-            for atnum in ats.get_atomic_numbers():
-                magmoms.append([0 if atnum %2 == 0 else 1][0])
-            return(magmoms)
-        structure = read('{}/POSCAR.gz'.format(self.relax))
-        structure.set_initial_magnetic_moments(_get_initial_magnetic_moments(structure))
-        return(structure)
+    def get_atoms(self)->ase.Atoms:
+        """
+        generates an ASE.Atoms object from a given POSCAR with magnetic moments
+        """
+
+        aseatoms = read('{}/POSCAR'.format(self.relax))
+
+        aseatoms.set_initial_magnetic_moments(
+            self.get_initial_magnetic_moments(aseatoms=aseatoms)
+        )
+
+        return(aseatoms)
         
-    def energy(self):
-        outcar = gzip.open('{}/OUTCAR.gz'.format(self.relax),'tr').readlines()
+    def get_energy(self)->float:
+        """
+        grabs the total energy from a VASP OUTCAR file (assumes one formula unit per cell)
+        """
+        outcar = open('{}/OUTCAR'.format(self.relax),'r').readlines()
+
         for line in outcar:
             if 'y=' in line:
                 energy = float(line.split()[-1])
-        if len(list(dict.fromkeys(self.atoms().get_atomic_numbers()))) == 1:
-            if not any(x in self.atoms().symbols.get_chemical_formula() for x in ['H2','O2','N2']):
+        if len(
+            list(
+                dict.fromkeys(self.get_atoms().get_atomic_numbers())
+            )
+        ) == 1:
+            if not any(
+                x in self.get_atoms().symbols.get_chemical_formula() for x in ['H2', 'O2', 'N2','S8'] # elemental species...
+            ):
                 energy = energy / self.atoms().get_global_number_of_atoms()
     
         return(energy)
     
-    def spin(self):
-        if self.atoms().get_chemical_formula() in ['O2','CO3']:
+    def get_spin(self)->int:
+        """
+        determines the spin of a system 
+        """
+        if self.get_atoms().get_chemical_formula() in ['O2','CO3']:
             return(1)
         else:    
-            outcar = gzip.open('{}/OUTCAR.gz'.format(self.relax),'tr').readlines()
+            outcar = open('{}/OUTCAR'.format(self.relax),'r').readlines()
             for line in outcar:
                 if 'NELECT' in line:
                     nelect = float(line.split()[2])
                     return([0 if nelect %2 == 0 else 0.5][0])
             
-    def pointgroup(self):
-        atoms = self.atoms()
-        pg = PointGroupAnalyzer(AseAtomsAdaptor.get_molecule(atoms)).get_pointgroup()
+    def get_pointgroup(self)->str:
+        """
+        uses pymatgen's pymatgen.symmetry.analyzer.PointGroupAnalyzer class to determine the point group of an ase.Atoms object
+        returns a string
+        """
+        aseatoms = self.get_atoms()
+        pg = PointGroupAnalyzer(
+            AseAtomsAdaptor.get_molecule(aseatoms)
+        ).get_pointgroup()
+
         return(pg.sch_symbol)
     
-    def islinear(self):
-        num_at = self.atoms()
+    def islinear(self)->str:
+        """
+        determines whether the molecule is linear - can determine this from the point group (if * the molecule is linear)
+        """
+        num_at = self.get_atoms()
         if num_at.get_global_number_of_atoms() == 1:
             return('monatomic')
         else:
-            pg = self.pointgroup()
+            pg = self.get_pointgroup()
             if '*' in pg:
                 return('linear')
             else:
                 return('nonlinear')
 
-    def rotation_num(self):
-        pg = [x for x in self.pointgroup()]
+    def get_rotation_num(self)->int:
+        """
+        determines the rotational number from the point group
+        returns an integer
+        """
+        pg = [x for x in self.get_pointgroup()]
         if pg[0] == 'C':
             if pg[-1] == 'i':
                 rot = 1
@@ -113,45 +146,30 @@ class GetEnergyandVibrationsVASP:
                     
         return(rot)          
         
-    def get_vibrations(self):
-        outcar = gzip.open('{}/OUTCAR.gz'.format(self.vibrations),'tr').readlines()
+    def get_vibrations(self)->list:
+        """
+        gets the vibrational frequencies from a DFPT calculation as outputted in a VASP OUTCAR
+        returns as list of both imaginary and normal modes of vibration in eV
+        """
+        outcar = open('{}/OUTCAR'.format(self.vibrations),'r').readlines()
         frequencies = []
+        #i_frequencies = []
         for line in outcar:
-            if 'THz' in line: #thermochemistry now has an option to ignore imaginary modes...
-                if 'f/i' not in line: # we ignore imaginary modes
-                    ev = float(line.split()[-2]) / 1000
-                    frequencies.append(ev)
-                else:
-                    ev = -float(line.split()[-2]) /1000
-                    frequencies.append(ev)
-        return(frequencies)      
-    
-    def as_dict(self):
-        return({'atoms':self.atoms().todict(),
-                'pointgroup':self.pointgroup(),
-                'spin':self.spin(),
-                'rotation_num':self.rotation_num(),
-                'islinear':self.islinear(),
-                'energy':self.energy(),
-                'vibrations':self.get_vibrations()})
-    
-    def get_vibrations(self):
-        daltonout = open('{}/output.out'.format(self.vibrations),'r').readlines()
-        datalines = []
-        for i,line in enumerate(daltonout):
-            if 'frequency' in line and 'mode' in line:
-                datalines.append(i+4)
-            elif 'Normal Coordinates' in line:
-                datalines.append(i)
-        recip_cm = [float(x.split()[2])/8100 for x in daltonout[datalines[0]:datalines[1]] if len(x.split()) > 1] # 8100 conversion cm-1 -> eV
-        return(recip_cm) 
+            if 'THz' in line: 
+                if 'f/i' not in line: 
+                    frequencies.append(float(line.split()[-2])/1000)
 
+                else: # imaginary frequencies are returned separately as a real number
+                    frequencies.append(-float(line.split()[-2])/1000) # need to go back over this
+        return(frequencies)
+    
     def as_dict(self):
-        return({'atoms':self.atoms(),
-                'spin':self.spin(),
-                'rotation_num':self.rotation_num(),
+        return({'atoms':self.get_atoms().todict(),
+                'pointgroup':self.get_pointgroup(),
+                'spin':self.get_spin(),
+                'rotation_num':self.get_rotation_num(),
                 'islinear':self.islinear(),
-                'energy':self.energy(),
+                'energy':self.get_energy(),
                 'vibrations':self.get_vibrations()})
 
 class ReactionGibbsandEquilibrium: 
@@ -246,7 +264,14 @@ class ReactionGibbsandEquilibrium:
                                            pressure=float,#in bar
                                            )->dict:
         """
-        given a chempy.Equilibrium reaction object, the function generates a dictionary with both gibbs free energy and equilibrium constant
+        given a reaction dictionary object (from reactit), the function generates a dictionary with both gibbs free energy and equilibrium constant
+
+        example reaction dictionary: 
+
+        {'reaction_string': '1 H2O + 1 H2CO = 1 H2 + 1 CH2O2',
+        'reactants': {'H2O': 1, 'H2CO': 1},
+        'products': {'H2': 1, 'CH2O2': 1}},
+
         """
         if isinstance(reaction,str):
             from reactit import ReactionGenerator
@@ -264,105 +289,90 @@ class ReactionGibbsandEquilibrium:
         )
 
 class GraphGenerator:    
+    """
+    generates an nx.multidigraph object with weightings from the dft data gibbs free energy and equilibrium constants.
+    """
     
-    def __init__(self,applied_reactions,ncores=4):
-        try:
-            self.applied_reactions = pickle.load(open(applied_reactions,'rb'))
-        except Exception:
-            self.applied_reactions = applied_reactions 
-        self.trange = list(self.applied_reactions)
-        self.prange = list(self.applied_reactions[self.trange[0]])
-        self.ncores = ncores
+    def __init__(self,applied_reactions:list):
+        self.applied_reactions = applied_reactions
 
-    def _cost_function(self,gibbs,T,reactants):
-        '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf
-        this is normalised per reactant atom'''
-
-        comps = []
-        for r,n in reactants.items():
-            for i in range(n):
-                comps.append(r)
-
-        num_atoms = np.sum([np.sum([y 
-                             for x,y in Substance.from_formula(c).composition.items()]) 
-                     for c in comps]) 
-
-        return(np.log(1+(273/T)*np.exp(gibbs/num_atoms/1)))
-
-    def multidigraph_cost(self,T,P):
-        ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
-        t = nx.MultiDiGraph(directed=True)
-        for i,reac in tqdm(self.applied_reactions[T][P].items()):
-            f_cost = self._cost_function(reac['g'],T,reac['e'].reac) #forward cost
-            b_cost = self._cost_function(-reac['g'],T,reac['e'].prod) #backward cost
-            r = list(reac['e'].reac)
-            p = list(reac['e'].prod)
-            t.add_weighted_edges_from([c,i,f_cost] for c in r) #reactants -> reaction
-            t.add_weighted_edges_from([i,c,b_cost] for c in r) #reaction -> reactants
-            t.add_weighted_edges_from([i,c,f_cost] for c in p) #reaction -> products
-            t.add_weighted_edges_from([c,i,b_cost] for c in p) #products -> reaction
-        return(t)
-    
-    def multidigraph_cost_mp(self,T,P):
-
-        def mp_func(rr,t):
-            i,reac = rr
-            f_cost = self._cost_function(reac['g'],T,reac['e'].reac) #forward cost
-            b_cost = self._cost_function(-reac['g'],T,reac['e'].prod) #backward cost
-            r = list(reac['e'].reac)
-            p = list(reac['e'].prod)
-            t.add_weighted_edges_from([c,i,f_cost] for c in r) #reactants -> reaction
-            t.add_weighted_edges_from([i,c,b_cost] for c in r) #reaction -> reactants
-            t.add_weighted_edges_from([i,c,f_cost] for c in p) #reaction -> products
-            t.add_weighted_edges_from([c,i,b_cost] for c in p) #products -> reaction
+    @staticmethod
+    def cost_function(
+        gibbs_free_energy:float, # in eV
+        temperature:float, # in K
+        reactants:dict
+        )->float:
+        """
+        takes a gibbs free energy of reaction and normalises it using a cost function taken from:
+        https://www.nature.com/articles/s41467-021-23339-x.pdf which takes the form:
+        cost = ln(1+(273/temperature)*exp(G/num_reactant_atoms))
         
-        import tqdm_pathos as ptqdm
+        (this is normalised per reactant atom)
 
-        t = nx.MultiDiGraph(directed=True)
+        i.e. CO2 + H2 = H2O + CO 
 
-        rr = list(self.applied_reactions[T][P].items())
+        num_reactant_atoms = 5
 
-        ptqdm.map(mp_func, rr,t, tqdm_kwargs={'disable':False},**{'n_cpus':self.ncores}) # this currently doesn't work...
+        """
 
-        return(t)
+        compounds = []
+        for reactant,coefficient in reactants.items():
+            for i in range(coefficient):
+                compounds.append(reactant)
 
+        num_atoms = np.sum(
+            [
+                np.sum(
+                    [
+                        y for x, y in Substance.from_formula(compound).composition.items() # need to remove chempy dependency here
+                    ]
+                )
+                for compound in compounds
+            ]
+        )
 
-    def multidigraph(self,T,P):
-        t = nx.MultiDiGraph(directed=True)
-        for i,reac in self.applied_reactions[T][P].items():
-            r = list(reac['e'].reac)
-            p = list(reac['e'].prod)
-            k = reac['k'] # maybe check equilibrium.as_reactions ( gives forward and backward reactions!)
-            if k <= 1: #favours reactants
-                t.add_weighted_edges_from([c,i,1/k] for c in r)
-                t.add_weighted_edges_from([i,c,k] for c in r)
-                t.add_weighted_edges_from([i,c,1/k] for c in p)
-                t.add_weighted_edges_from([c,i,k] for c in p)
-            elif k >= 1: #favours products
-                t.add_weighted_edges_from([c,i,1/k] for c in r)
-                t.add_weighted_edges_from([i,c,k] for c in r)
-                t.add_weighted_edges_from([i,c,1/k] for c in p)
-                t.add_weighted_edges_from([c,i,k] for c in p)
-        return(t)
+        return(
+            np.log(1+(273/temperature)*np.exp(gibbs_free_energy/num_atoms/1))
+            )
 
-    def generatemultidigraph(self,cost_function=True,mp = False):
-        graphs = {}
-        for T in self.trange:
-            pdict = {}
-            for P in self.prange:
-                if cost_function:
-                    if mp:
-                        pdict[P] = self.multidigraph_cost_mp(T,P)
-                    else:
-                        pdict[P] = self.multidigraph_cost(T, P)
-                else:
-                    pdict[P] = self.multidigraph(T, P)
-            graphs[T] = pdict
-        self.graph = graphs
-    
-    def save(self,filename='graph.p'):
-        pickle.dump(self.graph,open(filename,'wb'))
-        print('graph saved to: {}'.format(filename))
+    def generate_multidigraph(
+            self,
+            temperature:float, #in K
+            )-> nx.multidigraph:
+        """
+        This function generates reaction graph in networkx weighted using the self.costfunction 
+        returns an nx.multidigraph object
+        """
+
+        graph = nx.MultiDiGraph(directed=True)
+
+        for i,reaction in enumerate(self.applied_reactions):
+            forward_cost = self.cost_function(
+                gibbs_free_energy=reaction['g'],
+                temperature=temperature,
+                reactants=reaction['r']['reactants']
+            )
+            backward_cost = self.cost_function(
+                gibbs_free_energy=-reaction['g'],
+                temperature=temperature,
+                reactants=reaction['r']['products']
+                )
+
+            graph.add_weighted_edges_from(
+                [compound,i,forward_cost] for compound in reaction['r']['reactants']
+                ) #reactants -> reaction
+            graph.add_weighted_edges_from(
+                [i,compound,backward_cost] for compound in reaction['r']['reactants']
+                ) #reaction -> reactants
+            graph.add_weighted_edges_from(
+                [i,compound,forward_cost] for compound in reaction['r']['products']
+                ) #reaction -> products
+            graph.add_weighted_edges_from(
+                [compound,i,backward_cost] for compound in reaction['r']['products']
+                ) #products -> reaction
+
+        return(graph)
+
 
 class GenerateInitialConcentrations:
     
