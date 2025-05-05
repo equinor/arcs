@@ -1,5 +1,6 @@
 import os
 from ase.io import read
+from networkx import MultiDiGraph
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from ase.thermochemistry import IdealGasThermo
@@ -10,6 +11,7 @@ from ase.atoms import Atoms
 import ase
 import re 
 from collections import defaultdict
+from monty.serialization import loadfn 
 
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
@@ -252,8 +254,8 @@ class ReactionGibbsandEquilibrium:
         from DeltaG = -k_B T ln(K)
         """
         K = np.exp(
-            -(gibbs_free_energy*e)/(Boltzmann*temperature)
-            )
+                -(gibbs_free_energy*e)/(Boltzmann*temperature)
+                )
         return(K)
     
     def get_reaction_gibbs_and_equilibrium(self,
@@ -292,7 +294,10 @@ class GraphGenerator:
     """
     
     def __init__(self):
-        self.applied_reactions = applied_reactions
+        """
+        GraphGenerator
+        """
+        #self.applied_reactions = applied_reactions
 
     @staticmethod
     def parse_molecule(formula:str)->dict: 
@@ -359,6 +364,7 @@ class GraphGenerator:
     def generate_multidigraph(
             self,
             temperature:float, #in K
+            applied_reactions:list,
             )-> nx.multidigraph:
         """
         This function generates reaction graph in networkx weighted using the self.costfunction 
@@ -367,7 +373,7 @@ class GraphGenerator:
 
         graph = nx.MultiDiGraph(directed=True)
 
-        for i,reaction in enumerate(self.applied_reactions):
+        for i,reaction in enumerate(applied_reactions):
             forward_cost = self.cost_function(
                 gibbs_free_energy=reaction['g'],
                 temperature=temperature,
@@ -393,6 +399,53 @@ class GraphGenerator:
                 ) #products -> reaction
 
         return(graph)
+    
+
+    def from_file(
+            self,
+            filename:str,
+            temperature:float, # in K
+            pressure:float # in bar
+            )->nx.MultiDiGraph:
+        """
+        generates a networkx.multidigraph from a .json file of reactions and dft_dict generated with reactit and GetEnergyandVibrationsVASP
+        needs a sanity check on the file though
+        """
+        dft_dict = loadfn(filename)
+        rge = ReactionGibbsandEquilibrium(dft_dict)
+        applied_reactions = [] 
+        for reaction in dft_dict['reactions'].values():
+            g_k_dict = rge.get_reaction_gibbs_and_equilibrium(reaction=reaction,temperature=temperature,pressure=pressure)
+            g_k_dict['r'] = reaction
+            applied_reactions.append(g_k_dict)  
+
+        graph = self.generate_multidigraph(applied_reactions=applied_reactions,temperature=temperature)
+        return(graph)
+    
+    def from_dict(
+            self,
+            dft_dict:str,
+            temperature:float, # in K
+            pressure:float # in bar
+            )->nx.MultiDiGraph:
+        """
+        generates a networkx.multidigraph from a dict representation of the .json file of reactions and dft_dict generated with reactit and GetEnergyandVibrationsVASP
+        needs a sanity check on the file though
+        """
+        rge = ReactionGibbsandEquilibrium(dft_dict)
+        applied_reactions = [] 
+        for reaction in dft_dict['reactions'].values():
+            g_k_dict = rge.get_reaction_gibbs_and_equilibrium(reaction=reaction,temperature=temperature,pressure=pressure)
+            g_k_dict['r'] = reaction
+            applied_reactions.append(g_k_dict)  
+
+        graph = self.generate_multidigraph(applied_reactions=applied_reactions,temperature=temperature)
+        return(graph)
+
+              
+
+
+
 
 class GenerateInitialConcentrations:
     """

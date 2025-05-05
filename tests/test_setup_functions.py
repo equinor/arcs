@@ -134,7 +134,7 @@ def test_cost_function():
                           'r': {'reaction_string': '1 CO2 + 1 H2 = 1 H2O + 1 CO',
                                 'reactants': {'CO2': 1, 'H2': 1},
                                 'products': {'H2O': 1, 'CO': 1}}}]
-    gg = GraphGenerator(applied_reactions = applied_reactions)
+    gg = GraphGenerator()
 
     cost = gg.cost_function(
         gibbs_free_energy=applied_reactions[0]['g'],
@@ -172,8 +172,8 @@ def test_generate_multidigraph():
                                 'reactants': {'O2': 1, 'CH3COOH': 1},
                                 'products': {'CH2O2': 2}}}]
     
-    gg = GraphGenerator(applied_reactions = applied_reactions)
-    graph = gg.generate_multidigraph(temperature=100)
+    gg = GraphGenerator()
+    graph = gg.generate_multidigraph(temperature=100,applied_reactions=applied_reactions)
 
     adjacency_list = {'H2O': {0: {0: {'weight': 1.9492014814446184}}},
                       0: {'H2O': {0: {'weight': 0.8053103344762139}},
@@ -229,6 +229,15 @@ def test_generate_multidigraph():
     assert list(graph.nodes()) == nodes
 
 
+    def test_from_file():
+
+        return(None)
+    
+    def test_from_dict():
+
+        return(None)
+
+
 #GenerateInitialConcentrations
 
 def test_all_random():
@@ -258,8 +267,8 @@ def test_all_random():
                                 'reactants': {'O2': 1, 'CH3COOH': 1},
                                 'products': {'CH2O2': 2}}}]
     
-    gg = GraphGenerator(applied_reactions = applied_reactions)
-    graph = gg.generate_multidigraph(temperature=100)
+    gg = GraphGenerator()
+    graph = gg.generate_multidigraph(temperature=100,applied_reactions=applied_reactions)
     gic = GenerateInitialConcentrations(graph=graph)
     
     try:
@@ -294,8 +303,8 @@ def test_all_zero():
                                 'reactants': {'O2': 1, 'CH3COOH': 1},
                                 'products': {'CH2O2': 2}}}]
     
-    gg = GraphGenerator(applied_reactions = applied_reactions)
-    graph = gg.generate_multidigraph(temperature=100)
+    gg = GraphGenerator()
+    graph = gg.generate_multidigraph(temperature=100,applied_reactions=applied_reactions)
     gic = GenerateInitialConcentrations(graph=graph)
     all_zero = gic.all_zero()
 
@@ -339,8 +348,8 @@ def test_specific_random():
                                 'reactants': {'O2': 1, 'CH3COOH': 1},
                                 'products': {'CH2O2': 2}}}]
     
-    gg = GraphGenerator(applied_reactions = applied_reactions)
-    graph = gg.generate_multidigraph(temperature=100)
+    gg = GraphGenerator()
+    graph = gg.generate_multidigraph(temperature=100,applied_reactions=applied_reactions)
     gic = GenerateInitialConcentrations(graph=graph)
     specific_random = gic.specific_random(compounds=['H2O','CO'])
 
@@ -375,8 +384,8 @@ def test_update_ic():
                                 'reactants': {'O2': 1, 'CH3COOH': 1},
                                 'products': {'CH2O2': 2}}}]
     
-    gg = GraphGenerator(applied_reactions = applied_reactions)
-    graph = gg.generate_multidigraph(temperature=100)
+    gg = GraphGenerator()
+    graph = gg.generate_multidigraph(temperature=100,applied_reactions=applied_reactions)
     gic = GenerateInitialConcentrations(graph=graph)
     specific_random = gic.update_ic(update_dict={'CO2':1,'H2O':3})
 
