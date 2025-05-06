@@ -698,4 +698,40 @@ version:1.2
             print(stream.get_value())                  
 
 #done
+###############################analysis.py
 
+    def average_sampling(
+        self,
+            average: str = 'mean'
+    ) -> dict:
+        
+        t = list(self.data)[0]
+        p = list(self.data[t])[0]
+        zeroth = list(self.data[t][p])[0]
+        #if isinstance(xr[0],str):
+        #    #data = str_to_int_dict(data)
+        
+        md = {}
+        f_1 = {}
+        
+        for T in self.data:
+            f_2 = {}
+            m_2 = {}
+            for P in self.data[T]:
+                f_3 = {}
+                m_3 = {}
+                for c in self.data[T][P][zeroth]['data']:
+                    f_4 = []
+                    for x in self.data[T][P]:
+                        if not x == zeroth:
+                            f_4.append(self.data[T][P][x]['data'][c])
+                    diff = [i - self.data[T][P][zeroth]['data'][c] for i in f_4]
+                    f_3[c] = np.mean(f_4)/1e-6
+                    m_3[c] = {'value':np.mean(diff)/1e-6,'variance':np.var(diff)/1e-6} # 2nd value is the variance and not the std deviation
+                m_2[float(P)] = m_3
+                f_2[float(P)] = f_3
+            md[float(T)] = m_2
+            f_1[float(T)] = f_2
+        
+        self.mean_data = md
+        self.final_concs = f_1
