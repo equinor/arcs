@@ -4,10 +4,10 @@ import numpy as np
 import json 
 from monty.serialization import loadfn
 from chempy import Equilibrium 
-from arcs.setup_functions import GetEnergyandVibrationsVASP
-from arcs.setup_functions import ReactionGibbsandEquilibrium
-from arcs.setup_functions import GraphGenerator
-from arcs.setup_functions import GenerateInitialConcentrations 
+from arcs.generate import GetEnergyandVibrationsVASP
+from arcs.generate import ReactionGibbsandEquilibrium
+from arcs.generate import GraphGenerator
+from arcs.generate import GenerateInitialConcentrations 
 from ase.io import read
 from ase.atoms import Atoms
 from array import array

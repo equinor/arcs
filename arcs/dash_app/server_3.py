@@ -12,12 +12,12 @@ from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
 from monty.serialization import loadfn
-from arcs.setup_functions import GenerateInitialConcentrations
+from arcs.generate import GenerateInitialConcentrations
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import Traversal
 import warnings
 from dash.exceptions import PreventUpdate
-from arcs.setup_functions import GraphGenerator
+from arcs.generate import GraphGenerator
 
 def start_dash(host: str, 
                port: int, 

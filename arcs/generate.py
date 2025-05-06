@@ -409,6 +409,26 @@ class GraphGenerator:
         """
         generates a networkx.multidigraph from a .json file of reactions and dft_dict generated with reactit and GetEnergyandVibrationsVASP
         needs a sanity check on the file though
+
+        file takes the format of a dictionary with: 
+        {
+    '<compound>': {
+        'atoms': ase.Atoms.asdict(),
+        'pointgroup': <pointgroup>,
+        'spin': <spin>,
+        'rotation_num': <rotation_num>,
+        'islinear': <islinear>,
+        'energy': <energy>,
+        'vibrations': <vibrations
+        }
+    'reactions':list({
+        'reaction_string':<reaction_string>,
+                      'reactants':dict(reactants),
+                      'products':dict(products)}
+                      )
+        }
+
+        reactions can be generated with https://github.com/badw/reactit.git 
         """
         dft_dict = loadfn(filename)
         rge = ReactionGibbsandEquilibrium(dft_dict)
@@ -430,6 +450,26 @@ class GraphGenerator:
         """
         generates a networkx.multidigraph from a dict representation of the .json file of reactions and dft_dict generated with reactit and GetEnergyandVibrationsVASP
         needs a sanity check on the file though
+
+        dictionary takes the format of:
+                {
+    '<compound>': {
+        'atoms': ase.Atoms.asdict(),
+        'pointgroup': <pointgroup>,
+        'spin': <spin>,
+        'rotation_num': <rotation_num>,
+        'islinear': <islinear>,
+        'energy': <energy>,
+        'vibrations': <vibrations
+        }
+    'reactions':list({
+        'reaction_string':<reaction_string>,
+                      'reactants':dict(reactants),
+                      'products':dict(products)}
+                      )
+        }
+
+        reactions can be generated with https://github.com/badw/reactit.git 
         """
         rge = ReactionGibbsandEquilibrium(dft_dict)
         applied_reactions = [] 
@@ -440,11 +480,6 @@ class GraphGenerator:
 
         graph = self.generate_multidigraph(applied_reactions=applied_reactions,temperature=temperature)
         return(graph)
-
-              
-
-
-
 
 class GenerateInitialConcentrations:
     """
