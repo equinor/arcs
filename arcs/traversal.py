@@ -1,23 +1,12 @@
-import random
 from chempy.equilibria import Equilibrium,EqSystem
 from chempy import Substance
 import copy
 import networkx as nx
 import itertools as it
-import tqdm 
 import warnings
-import pathos.multiprocessing as multiprocessing
-from pathos.pools import ProcessPool
-from pathos.pp import ParallelPool
-from pathos.serial import SerialPool
-import platform
 from datetime import datetime
-import math
 import numpy as np
-import pandas as pd 
-from pathos.helpers import mp as pmp
 import pathos.multiprocessing as pmp 
-import queue
 import warnings
 import psutil
 import time
@@ -344,8 +333,11 @@ class Traversal:
                 'equation_statistics': reactionstats
              }
         )
-    #@staticmethod
+    
     def sampling_function(self,iterable):
+        """
+        sampling function to be multiprocessed - runs one random walk
+        """
         initial_concentrations = self.initial_concentrations
         return(self.random_walk(initial_concentrations=initial_concentrations)) 
     
@@ -356,7 +348,7 @@ class Traversal:
             nsamples:int = 1000,
             ncpus:int = 4,
             **random_walk_kws:dict,
-    ):
+    )->dict:
         """
         samples the graph network nsamples DEFAULT = 1000
         multiprocessed with ncpus DEFAULT = 4  
@@ -372,134 +364,3 @@ class Traversal:
                 )
             )
         return(data)
-
-        
-        
-        
-    def run(self,trange,prange,ic=None,save=False,savename=None,ignore_warnings=True,logging=False,**kw):
-        if ignore_warnings==True:
-            warnings.filterwarnings("ignore")
-
-        '''
-        kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,nprocs,random_path_depth,co2=False
-        '''
-        from loguru import logger
-        from io import StringIO
-        #setup logger
-        stream = StringIO()
-        logger.remove()
-        logger.add(stream,format="{message}")
-
-        num=1
-        total = len(trange) * len(prange)
-        
-        from datetime import datetime
-        needed_args = self.__dict__
-        for i in needed_args:
-            if i in kw:
-                self.__dict__[i] = kw[i]
-            
-        logger.info('''\n                                             
-                                            
-    // | |     //   ) )  //   ) )  //   ) ) 
-   //__| |    //___/ /  //        ((        
-  / ___  |   / ___ (   //           \\      
- //    | |  //   | |  //              ) )   
-//     | | //    | | ((____/ / ((___ / /    
-version:1.2
-{}
-        ->sample_length = {}
-        ->probability_threshold = {}
-        ->max_compounds = {}
-        ->max_rank = {}
-        ->path_depth = {}
-        ->co2 = {}
-        ->shortest path method = {}
-        ->number of processes = {}
-        ->concentration ceiling = {} %
-        ->scale highest = {}
-        ->rank smaller reactions higher = {}\n'''.format(str(datetime.now()),self.sample_length,
-                                       self.probability_threshold,self.max_compounds,
-                                       self.max_rank,self.path_depth,self.co2,self.method,
-                                       self.nprocs,self.ceiling,self.scale_highest,self.rank_small_reactions_higher))
-        
-        logger.info('initial concentrations (ppm):\n')
-        self.concs = ic
-        concstring = pd.Series({k:v for k,v, in self.concs.items() if v > 0}) / 1e-6
-        del concstring['CO2']
-        logger.info(concstring.to_string()+'\n')
-
-        if logging:
-            print(stream.get_value())
-        
-        
-        path_lengths = [] 
-        total_data = {}
-        for T in trange:
-            data_2 = {}
-            final_concs_2 = {}
-            initfinaldiff = {}
-            for P in prange:
-                start = datetime.now()
-                logger.info('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
-                if self.nprocs > 1:
-                    data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
-                else:
-                    data_2[P] = self.sampling_serial(T,P,**kw)
-
-                finish = datetime.now() - start
-                logger.info('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
-                reformatted = [{x:v for x,v in data_2[P][i]['data'].items()} for i in data_2[P]]
-                mean = pd.Series({k:v for k,v in pd.DataFrame(reformatted).mean().items() if v > 0.5e-6}).drop('CO2')/1e-6
-                #mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P]).keys()) if v > 0.5e-6}).drop('CO2')/1e-6
-                logger.info('\n final concentrations (>0.5ppm):\n')
-                logger.info(mean.round(1).to_string())
-                final_concs_2[P] = mean.to_dict()
-                diff_concs = pd.Series(mean.to_dict()) - pd.Series({k:v/1e-6 for k,v in self.concs.items()})
-                ift = pd.DataFrame([{k:v/1e-6 for k,v in self.concs.items() if v > 0},mean.to_dict(),diff_concs.to_dict()],index=['initial','final','change']).T
-                initfinaldiff[P] = ift.dropna(how='all').fillna(0.0).to_dict()
-                avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
-
-
-                logger.info('\n median path length: {}'.format(avgpathlength))
-                path_lengths.append(avgpathlength)
-                num+=1
-            total_data[T] = data_2
-            self.final_concs[T] = final_concs_2
-            self.initfinaldiff[T] = initfinaldiff            
-                
-        if save:
-            from monty.serialization import dumpfn
-            if not savename:
-                from datetime import date
-                today = str(date.today())
-                savename='sampling_{}.json'.format(today)
-            dumpfn(total_data,savename,indent=4)
-
-        self.metadata = {'arcs_version':"1.4.0",
-                         'avg_path_length':np.mean(path_lengths),
-                         'co2':self.co2,
-                         'max_compounds':self.max_compounds,
-                         'probability_threshold':self.probability_threshold,
-                         'shortest_path_method':self.method,
-                         'max_rank':self.max_rank,
-                         'sample_length':self.sample_length,
-                         'path_depth':self.path_depth,
-                         'random_path_depth':self.random_path_depth,
-                         'nprocs':self.nprocs,
-                         'ceiling':self.ceiling,
-                         'scale_highest':self.scale_highest,
-                         'rank_small_reactions_higher':self.rank_small_reactions_higher,
-                         'platform':platform.platform(),
-                         'python_version':platform.python_version(),
-                         'processor':platform.processor(),
-                         'available_cores':psutil.cpu_count(),
-                         'available_memory':str(int(psutil.virtual_memory()[0] / 1000/1000/1000))+'Gb',
-                         'date':str(datetime.now())}
-        
-       
-        self.data = total_data  
-        if logging:
-            print(stream.get_value())                  
-
-#done
