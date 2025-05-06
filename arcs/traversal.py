@@ -26,21 +26,20 @@ class Traversal:
         self.ncpus = 4    
         self.ceiling = 2000
         self.scale_largest=10
-        self.rank_small_reactions_higher=True
+        self.rank_small_reactions_higher = {'option':True,'by_coefficients':False}
         self.shortest_path_method='Djikstra'
 
     def length_multiplier(
             self,
             candidate_reaction:int,
-            by_coefficients:bool = False
             ):
         """
         given a candidate reaction, if self.rank_small_reactions_higher == True, then return the length of the reaction as a multiplier
         i.e. H2 + 1/2 O2 = H2O has a length multiplier of 3  
         """
-        if self.rank_small_reactions_higher:
+        if self.rank_small_reactions_higher['option']:
             reaction_dict = self.graph.nodes[candidate_reaction]['reaction']
-            if by_coefficients:
+            if self.rank_small_reactions_higher['by_coefficients']:
                 num_reactants = np.sum(list(reaction_dict['reactants'].values()))
                 num_products = np.sum(list(reaction_dict['products'].values()))
             else:
@@ -166,12 +165,12 @@ class Traversal:
                         rankings[reaction] = self.graph.get_edge_data(
                             u=source,
                             v=reaction
-                        )[0]['weight']*self.length_multiplier(reaction,by_coefficients=True) #need to play around with coefficients=True
+                        )[0]['weight']*self.length_multiplier(reaction) #need to play around with coefficients=True
             else:
                 rankings[reaction] = self.graph.get_edge_data(
                     u=source,
                     v=reaction
-                )[0]['weight']*self.length_multiplier(reaction,by_coefficients=True)
+                )[0]['weight']*self.length_multiplier(reaction)
         #limit based on maximum_reaction_number:        
         rankings = {k:rankings[k] for k in list(rankings)[0:maximum_reaction_number]}
         return(rankings)
