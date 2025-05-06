@@ -23,23 +23,12 @@ import time
 import pickle
 import datetime
 import os
+import chempy 
 
 class Traversal:
 
-    def __init__(self,graph,reactions):
-
-        if isinstance(graph,str):
-            self.graph = pickle.load(open(graph,'rb'))
-        else:
-            self.graph = graph
-        if isinstance(reactions,str):
-            self.reactions = pickle.load(open(reactions,'rb'))
-        else:
-            self.reactions = reactions
-
-        #self.concs = copy.deepcopy(concs) # saves having to reload the class each time
-        self.trange = list(self.graph)
-        self.prange = list(self.graph[self.trange[0]])
+    def __init__(self,graph):
+        self.graph = graph
 
         #default values:
         self.co2 = False
@@ -56,97 +45,285 @@ class Traversal:
         self.method='Bellman-Ford'
         self.final_concs = {} 
         self.initfinaldiff = {}
-    
-    def _get_weighted_random_compounds(self,T,P,
-                             init_concs=None,
-                             co2=False, # should probably be "exclude_co2"
-                             max_compounds=5,
-                             probability_threshold=0.05,
-                             scale_highest=0.1, # how much to scale the highest components
-                             ceiling = 3000):   #ceiling percent larger than the median average
-        
-        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)] 
-        concs = copy.deepcopy(init_concs)     # don't modify the original  
-        if not co2:
-            del concs['CO2'] # CO2 will always be too large as it is the background
-        #house keeping:
-        num_not_zero = len([x for x in concs.values() if x > 0])
-        if max_compounds > num_not_zero:
-            max_compounds = num_not_zero
-            
-        #scale the probabilities accordingly based upon a ceiling percentage
-        
-        median_conc = np.median([v for v in concs.values() if v > 0]) # median > mean for this 
-        #new_concs = {}
-        above_ceiling = {k:v for k,v in concs.items() if v > (median_conc * (1+(ceiling/100)))}
+
+    def length_multiplier(
+            self,
+            candidate_reaction:int,
+            by_coefficients:bool = False
+            ):
+        """
+        given a candidate reaction, if self.rank_small_reactions_higher == True, then return the length of the reaction as a multiplier
+        i.e. H2 + 1/2 O2 = H2O has a length multiplier of 3  
+        """
+        if self.rank_small_reactions_higher:
+            reaction_dict = self.graph.nodes[candidate_reaction]['reaction']
+            if by_coefficients:
+                num_reactants = np.sum(list(reaction_dict['reactants'].values()))
+                num_products = np.sum(list(reaction_dict['products'].values()))
+            else:
+                num_reactants = len(reaction_dict['reactants'])
+                num_products = len(reaction_dict['products'])                
+            return(num_reactants + num_products)
+              # should probably include coefficients
+        else:
+            return (1)
+
+    @staticmethod
+    def scale_large_concentrations(
+        concentrations:dict,
+        scale_largest:float,
+        ceiling:float,
+        )->dict:
+        """
+        function that takes a dict of concentrations and scales abnormally large concentrations (above ceiling DEFAULT = 3000%) and scales them by scale_highest (DEFAULT = 10% of original value)
+
+        this is to be used with self.get_weighted_random_compounds
+        """
+
+        median_conc = np.median([v for v in concentrations.values() if v > 0])
+        species_above_ceiling = {k:v for k,v in concentrations.items() if v > (median_conc * (1+(ceiling/100)))}
         #modify the ceiling by scaling it down to a suitable value 
         #should still max out if concentrations become way to high 
-        for k,v in above_ceiling.items():
-            concs[k] = v*scale_highest
-            
+        for k,v in species_above_ceiling.items():
+            concentrations[k] = v*1/scale_largest
 
-        #get the probabilities based upon relative concentrations:
-        p_1 = {k:v/sum(concs.values()) for k,v in concs.items()}
-        #now filter based upon the probability threshold:
-        p_2 = {k:v for k,v in p_1.items() if v > probability_threshold}
-        p_3 = {k:v/sum(p_2.values()) for k,v in p_2.items()}
-        #make a list of choices based upon the probabilities
-        available = list(np.random.choice(list(p_3.keys()),100,p=list(p_3.values()))) # make this list length of the nodes 
-        # now make a list max_compounds long of random choices based on available
-        choices = {}
-        for c in range(max_compounds):
-            if c == 0:
-                c1 = np.random.choice(available)
-                choices[c1] = p_3[c1]
-            else:
-                try:
-                    for i in range(available.count(list(choices)[c-1])):
-                        available.remove(list(choices)[c-1])
-                    try:
-                        c2 = np.random.choice(available)
-                        choices[c2] = p_3[c2]
-                    except Exception:
-                        pass
-                except Exception:
-                    pass
-                    
+        return(concentrations)
+
+    def get_weighted_random_compounds(
+            self,
+            concentrations: dict,
+            exclude_co2: bool = True,
+            max_compounds: int = 5,
+            discovery_threshold: float = 5,  # discovery threshold in %
+            scale_largest: float = 10,  # how much to scale the highest components in %
+            ceiling: float = 1000,  # ceiling percent larger than the median average in %
+    ) -> dict:
+        """
+        given a dictionary of concentrations e.g. {'H2O':100,'NO2':50} a weighted ranking can be returned with probabilities given a discovery threshold DEFAULT = 5%. 
+
+        exceedingly large concentrations (up to ceiling % DEFAULT = 1000% above the median concentration) that may occur are scaled using self.scale_large_concentrations (scaled with scale_largest DEFAULT = 10% of original value) such that reactions may continue even with very large concentrations of species up to a point. 
+
+        returns a dictionary with length up to max_compounds depending on the discovery_threshold and scale_largest factors. 
+
+        CO2 is by default excluded (exclude_co2 = True) as it is considered background, however this can be turned on if you want to test CO2 containing reactions.
+        """
+
+        concs = copy.deepcopy(concentrations)
+
+        if exclude_co2:
+            # CO2 will always be too large as it is the background
+            del concs['CO2']
+
+        # scale potential large concentrations
+        concs = self.scale_large_concentrations(
+            concentrations=concs, scale_largest=scale_largest, ceiling=ceiling)
+
+        # get the probabilities based upon relative concentrations:
+        p_1 = {k: v/sum(concs.values()) for k, v in concs.items()}
+        # now filter based upon the probability threshold: (discovery)
+        p_2 = {k: v for k, v in p_1.items() if v > discovery_threshold/100}
+        # remake the probabilities
+        p_3 = {k: v/sum(p_2.values()) for k, v in p_2.items()}
+        # make a list of choices based upon the probabilities
+        available = list(
+            np.random.choice(
+                a=list(p_3), size=len(concs)*10, p=list(p_3.values())
+            )
+        )
+        #  now make a list max_compounds long of random choices based on available
+        choices = {} 
+        for i in range(max_compounds):
+            try:
+                compound = np.random.choice(available)
+                choices[compound] = p_3[compound]
+
+                available = list(
+                    filter(
+                        lambda a: a != list(choices)[i-1], available
+                    )
+                )
+            except ValueError:
+                pass
+
         return(choices)
-    
-    def _length_multiplier(self,candidate):
-        if self.rank_small_reactions_higher:
-            return(len(list(candidate)))
-        else:
-            return(1)
-    
-    def _get_weighted_reaction_rankings(self,T,P,
-                                        choices,
-                                        max_rank=20,
-                                        method='Bellman-Ford'):
+
+    def get_weighted_reaction_rankings(
+            self,
+            weighted_random_compounds:dict,
+            maximum_reaction_number:int = 20,
+            shortest_path_method:str = 'Djikstra',
+            ):
+        """
+        given a dictionary of weighted random compounds from self.get_weighted_random_compounds find the shortest path between: 
+        1. compound 0 and compound 1 -> list
+        2. filter based on available compounds 
+        3. weight based on edge weight and (optional) length multiplier for unreasonable large reactions (if option selected)
+        returns a dictionary of ranked reactions and their weighting. 
+        """
         
-        rankings = {}
-        if len(choices) > 1:
-            
-            possibilities = list(nx.shortest_paths.all_shortest_paths(self.graph[T][P],list(choices)[0],list(choices)[1],method=method))
-            
-            for x in possibilities:
-                candidates = list(self.graph[T][P][x[1]])
-                if len(choices) > 2:
-                    for c in list(choices)[2:]:
-                        if c in candidates:
-                            weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']*10**self._length_multiplier(self.graph[T][P][x[1]])
-                            rankings[x[1]] = {'candidates':candidates,'weight':weight}
-                else:
-                    weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']*10**self._length_multiplier(self.graph[T][P][x[1]])
-                    rankings[x[1]] = {'candidates':candidates,'weight':weight}
-        if rankings:
-            sorted_rankings = pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()
-            topranks = [x for i,x in enumerate(sorted_rankings) if i<=max_rank] # need to sort first
-            rankings = {x:rankings[x] for x in topranks}
-            #return(pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()) # sort them 
-            #according to lowest weight first
-            return(rankings)
-        else:
+        if len(weighted_random_compounds) == 1:
             return(None)
+
+        rankings = {}
+
+        shortest_paths = nx.shortest_paths.all_shortest_paths(
+                G=self.graph,
+                source=list(weighted_random_compounds)[0],
+                target=list(weighted_random_compounds)[1],
+                method=shortest_path_method)  # gets a list of shortest paths without weights first
+                
+        rankings = {}
+        for path in shortest_paths:
+            source,reaction,target = path
+            reaction_compounds = list(self.graph[reaction])
+            #find reactions with >3rd compound
+            if len(weighted_random_compounds) > 2:
+                for compound in list(weighted_random_compounds)[2:]:
+                    if compound in reaction_compounds:
+                        rankings[reaction] = self.graph.get_edge_data(
+                            u=source,
+                            v=reaction
+                        )[0]['weight']*self.length_multiplier(reaction,by_coefficients=True) #need to play around with coefficients=True
+            else:
+                rankings[reaction] = self.graph.get_edge_data(
+                    u=source,
+                    v=reaction
+                )[0]['weight']*self.length_multiplier(reaction,by_coefficients=True)
+        #limit based on maximum_reaction_number:        
+        rankings = {k:rankings[k] for k in list(rankings)[0:maximum_reaction_number]}
+        return(rankings)
+    
+    def generate_chempy_eqsystem(
+            self,
+            index:int
+    )->EqSystem:
+        """
+        given a reaction index form a chempy.equilibria.EqSystem 
+
+        eventually this will be deprecated as it is a speed bottleneck
+
+        needs to involve charged species
+
+        """
+        node_dict = self.graph.nodes[index]
+        reactants = node_dict['reaction']['reactants']
+        products = node_dict['reaction']['products']
+        k = node_dict['equilibrium_constant']
+
+#        substances = {}
+#        for compound in list(
+#            it.chain(
+#                *[list(reactants)+list(products)]
+#            )
+#        ):
+#            substances[compound] = Substance.from_formula(compound,**{'charge':0}) # use if substance_factory doesnt work
+
+        equation = Equilibrium(reac=reactants,prod=products,param=k)
+        try:
+            return(EqSystem([equation],substance_factory=Substance.from_formula)) # might not just be able to try a return...
+        except Exception:
+            return(None)
+        
+    def equilibrium_concentrations(self,concs,eq):
+        # something is going wrong here...
+        fc = copy.deepcopy(concs)
+        try:
+            x,sol,sane = eq.root(fc)
+            assert sol['success'] and sane
+            for n,c in enumerate(x):
+                fc[eq.substance_names()[n]] = c
+                    
+            concs = fc
+            eq = eq.string()
+        except Exception:
+            concs = fc
+            eq = None
+        return(concs,eq)
+    
+    @staticmethod
+    def choose_reaction(ranked_reactions:dict)->int:
+        """
+        given a dictionary of ranked reactions from self.get_weighted_reaction_rankings
+        chose a reaction based on weights and probabilities
+        """
+        weights = {k:1/v for k,v in ranked_reactions.items()} # here higher is better 
+        probabilities = {k:v/sum(weights.values()) for k,v in weights.items()}
+        chosen_reaction = np.random.choice(
+                [
+                    np.random.choice(
+                        a=list(probabilities.keys()),
+                        size=len(probabilities)*10,
+                        p=list(probabilities.values())
+                    )
+                ][0]
+            )
+        return(chosen_reaction)
+    
+    def random_walk(
+            self,
+            max_steps:int = 10,
+            discovery_threshold:float =0.05,
+            max_compounds:int = 5,
+            exclude_co2:bool = False,
+            scale_largest:float = 10, # in %
+            ceiling:float = 1000, # in %
+            maximum_reaction_number:int = 5,
+            shortest_path_method='djikstra'):
+        """
+        does a random sampling of the reaction network with max_steps  DEFAULT = 10.
+
+        for each sample step:
+        1. get weighted random compounds 
+        2. get ranked reactions 
+        3. choose a reaction
+        3. generate a chempy eqsystem
+        4. calculate the equilibrium concentrations 
+        5. update the concentrations and reaction statistics 
+        """
+    
+        concentrations = {0:copy.deepcopy(self.concs)} 
+        reactionstats = {0:None}
+        
+        for step in range(max_steps):
+            _concentrations = copy.deepcopy(concentrations[step])
+            #1 grab weighted_random_compounds
+            weighted_random_compounds = self.get_weighted_random_compounds(
+                    concentrations=_concentrations,
+                    exclude_co2=exclude_co2,
+                    max_compounds=max_compounds,
+                    discovery_threshold=discovery_threshold,
+                    scale_largest=scale_largest,
+                    ceiling=ceiling
+                )
+            #2 grab reaction rankings
+            ranked_reactions = self._get_weighted_reaction_rankings(
+                weighted_random_compounds = weighted_random_compounds,
+                maximum_reaction_number=maximum_reaction_number,
+                shortest_path_method=shortest_path_method,
+                )   
+            #3 if no reactions found then break the for loop 
+            if not ranked_reactions:
+                break
+
+            #4 choose a reaction
+            chosen_reaction_index = self.choose_reaction(ranked_reactions=ranked_reactions)
+            #5 generate a chgempy eqsystem 
+            eqsyst = self.generate_chempy_eqsystem(index=chosen_reaction_index)
+
+            #6 check that reaction wasn't previously done (can probably leave this out) (supposed to stop infinite loops, but that might be ok)
+            #previous_reactions = [r for r in reactionstats.values() if r]
+            #try:
+            #    if eqsyst.string() == previous_reactions[-1]:
+            #        break
+            #except IndexError:
+            #    pass
+
+            #6 get equilibrium_concentrations and update relevant dictionaries.
+            final_concs[ip],reactionstats[ip] = self.equilibrium_concentrations(fcs,eqsyst)
+            
+        return({'data':final_concs[list(final_concs)[-1]],
+                'equation_statistics':[r for r in reactionstats.values() if not r==None],
+                'path_length':len([r for r in reactionstats.values() if not r==None])})  
         
     def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
@@ -181,97 +358,12 @@ class Traversal:
                 p = nx.shortest_path(self.graph[T][P],source,target)
         return(p)
     
-    def generate_eqsystem(self,index,T,P):
-        charged_species = {'CO3H':-1,'NH4':+1,'NH2CO2':-1} # this needs to be added to the arguments
-        rs = self.reactions[T][P][index]
-        r = rs['e'].reac
-        p = rs['e'].prod
-        k = rs['k']
-        substances = {}
-        for n in list(it.chain(*[list(r)+list(p)])):
-            if n in list(charged_species.keys()):
-                s = Substance.from_formula(n,**{'charge':charged_species[n]})
-                substances[s.name] = s
-            else:
-                s = Substance.from_formula(n,**{'charge':0})#,charge=0) # charge buggers up everything have removed for now....
-                substances[s.name] = s 
-        eql = Equilibrium(reac=r,prod=p,param=k)
-        try:
-            return(EqSystem([eql],substances)) # might not just be able to try a return...
-        except Exception:
-            return(None)
+
         
         
-    def equilibrium_concentrations(self,concs,eq):
-        # something is going wrong here...
-        fc = copy.deepcopy(concs)
-        try:
-            x,sol,sane = eq.root(fc)
-            assert sol['success'] and sane
-            for n,c in enumerate(x):
-                fc[eq.substance_names()[n]] = c
-                    
-            concs = fc
-            eq = eq.string()
-        except Exception:
-            concs = fc
-            eq = None
-        return(concs,eq)
 
-    def random_walk(self,T,P,
-                    probability_threshold=0.05,
-                    path_depth=50,
-                    #concs=None,
-                    max_compounds=5,
-                    max_rank=5,
-                    co2=False,
-                    scale_highest=1000,
-                    ceiling=3000,
-                    method='bellman-ford'):
-    
-        final_concs = {0:copy.deepcopy(self.concs)} 
-        reactionstats = {0:None}
 
-        for ip in range(1,path_depth+1):
-            fcs = copy.deepcopy(final_concs[ip-1])
-            try:
-                choices = self._get_weighted_random_compounds(T=T,P=P,
-                                                              init_concs=fcs,
-                                                              max_compounds=max_compounds,
-                                                              probability_threshold=probability_threshold,
-                                                              co2=co2,
-                                                              scale_highest=scale_highest,
-                                                              ceiling=ceiling)
-            except Exception:
-                path_depth = ip+1
-                break
-            if len(choices) <= 1: # not sure this is necessary....
-                path_depth = ip+1
-                break
-            rankings = self._get_weighted_reaction_rankings(T=T,P=P,
-                                                            choices=choices,
-                                                            max_rank=max_rank,
-                                                            method=method)        
-            if not rankings:
-                break
-            weights = {k:1/rankings[k]['weight'] for k in rankings}
-            probabilities = {k:v/sum(weights.values()) for k,v in weights.items()}
-            chosen_reaction = np.random.choice([np.random.choice(list(probabilities.keys()),
-                                len(probabilities),
-                                p=list(probabilities.values()))][0])
-            
-            eqsyst = self.generate_eqsystem(chosen_reaction,T,P)
-            # if reaction was previous reaction then break
-            path_available = [r for r in reactionstats.values() if not r==None]
-            if path_available:
-                if eqsyst.string() == path_available[-1] and eqsyst.string() == path_available[-1]:
-                    break   # extra break
-                    
-            final_concs[ip],reactionstats[ip] = self.equilibrium_concentrations(fcs,eqsyst)
-            
-        return({'data':final_concs[list(final_concs)[-1]],
-                'equation_statistics':[r for r in reactionstats.values() if not r==None],
-                'path_length':len([r for r in reactionstats.values() if not r==None])})  
+
     
     
     def _queue_function(self,

@@ -398,8 +398,10 @@ class GraphGenerator:
                 ) #products -> reaction
         
         reactions = {i:r['r'] for i,r in enumerate(applied_reactions)}
+        equilibrium_constants = {i:r['k'] for i,r in enumerate(applied_reactions)}
 
         nx.set_node_attributes(graph,reactions,name='reaction') 
+        nx.set_node_attributes(graph,equilibrium_constants,name='equilibrium_constant') 
 
         return(graph)
     
