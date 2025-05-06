@@ -2,18 +2,14 @@ from chempy.equilibria import Equilibrium,EqSystem
 from chempy import Substance
 import copy
 import networkx as nx
-import itertools as it
 import warnings
 from datetime import datetime
 import numpy as np
 import pathos.multiprocessing as pmp 
-import warnings
 import psutil
 import time
-import pickle
 import datetime
 import os
-import chempy 
 
 class Traversal:
 
@@ -21,20 +17,17 @@ class Traversal:
         self.graph = graph
 
         #default values:
-        self.co2 = False
+        self.exclude_co2 = False
         self.max_compounds = 5
-        self.probability_threshold=0.05
-        self.max_rank=5
-        self.sample_length=1000
-        self.path_depth=20
-        self.random_path_depth=False
-        self.nprocs = 4    
+        self.discovery_threshold=5 # % percent
+        self.maximum_reaction_numbe = 5
+        self.nsamples=1000
+        self.max_steps=10
+        self.ncpus = 4    
         self.ceiling = 2000
-        self.scale_highest=0.1
+        self.scale_largest=10
         self.rank_small_reactions_higher=True
-        self.method='Bellman-Ford'
-        self.final_concs = {} 
-        self.initfinaldiff = {}
+        self.shortest_path_method='Djikstra'
 
     def length_multiplier(
             self,
@@ -259,7 +252,7 @@ class Traversal:
             self,
             initial_concentrations: dict,
             max_steps: int = 10,
-            discovery_threshold: float = 0.05,
+            discovery_threshold: float = 5,
             max_compounds: int = 5,
             exclude_co2: bool = False,
             scale_largest: float = 10,  # in %

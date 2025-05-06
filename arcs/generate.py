@@ -355,7 +355,7 @@ class GraphGenerator:
                 for compound in compounds
             ]
         )
-
+        
         return(
             np.log(1+(273/temperature)*np.exp(gibbs_free_energy/num_atoms/1))
             )

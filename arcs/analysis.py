@@ -4,18 +4,25 @@ from collections import defaultdict
 import numpy as np 
 from collections import Counter
 from dash import html
-
+import warnings 
 class AnalyseSampling:
     
-    def __init__(self,data,markdown=False):
-        if isinstance(data,str):
-            self.data = loadfn(data)
-        else:
-            self.data = data
-        self.markdown=markdown
+    def __init__(
+            self,
+            use_markdown:bool = False,
+            use_latex:bool = False,
+            ):
+        
+        if use_markdown and use_latex:
+            warnings.warn('both use_markdown and use_latex are set to True, proceeding with use_markdown=True')
+        self.use_markdown = use_markdown
+        self.use_latex = use_latex
             
-
-    def _latex_equation(self,equation):
+    @staticmethod
+    def latex_equation(
+        equation: str,
+        use_markdown: bool = True,
+    ) -> str:
         r,p = equation.split('=')
         reacs = r.split(' ')
         prods = p.split(' ')
@@ -25,7 +32,7 @@ class AnalyseSampling:
                 try:
                     int(i)
                     reacs_adjusted.append(i)
-                except:
+                except Exception:
                     if i == '+':
                         reacs_adjusted.append(' + ')
                     else:
@@ -33,28 +40,29 @@ class AnalyseSampling:
                         for x in i:
                             try:
                                 x = int(x)
-                                if self.markdown==True:
+                                if use_markdown:
                                     new_i.append('<sub>{}</sub>'.format(x))
                                 else:
                                     new_i.append('$_{}$'.format(x))
-                            except:
+                            except Exception:
                                 new_i.append(x)
                         reacs_adjusted.append(''.join(new_i))
             return(''.join(reacs_adjusted)) 
     
         rs = _latex_format(reacs)
         ps = _latex_format(prods)
+        
         return(''.join([rs,' = ',ps]))
     
-    def _sci_notation(self, number, sig_fig=2):
+    def sci_notation(self, number, sig_fig=2):
         ret_string = "{0:.{1:d}e}".format(number, sig_fig)
         a, b = ret_string.split("e")
         # remove leading "+" and strip leading zeros
         b = int(b)
         return (a + " * 10^" + str(b))
 
-            
-    def _get_stats(self,equations):
+    @staticmethod
+    def get_stats(equations):
 
         appearances = defaultdict(int)
         for sample in equations:
@@ -73,29 +81,33 @@ class AnalyseSampling:
             d = d.reset_index()
             d.T['index'] = 'reaction'
             d = d.to_dict()
-        except:
+        except Exception:
             d = {}
         return(d)
             
-    def reaction_statistics(self):
-        eqt = {}
-        for T in self.data:
-            eqp = {}
-            for P in self.data[T]:
-                equations = []
-                for x in self.data[T][P]:
-                    eqs = self.data[T][P][x]['equation_statistics']
-                    if eqs:
-                        equations.append(eqs)
-                try:
-                    
-                    eqp[float(P)] = self._get_stats(equations)
-                except:
-                    eqp[float(P)] = []
-            eqt[float(T)] = eqp
-            
-   
-        self.stats = eqt
+    def reaction_statistics(
+            self,
+            data:dict
+            )->dict:
+        """
+        function that takes the reaction statistics of each sample and combines them
+        returns a dict
+        """
+        equations = []
+        for sample in data:
+            for equation in sample['equation_statistics'].values():
+                if equation:
+                    equations.append(equation)
+
+        statistics = Counter(equations)
+
+        if self.use_markdown:
+            statistics = {self.latex_equation(k,use_markdown=True):v for k,v in statistics.items()}
+        elif self.use_latex:
+            statistics = {self.latex_equation(k,use_markdown=False):v for k,v in statistics.items()}
+
+
+        return(statistics)
     
     def mean_sampling(self):
         t = list(self.data)[0]
