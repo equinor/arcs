@@ -1,6 +1,8 @@
 from typing import Dict, List
+import pandas as pd
 import numpy as np
 import numpy.typing as npt
+from scipy.interpolate import LinearNDInterpolator
 from arcs.model import (
     ReactionType,
     _find_enclosing,
@@ -96,9 +98,19 @@ def test_get_gibbs_constant():
 
 
 def test__interpolated_result_accuracy():
+    error_ND = []
+    error_lin = []
     for temp in range(len(TEMPERATURE_LIST) - 1):
         for press in range(len(PRESSURE_LIST) - 1):
-            _interpolated_result_accuracy(temp, press)
+            error_scipy, error_current_impl = _interpolated_result_accuracy(temp, press)
+            error_ND.append(error_scipy)
+            error_lin.append(error_current_impl)
+    count = 0
+    for i in range(len(error_ND)):
+        if error_lin[i] < error_ND[i]:
+            count += 1
+    print(f"{count/len(error_ND) * 100:.2f}%, {count=}")
+
 
 
 def _interpolated_result_accuracy(temps, press):
@@ -137,14 +149,56 @@ def _interpolated_result_accuracy(temps, press):
         sorted_reactions, tp_combinations, pressure, temperature
     )
 
+    # Use another linear interpolation to compare
+    pressure_list = [PRESSURE_LIST[min_pressure_idx], PRESSURE_LIST[max_pressure_idx]]
+    temperature_list = [TEMPERATURE_LIST[min_temp_idx], TEMPERATURE_LIST[max_temp_idx]]
+    tp_combinations, df_grouped = export_gibbs_todf(pressure_list, temperature_list)
+    interpolators = [LinearNDInterpolator(tp_combinations, np.array(df_grouped.iloc[i, 1:5])) for i in range(len(df_grouped))]
+    linearND_values = [interpolator(temperature, pressure) for interpolator in interpolators]
+
+    true_g = [true_reactions[reaction_id]['g'] for reaction_id in range(len(true_reactions))]
+
+    error_scipy = np.linalg.norm(np.array(true_g) - np.array(linearND_values))
+    error_current_impl = np.linalg.norm(np.array(true_g) - np.array(interpolated_gibbs_constant))
+
     # Assertions to verify the accuracy of the interpolated results
     for reaction_id, interpolated_value in zip(ids, interpolated_gibbs_constant):
         true_value = true_reactions[reaction_id]["g"]
+        assert np.isclose(linearND_values[reaction_id], true_value, atol=0.5, rtol=0.01)
         assert np.isclose(interpolated_value, true_value, atol=0.5, rtol=0.01), (
             f"Interpolated value for reaction ID {reaction_id} "
             f"({interpolated_value}) does not match true value "
             f"({true_value})."
         )
+        if not np.isclose(linearND_values[reaction_id], interpolated_value, atol=0.1, rtol=0.01):
+            print(f"{reaction_id=}, {linearND_values[reaction_id]=}, {interpolated_value=}, {true_value=}")
+
+    return error_scipy, error_current_impl
+
+
+def export_gibbs_todf(pressure_list, temperature_list):
+    results = []
+    tp_combinations = []
+
+    for p in pressure_list:
+        for t in temperature_list:
+            tp_combinations.append([t, p])
+            reactions = get_reactions(t, p)
+            for reaction_id in range(len(reactions)):
+                g_value = reactions[reaction_id]['g']
+                results.append({
+                    f"Reaction_id": reaction_id,
+                    f"Gibbs_{t}_{p}": g_value
+                })
+
+    # Convert results to a DataFrame for better readability
+    df_results = pd.DataFrame(results)
+
+    # Group by 'Reaction_id' and aggregate the Gibbs values
+    df_grouped = df_results.groupby("Reaction_id").agg(
+        lambda x: x.dropna().iloc[0] if not x.dropna().empty else None).reset_index()
+
+    return tp_combinations, df_grouped
 
 
 def test_interpolate_gibbs_values():
