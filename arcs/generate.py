@@ -323,10 +323,10 @@ class GraphGenerator:
 
     def cost_function(
             self,
-        gibbs_free_energy: float,  # in eV
-        temperature: float,  # in K
-        reactants: dict
-    ) -> float:
+            gibbs_free_energy: float,  # in eV
+            temperature: float,  # in K
+            reactants: dict
+            ) -> float:
         """
         takes a gibbs free energy of reaction and normalises it using a cost function taken from:
         https://www.nature.com/articles/s41467-021-23339-x.pdf which takes the form:
@@ -396,6 +396,10 @@ class GraphGenerator:
             graph.add_weighted_edges_from(
                 [compound,i,backward_cost] for compound in reaction['r']['products']
                 ) #products -> reaction
+        
+        reactions = {i:r['r'] for i,r in enumerate(applied_reactions)}
+
+        nx.set_node_attributes(graph,reactions,name='reaction') 
 
         return(graph)
     
@@ -434,7 +438,11 @@ class GraphGenerator:
         rge = ReactionGibbsandEquilibrium(dft_dict)
         applied_reactions = [] 
         for reaction in dft_dict['reactions'].values():
-            g_k_dict = rge.get_reaction_gibbs_and_equilibrium(reaction=reaction,temperature=temperature,pressure=pressure)
+            g_k_dict = rge.get_reaction_gibbs_and_equilibrium(
+                reaction=reaction,
+                temperature=temperature,
+                pressure=pressure
+                )
             g_k_dict['r'] = reaction
             applied_reactions.append(g_k_dict)  
 
@@ -474,7 +482,11 @@ class GraphGenerator:
         rge = ReactionGibbsandEquilibrium(dft_dict)
         applied_reactions = [] 
         for reaction in dft_dict['reactions'].values():
-            g_k_dict = rge.get_reaction_gibbs_and_equilibrium(reaction=reaction,temperature=temperature,pressure=pressure)
+            g_k_dict = rge.get_reaction_gibbs_and_equilibrium(
+                reaction=reaction,
+                temperature=temperature,
+                pressure=pressure
+                )
             g_k_dict['r'] = reaction
             applied_reactions.append(g_k_dict)  
 
@@ -491,6 +503,7 @@ class GenerateInitialConcentrations:
 
     def __init__(self,graph:nx.MultiDiGraph):
         self.graph = graph
+        
 
     def all_random(self,include_co2=True)->dict:
         """

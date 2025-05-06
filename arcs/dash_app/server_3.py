@@ -29,10 +29,7 @@ def start_dash(host: str,
     external_stylesheets = [dbc.themes.QUARTZ]
     
     load_figure_template("QUARTZ")
-    
-    file_location = '/Users/badw/github-projects/arcs/app/data/'
-    # data and sliders
-    
+        
     def load_data(filename,split_data=False):  # has to be a .json file in dict format
         data = loadfn(filename)
         if split_data:
@@ -63,28 +60,33 @@ def start_dash(host: str,
                 md.append(i)
         return("".join(md))
     
-    # run data fields
-    #g = pickle.load(open(file_location+"SCAN_graph.p", "rb"))
-    #t = Traversal(graph=g, reactions=file_location+"SCAN_reactions.p")
-    
-    graph = html.P('None') #dbc.Alert("No Data", color="light")
-    table4 =html.P('None') # dbc.Alert("No Data", color="light")
-    table5 =html.P('None') # dbc.Alert("No Data", color="light")
-    
+    graph = html.P('None')
+    table4 =html.P('None')
+    table5 =html.P('None')
+
     meta = dbc.Alert("Data Shown When Run", color="secondary")  
+    
+    # Load the DFT data
+    file_location = '/Users/badw/github-projects/arcs/app/data/'
     
     functional_choice_dict = {'HSE06':file_location+'hse06_dft_data.json',
                               'SCAN':file_location+'scan_dft_data.json'}
     
-    default_data,reactions = load_data(file_location+'hse06_dft_data.json',split_data=True)
-    compounds = [x for x in list(default_data) if not x == 'reactions']
-    gic = GenerateInitialConcentrations(compounds=compounds)
+    ambient_settings = {"T": 298, "P": 1} # !NB - was None
+    
+    default_data = load_data(file_location+'hse06_dft_data.json')
+
+    graph = GraphGenerator().from_dict(dft_dict=default_data,temperature=ambient_settings['T'],pressure=ambient_settings['P'])
+
+    ### generate Initial Concentrations
+    gic = GenerateInitialConcentrations(graph=graph)
     gic.all_zero(include_co2=False)
     gic.update_ic({"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6})
     concs = gic.ic
+
     settings = {
         "nprocs": 1,
-        "sample_length": 320,
+        "sample_length": 1000,
         "max_rank": 10,
         "max_compounds": 5,
         "probability_threshold": 0.1,
@@ -93,9 +95,7 @@ def start_dash(host: str,
         "scale_highest": 0.2,
         "rank_small_reactions_higher":True
     }
-    ambient_settings = {"T": None, "P": None}
     
-    default_data = load_data(file_location+'hse06_dft_data.json')
     ###################### layout of DASH template########################
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
     
@@ -611,7 +611,7 @@ def start_dash(host: str,
                         ),
                         ]
                     )
-    
+    #########################################################################################################################    
     #################app callbacks
     #off canvas
     @app.callback(
@@ -712,16 +712,9 @@ def start_dash(host: str,
     )
     def apprun(btn1):
         if "submit-val" == ctx.triggered_id:
-            warnings.simplefilter("ignore")
+            #warnings.simplefilter("ignore")
             ### generate a graph with the given data
-            
-            reaction_data = ApplyDataToReaction(
-                [ambient_settings['T']],
-                [ambient_settings['P']],
-                default_data,
-                4).apply()
-            g = GraphGenerator(reaction_data,ncores=4)
-            g.generatemultidigraph(mp=False) # currently serial 
+            g = GraphGenerator.from_dict(dft_dict=default_data,temperature=ambient_settings['T'],pressure=ambient_settings['P'])
             t = Traversal(g.graph,reaction_data)
             t.run(
                 trange=[ambient_settings["T"]],
