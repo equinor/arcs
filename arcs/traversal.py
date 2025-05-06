@@ -16,6 +16,7 @@ import math
 import numpy as np
 import pandas as pd 
 from pathos.helpers import mp as pmp
+import pathos.multiprocessing as pmp 
 import queue
 import warnings
 import psutil
@@ -343,96 +344,36 @@ class Traversal:
                 'equation_statistics': reactionstats
              }
         )
-
-    def _queue_function(self,
-                        pbari,
-                        samples,T,P,
-                        probability_threshold,
-                        path_depth,
-                        max_compounds,
-                        max_rank,
-                        co2,
-                        scale_highest,
-                        ceiling,
-                        method,
-                        out_q):
-        
-        sample_data = {}
-        with tqdm(total=len(samples),bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=False) as pbar:
-            for sample in samples:
-                sample_data[sample] = self.random_walk(T=T,P=P,
-                                                       probability_threshold=probability_threshold,
-                                                       path_depth=path_depth,
-                                                       max_compounds=max_compounds,
-                                                       max_rank=max_rank,
-                                                       co2=co2,
-                                                       scale_highest=scale_highest,
-                                                       ceiling=ceiling,
-                                                       method=method)
-                pbar.update(1)
-                    
-        out_q.put(sample_data)
-
+    #@staticmethod
+    def sampling_function(self,iterable):
+        initial_concentrations = self.initial_concentrations
+        return(self.random_walk(initial_concentrations=initial_concentrations)) 
     
-    def sampling_multiprocessing(self,T=None,P=None,**kw):
+
+    def sample(
+            self,
+            initial_concentrations:dict,
+            nsamples:int = 1000,
+            ncpus:int = 4,
+            **random_walk_kws:dict,
+    ):
+        """
+        samples the graph network nsamples DEFAULT = 1000
+        multiprocessed with ncpus DEFAULT = 4  
+        """
+        self.initial_concentrations = initial_concentrations
+
+        with pmp.Pool(processes=ncpus) as pool:
+            data = pool.map(
+                self.sampling_function, list(
+                    range(
+                        nsamples
+                    )
+                )
+            )
+        return(data)
+
         
-        init_concs = copy.deepcopy(self.concs)
-        result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
-        #start the queue
-        out_queue = pmp.Queue()
-        samples = list(range(1,self.sample_length+1,1))
-        data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
-                            for i in range(self.nprocs) 
-                            for chunksize in [int(math.ceil(len(samples)/float(self.nprocs)))]]
-        
-        jobs = []
-        for i,chunk in enumerate(data_chunks):
-            process = pmp.Process(target=self._queue_function,
-                                  args=(i,chunk,T,P,
-                                        self.probability_threshold,
-                                        self.path_depth,
-                                        self.max_compounds,
-                                        self.max_rank,
-                                        self.co2,
-                                        self.scale_highest,
-                                        self.ceiling,
-                                        self.method,
-                                        out_queue))
-            jobs.append(process)
-            process.start()
-
-
-        for proc in jobs:
-            result_dict.update(out_queue.get())
-            
-        for proc in jobs:
-            proc.terminate()
-
-        for proc in jobs:
-            proc.join()
-
-        out_queue.close()
-        
-
-
-        return(result_dict) 
-    
-    def sampling_serial(self,T=None,P=None,**kw):
-        init_concs = copy.deepcopy(self.concs)
-        result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
-        with tqdm(total=self.sample_length,bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=False) as pbar:
-            for sample in range(self.sample_length):
-                result_dict[sample+1] = self.random_walk(T=T,P=P,
-                                                       probability_threshold=self.probability_threshold,
-                                                       path_depth=self.path_depth,
-                                                       max_compounds=self.max_compounds,
-                                                       max_rank=self.max_rank,
-                                                       co2=self.co2,
-                                                       scale_highest=self.scale_highest,
-                                                       ceiling=self.ceiling,
-                                                       method=self.method)
-                pbar.update(1)
-        return(result_dict)
         
         
     def run(self,trange,prange,ic=None,save=False,savename=None,ignore_warnings=True,logging=False,**kw):
