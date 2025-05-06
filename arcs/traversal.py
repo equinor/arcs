@@ -4,7 +4,7 @@ from chempy import Substance
 import copy
 import networkx as nx
 import itertools as it
-from tqdm import tqdm
+import tqdm 
 import warnings
 import pathos.multiprocessing as multiprocessing
 from pathos.pools import ProcessPool
@@ -193,6 +193,25 @@ class Traversal:
         rankings = {k:rankings[k] for k in list(rankings)[0:maximum_reaction_number]}
         return(rankings)
     
+    @staticmethod
+    def choose_reaction(ranked_reactions:dict)->int:
+        """
+        given a dictionary of ranked reactions from self.get_weighted_reaction_rankings
+        chose a reaction based on weights and probabilities
+        """
+        weights = {k:1/v for k,v in ranked_reactions.items()} # here higher is better 
+        probabilities = {k:v/sum(weights.values()) for k,v in weights.items()}
+        chosen_reaction = np.random.choice(
+                [
+                    np.random.choice(
+                        a=list(probabilities.keys()),
+                        size=len(probabilities)*10,
+                        p=list(probabilities.values())
+                    )
+                ][0]
+            )
+        return(chosen_reaction)
+    
     def generate_chempy_eqsystem(
             self,
             index:int
@@ -224,51 +243,40 @@ class Traversal:
         except Exception:
             return(None)
         
-    def equilibrium_concentrations(self,concs,eq):
-        # something is going wrong here...
-        fc = copy.deepcopy(concs)
+    def chempy_equilibrium_concentrations(
+            self,
+            concentrations:dict,
+            equilibrium_reaction:EqSystem
+            )->dict:
+        """
+        generate equilibrium concentrations 
+        if the reaction is "sane" and a "success" then it returns the equilibrium concentrations as a dict of concentrations 
+        elsewise 
+        return None
+        """
+        warnings.simplefilter('ignore')
+        _concs = copy.deepcopy(concentrations)
         try:
-            x,sol,sane = eq.root(fc)
-            assert sol['success'] and sane
-            for n,c in enumerate(x):
-                fc[eq.substance_names()[n]] = c
-                    
-            concs = fc
-            eq = eq.string()
+            result = equilibrium_reaction.solve(init_concs=_concs)
+            assert result.success and result.sane
+            for compound,concentration in enumerate(result.conc):
+                _concs[equilibrium_reaction.substance_names()[compound]] = concentration
+            return(_concs)
         except Exception:
-            concs = fc
-            eq = None
-        return(concs,eq)
-    
-    @staticmethod
-    def choose_reaction(ranked_reactions:dict)->int:
-        """
-        given a dictionary of ranked reactions from self.get_weighted_reaction_rankings
-        chose a reaction based on weights and probabilities
-        """
-        weights = {k:1/v for k,v in ranked_reactions.items()} # here higher is better 
-        probabilities = {k:v/sum(weights.values()) for k,v in weights.items()}
-        chosen_reaction = np.random.choice(
-                [
-                    np.random.choice(
-                        a=list(probabilities.keys()),
-                        size=len(probabilities)*10,
-                        p=list(probabilities.values())
-                    )
-                ][0]
-            )
-        return(chosen_reaction)
+            return(None)
     
     def random_walk(
             self,
-            max_steps:int = 10,
-            discovery_threshold:float =0.05,
-            max_compounds:int = 5,
-            exclude_co2:bool = False,
-            scale_largest:float = 10, # in %
-            ceiling:float = 1000, # in %
-            maximum_reaction_number:int = 5,
-            shortest_path_method='djikstra'):
+            initial_concentrations: dict,
+            max_steps: int = 10,
+            discovery_threshold: float = 0.05,
+            max_compounds: int = 5,
+            exclude_co2: bool = False,
+            scale_largest: float = 10,  # in %
+            ceiling: float = 1000,  # in %
+            maximum_reaction_number: int = 5,
+            shortest_path_method='djikstra'
+    ) -> dict:
         """
         does a random sampling of the reaction network with max_steps  DEFAULT = 10.
 
@@ -280,92 +288,62 @@ class Traversal:
         4. calculate the equilibrium concentrations 
         5. update the concentrations and reaction statistics 
         """
-    
-        concentrations = {0:copy.deepcopy(self.concs)} 
-        reactionstats = {0:None}
-        
-        for step in range(max_steps):
-            _concentrations = copy.deepcopy(concentrations[step])
-            #1 grab weighted_random_compounds
+
+        concentrations = {0: initial_concentrations}
+        reactionstats = {0: None}
+        i = 0
+        for step in range(1, max_steps+1):
+            _concentrations = copy.deepcopy(concentrations[i])
+            # 1 grab weighted_random_compounds
             weighted_random_compounds = self.get_weighted_random_compounds(
-                    concentrations=_concentrations,
-                    exclude_co2=exclude_co2,
-                    max_compounds=max_compounds,
-                    discovery_threshold=discovery_threshold,
-                    scale_largest=scale_largest,
-                    ceiling=ceiling
-                )
-            #2 grab reaction rankings
-            ranked_reactions = self._get_weighted_reaction_rankings(
-                weighted_random_compounds = weighted_random_compounds,
+                concentrations=_concentrations,
+                exclude_co2=exclude_co2,
+                max_compounds=max_compounds,
+                discovery_threshold=discovery_threshold,
+                scale_largest=scale_largest,
+                ceiling=ceiling
+            )
+            # 2 grab reaction rankings
+            ranked_reactions = self.get_weighted_reaction_rankings(
+                weighted_random_compounds=weighted_random_compounds,
                 maximum_reaction_number=maximum_reaction_number,
                 shortest_path_method=shortest_path_method,
-                )   
-            #3 if no reactions found then break the for loop 
+            )
+            # 3 if no reactions found then break the for loop
             if not ranked_reactions:
                 break
 
-            #4 choose a reaction
-            chosen_reaction_index = self.choose_reaction(ranked_reactions=ranked_reactions)
-            #5 generate a chgempy eqsystem 
-            eqsyst = self.generate_chempy_eqsystem(index=chosen_reaction_index)
+            # 4 choose a reaction
+            chosen_reaction_index = self.choose_reaction(
+                ranked_reactions=ranked_reactions)
+            # 5 generate a chgempy eqsystem
+            eqsystem = self.generate_chempy_eqsystem(
+                index=chosen_reaction_index)
 
-            #6 check that reaction wasn't previously done (can probably leave this out) (supposed to stop infinite loops, but that might be ok)
-            #previous_reactions = [r for r in reactionstats.values() if r]
-            #try:
+            # 6 check that reaction wasn't previously done (can probably leave this out) (supposed to stop infinite loops, but that might be ok)
+            # previous_reactions = [r for r in reactionstats.values() if r]
+            # try:
             #    if eqsyst.string() == previous_reactions[-1]:
             #        break
-            #except IndexError:
+            # except IndexError:
             #    pass
 
-            #6 get equilibrium_concentrations and update relevant dictionaries.
-            final_concs[ip],reactionstats[ip] = self.equilibrium_concentrations(fcs,eqsyst)
-            
-        return({'data':final_concs[list(final_concs)[-1]],
-                'equation_statistics':[r for r in reactionstats.values() if not r==None],
-                'path_length':len([r for r in reactionstats.values() if not r==None])})  
-        
-    def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
-        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        if force_direct:
-            pstring = [0,1,2]
-            while len(pstring) > 2:
-                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=None) 
-                target = np.random.choice(nodes)
-                p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
-                pstring = [n for n in p if isinstance(p,str)]
-        else:
-                source = self._get_weighted_random_compound(T,P)
-                target = np.random.choice(nodes)
-                p = nx.shortest_path(self.graph[T][P],source,target)
-        return(p)
+            # 6 get equilibrium_concentrations and update relevant dictionaries.
+            final_concentrations = self.chempy_equilibrium_concentrations(
+                concentrations=_concentrations,
+                equilibrium_reaction=eqsystem
+            )
+            if final_concentrations:
+                i += 1
+                concentrations[i] = final_concentrations
+                reactionstats[i] = self.graph.nodes[chosen_reaction_index]['reaction']['reaction_string']
 
-    def _random_choice_connected(self,T,P,force_direct=False,previous_index=None,co2=False): # this will be joined - I think we can also make a ranking of potential reactions based upon components in the stream as well 
-        if previous_index == None:
-            raise ValueError('no previous compound selected')
-        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        if force_direct:
-            pstring = [0,1,2]
-            while len(pstring) > 2:
-                present = [c for c in list(self.reactions[T][P][previous_index]['e'].reac) + list(self.reactions[T][P][previous_index]['e'].prod) ] # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
-                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=present)
-                target = np.random.choice(nodes) # the next path will be random 
-                p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
-                pstring = [n for n in p if isinstance(p,str)]
-        else:
-                source = self._get_weighted_random_compound(T,P)
-                target = random.choice(nodes)
-                p = nx.shortest_path(self.graph[T][P],source,target)
-        return(p)
-    
+        return (
+            {'concentrations': concentrations,
+                'equation_statistics': reactionstats
+             }
+        )
 
-        
-        
-
-
-
-    
-    
     def _queue_function(self,
                         pbari,
                         samples,T,P,

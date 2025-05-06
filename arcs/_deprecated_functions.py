@@ -441,3 +441,41 @@ class MappingtoReaction:
         f = datetime.now() - s 
         print(' time = ',f)
         return(screened)
+    
+
+
+################################traversal
+
+
+    def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        if force_direct:
+            pstring = [0,1,2]
+            while len(pstring) > 2:
+                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=None) 
+                target = np.random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
+                pstring = [n for n in p if isinstance(p,str)]
+        else:
+                source = self._get_weighted_random_compound(T,P)
+                target = np.random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+        return(p)
+
+    def _random_choice_connected(self,T,P,force_direct=False,previous_index=None,co2=False): # this will be joined - I think we can also make a ranking of potential reactions based upon components in the stream as well 
+        if previous_index == None:
+            raise ValueError('no previous compound selected')
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        if force_direct:
+            pstring = [0,1,2]
+            while len(pstring) > 2:
+                present = [c for c in list(self.reactions[T][P][previous_index]['e'].reac) + list(self.reactions[T][P][previous_index]['e'].prod) ] # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
+                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=present)
+                target = np.random.choice(nodes) # the next path will be random 
+                p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
+                pstring = [n for n in p if isinstance(p,str)]
+        else:
+                source = self._get_weighted_random_compound(T,P)
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+        return(p)
