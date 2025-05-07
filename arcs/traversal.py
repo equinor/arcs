@@ -41,15 +41,11 @@ class Traversal:
         """
         if self.rank_small_reactions_higher['option']:
             reaction_dict = self.graph.nodes[candidate_reaction]['reaction']
-            #use coefficients as well 
+            num_reactants = len(reaction_dict['reactants'])
+            num_products = len(reaction_dict['products'])   
             if self.rank_small_reactions_higher['by_coefficients']:
-                len_reactants = len(reaction_dict['reactants'])
-                len_products = len(reaction_dict['products'])
-                num_reactants = np.sum(list(reaction_dict['reactants'].values()))*len_reactants
-                num_products = np.sum(list(reaction_dict['products'].values()))*len_products
-            else:
-                num_reactants = len(reaction_dict['reactants'])
-                num_products = len(reaction_dict['products'])                
+                num_reactants = np.sum(list(reaction_dict['reactants'].values()))*num_reactants
+                num_products = np.sum(list(reaction_dict['products'].values()))*num_products # all species * products
             return((num_reactants + num_products))
         else:
             return (1)
@@ -133,7 +129,7 @@ class Traversal:
 
         return(list(choices))
 
-    def get_weighted_reaction_rankings(
+    def _get_weighted_reaction_rankings(
             self,
             weighted_random_compounds:dict,
             maximum_reaction_number:int = 20,
@@ -142,7 +138,7 @@ class Traversal:
         """
         given a dictionary of weighted random compounds from self.get_weighted_random_compounds find the shortest path between: 
         1. compound 0 and compound 1 -> list
-        2. filter based on available compounds 
+        2. add further reactions based on C0 and CN and C1 and CN 
         3. weight based on edge weight and (optional) length multiplier for unreasonable large reactions (if option selected)
         returns a dictionary of ranked reactions and their weighting. 
         """
@@ -193,7 +189,97 @@ class Traversal:
             )[0]['weight']*self.length_multiplier(reaction)
             rankings[reaction] = weight 
 
-        #limit based on maximum_reaction_number:        
+        #limit based on maximum_reaction_number:
+        #rankings = {k:v for i,(k,v) in enumerate(rankings.items()) if i <maximum_reaction_number}
+        rankings = dict(sorted(rankings.items(),key=lambda item: item[1])[0:maximum_reaction_number])
+        return(rankings)
+    
+    def weight_filter(
+            self,
+            reaction_index:int,
+            weighted_random_compounds:list
+            )->int:
+        
+        species = list(
+            self.graph.nodes()[reaction_index]['reaction']['reactants']
+            ) + list(
+                self.graph.nodes()[reaction_index]['reaction']['products']
+                )
+        return(
+            len([x for x in species if x in weighted_random_compounds])
+            )
+    
+    def get_weighted_reaction_rankings(
+            self,
+            weighted_random_compounds:dict,
+            maximum_reaction_number:int = 20,
+            shortest_path_method:str = 'Djikstra',
+            ):
+        """
+        given a dictionary of weighted random compounds from self.get_weighted_random_compounds find the shortest path between: 
+        1. compound 0 and compound 1 -> list
+        2. add further reactions based on C0 and CN and C1 and CN 
+        3. weight based on availability of how many weighted_random_compounds are present in the reaction
+        4. weight based on edge weight and (optional) length multiplier for unreasonable large reactions (if option selected)
+        returns a dictionary of ranked reactions and their weighting. 
+
+        #TODO: check based on whether each element is present in the reaction. 
+        """
+        
+        if len(weighted_random_compounds) == 1:
+            return(None)
+
+        c1 = weighted_random_compounds[0]
+        c2 = weighted_random_compounds[1]
+        # 1st find possible paths between 1 and 2
+        possibilities = []
+        for cn in weighted_random_compounds:
+            try:
+                possibilities.append(
+                    [
+                        x[1] for x in list(
+                            nx.shortest_paths.all_shortest_paths(
+                                G=self.graph, source=c1, target=cn)
+                        )
+                    ]
+                )
+                possibilities.append(
+                    [
+                        x[1] for x in list(
+                            nx.shortest_paths.all_shortest_paths(
+                                G=self.graph, source=c2, target=cn)
+                        )
+                    ]
+                )
+            except IndexError:
+                pass
+
+        possibilities = it.chain(*possibilities)
+        #now weight by how many species in the reaction are in the weighted_random_compounds
+        possibilities = {
+            reaction_index:self.weight_filter(reaction_index,weighted_random_compounds) for reaction_index in possibilities
+            }
+        possibilities = dict(
+            sorted(possibilities.items(),key=lambda item: item[1],reverse=True)#[0:maximum_reaction_number]
+            )
+        
+        rankings = {}
+        for i,reaction in enumerate(possibilities):
+            try:
+                weight = self.graph.get_edge_data(
+                    u=c1,
+                    v=reaction
+                    )[0]['weight']*self.length_multiplier(reaction)
+            except TypeError:
+                weight = self.graph.get_edge_data(
+                    u=c2,
+                    v=reaction
+                    )[0]['weight']*self.length_multiplier(reaction)
+                    
+                rankings[reaction] = weight 
+
+        #limit based on maximum_reaction_number:
+        #rankings = {k:v for i,(k,v) in enumerate(rankings.items()) if i <maximum_reaction_number}
         rankings = dict(sorted(rankings.items(),key=lambda item: item[1])[0:maximum_reaction_number])
         return(rankings)
     
