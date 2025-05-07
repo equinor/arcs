@@ -129,6 +129,24 @@ class AnalyseSampling:
         df0 = pd.Series(average_data[0])
         df2 = df1 - df0 
         return(pd.DataFrame([df0,df1,df2,df.std(axis=0)],index=['initial','mean','diff','std']).T)
+    
+    @staticmethod
+    def count_path_length(
+        data:dict,
+    )->dict:
+        return(dict(Counter([len(x['concentrations']) for x in data[1:]])))
+    
+
+    @staticmethod
+    def reduce_data_by_minimum_path_length(
+        data:dict,
+        minimum_path_length:int = 1
+    )->list:
+        new_data = [data[0]]
+        for _data in data[1:]:
+            if len(_data['concentrations']) >=minimum_path_length:
+                new_data.append(_data) 
+        return(new_data)
         
         
     def reaction_paths(self,index_override=None):

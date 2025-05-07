@@ -231,7 +231,7 @@ class Traversal:
 
         c1 = weighted_random_compounds[0]
         c2 = weighted_random_compounds[1]
-        # 1st find possible paths between 1 and 2
+        # 1st find possible paths between compounds 1 & 2 and others
         possibilities = []
         for cn in weighted_random_compounds:
             try:
@@ -256,6 +256,7 @@ class Traversal:
 
         possibilities = it.chain(*possibilities)
         #now weight by how many species in the reaction are in the weighted_random_compounds
+        #more present compounds in a reaction is better 
         possibilities = {
             reaction_index:self.weight_filter(reaction_index,weighted_random_compounds) for reaction_index in possibilities
             }
