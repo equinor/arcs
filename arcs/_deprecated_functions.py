@@ -695,7 +695,53 @@ version:1.2
        
         self.data = total_data  
         if logging:
-            print(stream.get_value())                  
+            print(stream.get_value())    
+
+    def _get_weighted_reaction_rankings(
+            self,
+            weighted_random_compounds:dict,
+            maximum_reaction_number:int = 20,
+            shortest_path_method:str = 'Djikstra',
+            ):
+        """
+        given a dictionary of weighted random compounds from self.get_weighted_random_compounds find the shortest path between: 
+        1. compound 0 and compound 1 -> list
+        2. filter based on available compounds 
+        3. weight based on edge weight and (optional) length multiplier for unreasonable large reactions (if option selected)
+        returns a dictionary of ranked reactions and their weighting. 
+        """
+        
+        if len(weighted_random_compounds) == 1:
+            return(None)
+
+        rankings = {}
+
+        shortest_paths = nx.shortest_paths.all_shortest_paths(
+                G=self.graph,
+                source=list(weighted_random_compounds)[0],
+                target=list(weighted_random_compounds)[1],
+                method=shortest_path_method)  # gets a list of shortest paths without weights first
+                
+        rankings = {}
+        for path in shortest_paths:
+            source,reaction,target = path
+            reaction_compounds = list(self.graph[reaction])
+            #find reactions with >3rd compound
+            if len(weighted_random_compounds) > 2:
+                for compound in list(weighted_random_compounds)[2:]:
+                    if compound in reaction_compounds:
+                        rankings[reaction] = self.graph.get_edge_data(
+                            u=source,
+                            v=reaction
+                        )[0]['weight']*self.length_multiplier(reaction) #need to play around with coefficients=True
+            else:
+                rankings[reaction] = self.graph.get_edge_data(
+                    u=source,
+                    v=reaction
+                )[0]['weight']*self.length_multiplier(reaction)
+        #limit based on maximum_reaction_number:        
+        rankings = {k:rankings[k] for k in list(rankings)[0:maximum_reaction_number]}
+        return(rankings)              
 
 #done
 ###############################analysis.py

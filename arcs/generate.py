@@ -410,7 +410,8 @@ class GraphGenerator:
             self,
             filename:str,
             temperature:float, # in K
-            pressure:float # in bar
+            pressure:float, # in bar
+            max_reaction_length:int = 5, 
             )->nx.MultiDiGraph:
         """
         generates a networkx.multidigraph from a .json file of reactions and dft_dict generated with reactit and GetEnergyandVibrationsVASP
@@ -440,13 +441,14 @@ class GraphGenerator:
         rge = ReactionGibbsandEquilibrium(dft_dict)
         applied_reactions = [] 
         for reaction in dft_dict['reactions'].values():
-            g_k_dict = rge.get_reaction_gibbs_and_equilibrium(
-                reaction=reaction,
-                temperature=temperature,
-                pressure=pressure
+            if len(reaction['reactants']) + len(reaction['products']) <= max_reaction_length:
+                g_k_dict = rge.get_reaction_gibbs_and_equilibrium(
+                    reaction=reaction,
+                    temperature=temperature,
+                    pressure=pressure
                 )
-            g_k_dict['r'] = reaction
-            applied_reactions.append(g_k_dict)  
+                g_k_dict['r'] = reaction
+                applied_reactions.append(g_k_dict)
 
         graph = self.generate_multidigraph(applied_reactions=applied_reactions,temperature=temperature)
         return(graph)
@@ -455,7 +457,8 @@ class GraphGenerator:
             self,
             dft_dict:str,
             temperature:float, # in K
-            pressure:float # in bar
+            pressure:float, # in bar
+            max_reaction_length:int = 5,
             )->nx.MultiDiGraph:
         """
         generates a networkx.multidigraph from a dict representation of the .json file of reactions and dft_dict generated with reactit and GetEnergyandVibrationsVASP
@@ -484,13 +487,14 @@ class GraphGenerator:
         rge = ReactionGibbsandEquilibrium(dft_dict)
         applied_reactions = [] 
         for reaction in dft_dict['reactions'].values():
-            g_k_dict = rge.get_reaction_gibbs_and_equilibrium(
-                reaction=reaction,
-                temperature=temperature,
-                pressure=pressure
+            if len(reaction['reactants']) + len(reaction['products']) <= max_reaction_length:
+                g_k_dict = rge.get_reaction_gibbs_and_equilibrium(
+                    reaction=reaction,
+                    temperature=temperature,
+                    pressure=pressure
                 )
-            g_k_dict['r'] = reaction
-            applied_reactions.append(g_k_dict)  
+                g_k_dict['r'] = reaction
+                applied_reactions.append(g_k_dict)
 
         graph = self.generate_multidigraph(applied_reactions=applied_reactions,temperature=temperature)
         return(graph)

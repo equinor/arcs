@@ -10,12 +10,14 @@ import psutil
 import time
 import datetime
 import os
+import tqdm_pathos
+import itertools as it 
 
 class Traversal:
 
-    def __init__(self,graph):
+    def __init__(self,graph,max_reaction_length=5):
         self.graph = graph
-
+        
         #default values:
         self.exclude_co2 = False
         self.max_compounds = 5
@@ -26,7 +28,7 @@ class Traversal:
         self.ncpus = 4    
         self.ceiling = 2000
         self.scale_largest=10
-        self.rank_small_reactions_higher = {'option':True,'by_coefficients':False}
+        self.rank_small_reactions_higher = {'option':True,'by_coefficients':True}
         self.shortest_path_method='Djikstra'
 
     def length_multiplier(
@@ -39,14 +41,16 @@ class Traversal:
         """
         if self.rank_small_reactions_higher['option']:
             reaction_dict = self.graph.nodes[candidate_reaction]['reaction']
+            #use coefficients as well 
             if self.rank_small_reactions_higher['by_coefficients']:
-                num_reactants = np.sum(list(reaction_dict['reactants'].values()))
-                num_products = np.sum(list(reaction_dict['products'].values()))
+                len_reactants = len(reaction_dict['reactants'])
+                len_products = len(reaction_dict['products'])
+                num_reactants = np.sum(list(reaction_dict['reactants'].values()))*len_reactants
+                num_products = np.sum(list(reaction_dict['products'].values()))*len_products
             else:
                 num_reactants = len(reaction_dict['reactants'])
                 num_products = len(reaction_dict['products'])                
-            return(num_reactants + num_products)
-              # should probably include coefficients
+            return((num_reactants + num_products))
         else:
             return (1)
 
@@ -79,7 +83,7 @@ class Traversal:
             discovery_threshold: float = 5,  # discovery threshold in %
             scale_largest: float = 10,  # how much to scale the highest components in %
             ceiling: float = 1000,  # ceiling percent larger than the median average in %
-    ) -> dict:
+    ) -> list:
         """
         given a dictionary of concentrations e.g. {'H2O':100,'NO2':50} a weighted ranking can be returned with probabilities given a discovery threshold DEFAULT = 5%. 
 
@@ -127,7 +131,7 @@ class Traversal:
             except ValueError:
                 pass
 
-        return(choices)
+        return(list(choices))
 
     def get_weighted_reaction_rankings(
             self,
@@ -146,33 +150,51 @@ class Traversal:
         if len(weighted_random_compounds) == 1:
             return(None)
 
-        rankings = {}
+        possibilities = []
+        c1 = weighted_random_compounds[0]
+        c2 = weighted_random_compounds[1]
+        # 1st find possible paths between 1 and 2
+        c1_c2 = [x[1] for x in list(
+            nx.shortest_paths.all_shortest_paths(G=self.graph, source=c1, target=c2)
+        )
+        ]
 
-        shortest_paths = nx.shortest_paths.all_shortest_paths(
-                G=self.graph,
-                source=list(weighted_random_compounds)[0],
-                target=list(weighted_random_compounds)[1],
-                method=shortest_path_method)  # gets a list of shortest paths without weights first
-                
+        for x in c1_c2:
+            possibilities.append(x)
+
+        # now add overlaps with >2
+        if len(weighted_random_compounds)>2:
+            for cn in weighted_random_compounds[2:]:
+                # compound 1 and compound N
+                c1_cn = [x[1] for x in list(
+                    nx.shortest_paths.all_shortest_paths(G=self.graph, source=c1, target=cn)
+                )
+                ]
+                # compound 2 and compound N 
+                c2_cn = [x[1] for x in list(
+                    nx.shortest_paths.all_shortest_paths(G=self.graph, source=c2, target=cn)
+                )
+                ]
+                for x in list(
+                    set.intersection(*map(set, [c1_c2,c1_cn]))
+                    ):
+                    possibilities.append(x)
+                for x in list(
+                    set.intersection(*map(set, [c1_c2,c2_cn]))
+                    ):
+                    possibilities.append(x)        
+
+        possibilities = list(set(possibilities))
         rankings = {}
-        for path in shortest_paths:
-            source,reaction,target = path
-            reaction_compounds = list(self.graph[reaction])
-            #find reactions with >3rd compound
-            if len(weighted_random_compounds) > 2:
-                for compound in list(weighted_random_compounds)[2:]:
-                    if compound in reaction_compounds:
-                        rankings[reaction] = self.graph.get_edge_data(
-                            u=source,
-                            v=reaction
-                        )[0]['weight']*self.length_multiplier(reaction) #need to play around with coefficients=True
-            else:
-                rankings[reaction] = self.graph.get_edge_data(
-                    u=source,
-                    v=reaction
-                )[0]['weight']*self.length_multiplier(reaction)
+        for reaction in possibilities:
+            weight = self.graph.get_edge_data(
+                u=c1,
+                v=reaction
+            )[0]['weight']*self.length_multiplier(reaction)
+            rankings[reaction] = weight 
+
         #limit based on maximum_reaction_number:        
-        rankings = {k:rankings[k] for k in list(rankings)[0:maximum_reaction_number]}
+        rankings = dict(sorted(rankings.items(),key=lambda item: item[1])[0:maximum_reaction_number])
         return(rankings)
     
     @staticmethod
@@ -211,17 +233,17 @@ class Traversal:
         products = node_dict['reaction']['products']
         k = node_dict['equilibrium_constant']
 
-#        substances = {}
-#        for compound in list(
-#            it.chain(
-#                *[list(reactants)+list(products)]
-#            )
-#        ):
-#            substances[compound] = Substance.from_formula(compound,**{'charge':0}) # use if substance_factory doesnt work
+        substances = {}
+        for compound in list(
+            it.chain(
+                *[list(reactants)+list(products)]
+            )
+        ):
+            substances[compound] = Substance.from_formula(compound,**{'charge':0})  
 
         equation = Equilibrium(reac=reactants,prod=products,param=k)
         try:
-            return(EqSystem([equation],substance_factory=Substance.from_formula)) # might not just be able to try a return...
+            return(EqSystem([equation],substances=substances))#substance_factory=Substance.from_formula)) # might not just be able to try a return...
         except Exception:
             return(None)
         
@@ -240,6 +262,7 @@ class Traversal:
         _concs = copy.deepcopy(concentrations)
         try:
             result = equilibrium_reaction.solve(init_concs=_concs)
+            #assert result.success and result.sane
             assert result.success and result.sane
             for compound,concentration in enumerate(result.conc):
                 _concs[equilibrium_reaction.substance_names()[compound]] = concentration
@@ -339,6 +362,7 @@ class Traversal:
             initial_concentrations:dict,
             nsamples:int = 1000,
             ncpus:int = 4,
+            progress_bar=False,
             **random_walk_kws:dict,
     )->dict:
         """
@@ -346,13 +370,20 @@ class Traversal:
         multiprocessed with ncpus DEFAULT = 4  
         """
         self.initial_concentrations = initial_concentrations
-
-        with pmp.Pool(processes=ncpus) as pool:
-            data = pool.map(
-                self.sampling_function, list(
-                    range(
-                        nsamples
+        if not progress_bar:
+            with pmp.Pool(processes=ncpus) as pool:
+                data = pool.map(
+                    self.sampling_function, list(
+                        range(
+                            nsamples
+                        )
                     )
                 )
+        else:
+            data = tqdm_pathos.map(
+                self.sampling_function,
+                list(range(nsamples)),
+                n_cpus=ncpus
             )
+
         return(data)
