@@ -15,24 +15,21 @@ from monty.serialization import loadfn
 from arcs.generate import GenerateInitialConcentrations
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import Traversal
-import pickle
-import warnings
+from arcs.generate import GraphGenerator
 from dash.exceptions import PreventUpdate
 
-def start_dash(host: str, port: int, server_is_started: Condition, file_location):
+def start_dash(host: str, 
+               port: int, 
+               server_is_started: Condition, 
+               file_location):
 
     terminate_when_parent_process_dies()
 
-    external_stylesheets = [dbc.themes.QUARTZ]
+    external_stylesheets = [dbc.themes.SIMPLEX]
+    
+    load_figure_template("SIMPLEX")
 
-    load_figure_template("QUARTZ")
-
-    # data and sliders
-
-    def load_data(filename):  # has to be a .json file in dict format
-        data = loadfn(filename)
-        return data
-
+    
     def keys_by_depth(dict_, depth=0, output=None):
         if output is None:
             output = {}
@@ -42,8 +39,8 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             output[depth].add(key)
             if isinstance(dict_[key], dict):
                 keys_by_depth(dict_[key], depth + 1, output)
-        return output
-
+        return(output)
+    
     def _markdown_compound(_string):
         md = []
         for i in _string:
@@ -52,72 +49,31 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 md.append("<sub>{}</sub>".format(int(i)))
             except Exception:
                 md.append(i)
-        return "".join(md)
-
-    def make_sliders(import_data, labels):
-        
-        def sliderform(key, slider, label):
-            # this is very janky - need to find a better way of storing the data
-            correct_order = sorted([float(x) for x in list(slider)])
-            # marks = {float(x):str('{:.2F}'.format(float(x))) for x in list(correct_order)}
-            marks = {int(x): {'label':str(x),'style':{'color':'rgba(0.1,0.1,0.1,0)'}} for x in correct_order}
-            minval = float(list(correct_order)[0])
-            maxval = float(list(correct_order)[-1])
-
-            return html.Div(
-                style={'padding':'2rem'},
-                children=[
-                    #dbc.Col(children=html.Label(
-                    #        children=label[key]), width=2),
-                    dbc.Col(
-                        children=[
-                            html.Label(
-                                children=label[key]
-                                ),
-                            dcc.Slider(
-                            className="form-range",
-                            id="slider-{}".format(key),
-                            min=minval,
-                            max=maxval,
-                            step=None,
-                            marks=marks,
-                            value=minval,
-                            updatemode="drag",
-                            tooltip={"placement": "bottom",
-                                     "always_visible": True,
-                                     "style": {"color": "LightSteelBlue", "fontSize": "20px"}},
-                        )
-                        ]
-                        #width=10,
-                    ),
-                ]
-            )
-
-        slider_keys = keys_by_depth(import_data)
-        sliders = []
-        for k in slider_keys:
-            sliders.append(sliderform(k, sorted(slider_keys[k]), labels))
-        return sliders
-
-    # run data fields
-    g = pickle.load(open(file_location+"SCAN_graph.p", "rb"))
-    t = Traversal(graph=g, reactions=file_location+"SCAN_reactions.p")
-
-    graph = dbc.Alert("No Data", color="light")  # None #html.P('None')
-    table4 = dbc.Alert("No Data", color="light")  # None #html.P('None')
-    table5 = dbc.Alert("No Data", color="light")  # None #html.P('None')
+        return("".join(md))
     
+    graph = html.P('None')
+    table4 = html.P('None')
+    meta = dbc.Alert("Data Shown When Run", color="secondary")  
     
-    meta = dbc.Alert("Data Shown When Run", color="secondary")  # None #html.P('None')
-    sliders = make_sliders(g, labels={0: "T (K)", 1: "P (bar)"})
 
-    gic = GenerateInitialConcentrations(g)
-    gic.all_zero(include_co2=False)
-    gic.update_ic({"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6})
-    concs = gic.ic
+    default_dft_dict = loadfn('./data/dft_data.json')
+    # generate graph from dft data
+    ambient_settings = {"T": 298, "P": 1} # !NB - was None
+
+    _graph = GraphGenerator().from_dict(
+        dft_dict=default_dft_dict,
+        temperature=ambient_settings['T'],
+        pressure=ambient_settings['P'])
+
+    ### generate Initial Concentrations
+    default_concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
+    concs = GenerateInitialConcentrations(graph=_graph).update_ic(
+        default_concentrations
+        ,include_co2=False)
+
     settings = {
-        "nprocs": 1,
-        "sample_length": 320,
+        "nprocs": 4,
+        "sample_length": 1000,
         "max_rank": 10,
         "max_compounds": 5,
         "probability_threshold": 0.1,
@@ -126,11 +82,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         "scale_highest": 0.2,
         "rank_small_reactions_higher":True
     }
-    ambient_settings = {"T": None, "P": None}
-
+    
     ###################### layout of DASH template########################
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
+    
     loading_spinner = dls.Rotate(
         id="loading-1",
         width=150,
@@ -141,7 +96,35 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         children=html.Div(id="loading-output-1"),
         fullscreen_style={"background-color": "rgba(0.1,0.1,0.1,0.2)"},
     )
-
+    
+    temperature_input = html.Div(
+        [
+            dbc.Label("Temperature (K)"),
+            dbc.Input(
+                placeholder="250",
+                value=250,
+                type="number",
+                className="mb-3",
+                id="temperature_input",
+                debounce = True
+                )
+        ]
+    )
+    
+    pressure_input = html.Div(
+        [
+            dbc.Label("Pressure (bar)"),
+            dbc.Input(
+                placeholder="1",
+                value=1,
+                type='number',
+                className="mb-3",
+                id='pressure_input',
+                debounce = True
+            )
+        ]
+    )
+    
     concentrations_table = dbc.Stack(
         style={
             'textAlign': 'justified',
@@ -189,10 +172,25 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     dbc.Button('add compound', id='addrows', n_clicks=0)
         ]
     )
-
+    
     arcs_settings = dbc.Accordion(
         start_collapsed=True,
         children=[
+            dbc.AccordionItem(
+                title="DFT Functional Choice",
+                className="accordion",
+                children=[
+                    html.P(["Functional used to pregenerate the data used in ARCS"]),
+                    dbc.RadioItems(
+                        id="functional_choice",
+                        className="btn btn-outline-primary",
+                        options=[
+                            {"label": "DFT", "value": "DFT"},
+                        ],
+                        value="DFT",
+                    )
+                ],
+            ),
             dbc.AccordionItem(
                 title="Samples",
                 className="accordion",
@@ -202,10 +200,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         id="samples",
                         value="100",
                         debounce=True,
-                        # style={
-                        # "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
                         className="form-label mt-4",
                     ),
                 ],
@@ -219,10 +213,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         id="pathdepth",
                         value="5",
                         debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
                         className="form-label mt-4",
                     ),
                 ],
@@ -236,14 +226,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         id="probability_cutoff",
                         value="5",
                         debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
                         className="form-label mt-4",
                     ),
                 ],
-
+    
             ),
             dbc.AccordionItem(
                 title="Concentration % Ceiling",
@@ -255,10 +241,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         id="ceiling",
                         value="500",
                         debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
                         className="form-label mt-4",
                     ),
                 ],
@@ -272,10 +254,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         id="scale_highest",
                         value="0.1",
                         debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
                         className="form-label mt-4",
                     )
                 ],
@@ -289,10 +267,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         id="max_rank",
                         value="5",
                         debounce=True,
-                        # style={
-                        #    "backgroundColor": backgroundcolours,
-                        #    "color": "white",
-                        # },
                         className="form-label mt-4",
                     )
                 ]
@@ -306,10 +280,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         id="max_compounds",
                         value="5",
                         debounce=True,
-                        # style={
-                        #    "color": "white",
-                        #    "backgroundColor": backgroundcolours,
-                        # },
                         className="form-label mt-4",
                     )
                 ]
@@ -331,7 +301,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 ]
             ),
             dbc.AccordionItem(
-                title="Include CO2 as a reactant?",
+                title="Include Carbon Dioxide as a Reactant?",
                 className="accordion",
                 children=[
                     html.P(
@@ -366,7 +336,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             ),
         ],
     ),
-
+    
     submit_button = dbc.Button(
                 children="Run",
                 id="submit-val",
@@ -375,38 +345,21 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style={'float': 'left',"margin-right":"1rem"}
             )
     
-    upload_button = dcc.Upload(
-        dls.Rotate(dbc.Button([" Upload File"],
-                   id='upload-val',
-                   n_clicks=0,
-                   className="btn btn-primary",
-                   style={'float':'left','margin-right':'1rem'})
-        ))
-#        dbc.Button(
-#            children="Upload File",
-#            id="upload-val",
-#            n_clicks=0,
-#            className="btn btn-success",
-#            style={'float': 'left',"margin-right":"1rem"}
-#            )
-#        ),
-
-
+    
+    
     metadatatable = html.Div(
                         id="metadata",
                         style={
                             "align": "center"
                         },
                         children=meta,
-                        #className="table table-secondary",
                     )
-
+    
     offcanvas = html.Div(
         style={
             'textAlign': 'justified',
             "margin-left": "1px",
             "margin-right": "1px",
-            #"padding":"2px",
         },
         children=[
             dbc.Button("Settings", id="open-offcanvas", n_clicks=0,className='btn btn-info',style={'float': 'left',"margin-right":"1rem"}),
@@ -419,13 +372,14 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                             dbc.CardBody(arcs_settings),
                             dbc.CardFooter("ARCS Settings")
                         ],
-
+                        #color='dark',
                     ),
                     dbc.Card(
                         [
                             dbc.CardBody(metadatatable),
                             dbc.CardFooter("System Data")
-                        ]
+                        ],
+                        #color='dark'
                     )
                         ],
                         gap=3
@@ -438,20 +392,12 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             )
         ]
     )
-
+    
     most_frequent_reactions = html.Div(
         id="reaction-stats",
         style={"align": "center"},
         children=table4,
-        #className="table table-primary",
     )
-
-    most_frequent_paths = html.Div(
-        id="reaction-paths",
-        style={"align": "center"},
-        children=table5,
-        #className="table table-primary",
-    ),
     
     logos = html.Div( # needs work
         children=[
@@ -460,42 +406,41 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     "images/logos.png"
                 ),
                 style={
-                    #"width": "50%",
-                    "height": "30%",
+                    "width": "10%",
+                    "height": "10%",
                     "padding": "0.05rem",
                     "align": "end",
                 },
             ),
         ],
     ),
-
+    
     results_concentration_graph = html.Div(
         id="final_concs",
         children=None,
     ),
-
+    
     finalgraph = html.Div(
                     id="output-graph",
                     children=graph
                 ),
     
-
-################################### layout
-
+    
+    ############################### layout
+    
     app.layout = html.Div(
         style={'padding': '5rem'},
         children=[
             dbc.Row(dbc.Col(logos)),
             dbc.Row(
                 [
-                    html.P("ARCS 1.4.0"),
+                    #html.P("ARCS 1.4.0"),
                     html.H3(["Automated Reactions for ","C", "O", html.Sub(2), " Conversion (ARCS)"]),
                     html.Div(
                         [offcanvas,
-                         upload_button,
                          submit_button,
                          ]
-                    ),
+                        ),
                     html.Div(
                         # for updating the concentrations to be used in ARCS (no need for displaying)
                         id="placeholder1",
@@ -512,9 +457,14 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         children=None,
                         style={"display": "none"},
                     ),
+                    html.Div(
+                        id="placeholder4",  # placeholder4 is for updating the upload file 
+                        children=None,
+                        style={"display": "none"},
+                    ),
                 ]
             ),
-            loading_spinner,
+            #loading_spinner,
             dbc.Tabs(
                 style={'padding':'2rem','align':'center'},
                 children=[
@@ -530,13 +480,17 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                             children=[
                                                 dbc.CardHeader('Input Concentrations'),
                                                 dbc.CardBody(concentrations_table),
-                                            ]
+                                            ],
+                                            #color='dark'
                                         ),
                                         dbc.Card(
                                             children=[
                                                 dbc.CardHeader('Conditions'),
-                                                dbc.CardBody(sliders),
-                                            ]
+                                                dbc.CardBody([temperature_input,
+                                                              pressure_input])
+                                                #dbc.CardBody(sliders),
+                                            ],
+                                            #color='dark'
                                         )
                                     ]
                                 )
@@ -565,7 +519,8 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                                     ],
                                                 )
                                             ),
-                                        ]
+                                        ],
+                                        #color='dark'
                                     ),
                                 ]
                             )
@@ -579,31 +534,24 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                 children=[
                                     dbc.Card(
                                         children=[
+                                            dbc.CardHeader(
+                                                'Most Frequent Reactions'),
                                             dbc.CardBody(
                                                 most_frequent_reactions),
-                                            dbc.CardHeader(
-                                                'Most Frequent Reactions')
-                                        ]
+                                        ],
+                                        #color='dark'
                                     ),
-                                    dbc.Card(
-                                        children=[
-                                            dbc.CardBody(
-                                                most_frequent_paths),
-                                            dbc.CardHeader(
-                                                'Most Frequent Paths (alpha)')
-                                        ]
-                                    )
                                 ]
                             )
                         ]
                         ),
                         ]
-
+    
                         ),
                         ]
                     )
-
-#####################app callbacks
+    #########################################################################################################################    
+    #################app callbacks
     #off canvas
     @app.callback(
         Output("offcanvas", "is_open"),
@@ -644,11 +592,12 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 concs[spec] = float(num) * 1e-6
             else:
                 pass
-
+    
     # update settings
     @app.callback(
         Output("placeholder2", "children"),
         [
+            Input("functional_choice","value"),
             Input("samples", "value"),
             Input("pathdepth", "value"),
             Input("probability_cutoff", "value"),
@@ -662,310 +611,326 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         ],
     )
     def update_settings(*inputs):
-        settings["sample_length"]=int(inputs[0])
-        settings["path_depth"]=int(inputs[1])
-        settings["probability_threshold"]=float(inputs[2]) / 100
-        settings["ceiling"]=int(inputs[3])
-        settings["scale_highest"]=float(inputs[4])
-        settings["max_rank"]=int(inputs[5])
-        settings["max_compounds"]=int(inputs[6])
-        settings["method"]=str(inputs[7])
-        settings["include_co2"]=bool(inputs[8])
-        settings["rank_small_reactions_higher"]=bool(inputs[9])
-
+        settings["sample_length"]=int(inputs[1])
+        settings["path_depth"]=int(inputs[2])
+        settings["probability_threshold"]=float(inputs[3]) / 100
+        settings["ceiling"]=int(inputs[4])
+        settings["scale_highest"]=float(inputs[5])
+        settings["max_rank"]=int(inputs[6])
+        settings["max_compounds"]=int(inputs[7])
+        settings["method"]=str(inputs[8])
+        settings["include_co2"]=bool(inputs[9])
+        settings["rank_small_reactions_higher"]=bool(inputs[10])
+        
+        #print(inputs[0])
+        #print(functional_choice_dict[inputs[0]])
+        #default_data = load_data(functional_choice_dict[inputs[0]])
+    
     #update T and P
     @app.callback(
         Output("placeholder3", "children"),
-        [Input("slider-0", "value"), Input("slider-1", "value")],
+        [
+            Input("temperature_input", "value"),
+            Input("pressure_input", "value"),
+        ],
     )
     def update_t_and_p(*inputs):
         ambient_settings["T"]=int(inputs[0])
         ambient_settings["P"]=int(inputs[1])
+    
 
-    @app.callback(
-        [
-            Output("metadata", "children"),
-            Output("reaction-stats", "children"),
-            Output("reaction-paths", "children"),
-            Output("final_concs", "children"), 
-            Output("output-graph", "children"),
-            Output("loading-output-1", "children"),
-        ],
-        Input("submit-val", "n_clicks"),
-    )
-    def apprun(btn1):
-        if "submit-val" == ctx.triggered_id:
-            warnings.simplefilter("ignore")
-            t.run(
-                trange=[ambient_settings["T"]],
-                prange=[ambient_settings["P"]],
-                save=False,
-                ic=concs,
-                **settings,
-            )
-
-            metadata=t.metadata
-            metadata=pd.Series(metadata).reset_index()
-            metadata=metadata.rename(columns={0: "value"})
-
-            metadata_table=dash_table.DataTable(
-                columns=[{"name": i,
-                           "id": i,
-                           "type":"text",
-                           "presentation":"markdown"} for i in metadata.columns],
-                data=metadata.to_dict("records"),
-                style_as_list_view=False,
-                cell_selectable=False,
-                style_cell={
-                    "font_family": "helvetica",
-                    "align": "center",
-                    'padding-right': '30px',
-                    'padding-left': '30px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
-                },
-                style_table={
-                    "overflow": "scroll",
-                },
-                markdown_options={"html": True, "link_target": "_self"}
-                #fixed_rows={"headers": True},
-            )
-            #####updating concentrations table 
-            df_d=(
-                pd.DataFrame(
-                    t.initfinaldiff[ambient_settings["T"]
-                        ][ambient_settings["P"]]
-                )
-                .round(1)
-                .drop("CO2")
-            )
-            df_d=df_d.T
-            df_d=df_d.T.rename({x: _markdown_compound(x) for x in df_d})
-            df_d=df_d.reset_index()
-            df_d=df_d.rename(
-                {
-                    "index": "compound",
-                    "initial": "initial (ppm)",
-                    "final": "final (ppm)",
-                    "change": "change (ppm)",
-                }
-            )
-
-            diff_table=dash_table.DataTable(
-                columns=[
-                    {"name": i, 
-                     "id": i, 
-                     "type": "text",
-                     "presentation": "markdown"}
-                    for i in df_d.columns
-                ],
-                data=df_d.to_dict("records"),
-                style_as_list_view=True,
-                cell_selectable=False,
-                style_cell={
-                    "font_family": "helvetica",
-                    "align": "center",
-                    'padding-right': '30px',
-                    'padding-left': '30px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
-                },
-                style_table={
-                    "overflow": "scroll",
-                },
-                #fixed_rows={"headers": True},
-                #style_cell_conditional=[
-                #    {"if": {"column_id": "index"},
-                #        "width": "10%", "textAlign": "left"},
-                #    {
-                #        "if": {"column_id": ["initial", "final", "change"]},
-                #        "width": "10%",
-                #        "textAlign": "left",
-                #    },
-                #],
-                markdown_options={"html": True, "link_target": "_self"},
-            )
-            
-            
-            ### statistics 
-            analyse=AnalyseSampling(t.data, markdown=True)
-            analyse.reaction_statistics()
-            analyse.mean_sampling()
-            analyse.reaction_paths()
-
-            mean=analyse.mean_data[ambient_settings["T"]
-                ][ambient_settings["P"]]
-            
-            paths=pd.DataFrame(
-                analyse.common_paths[ambient_settings["T"]
-                    ][ambient_settings["P"]]
-            )
-            stats=pd.DataFrame(
-                analyse.stats[ambient_settings["T"]][ambient_settings["P"]]
-            )
-            stats_table=dash_table.DataTable(
-                columns=[
-                    {
-                        "name": "Reactions",
-                        "id": "index",
-                        "type": "text",
-                        "presentation": "markdown",
-                    },
-                    {
-                        "name": "k",
-                        "id": "k",
-                        "type": "text",
-                        "presentation": "markdown",
-                    },
-                    {
-                        "name": "Frequency",
-                        "id": "frequency",
-                        "type": "text",
-                        "presentation": "markdown",
-                    },
-                ],
-                data=stats.to_dict("records"),
-                style_as_list_view=False,
-                cell_selectable=False,
-                style_cell={
-                    "font_family": "helvetica",
-                    "align": "center",
-                    'padding-right': '10px',
-                    'padding-left': '10px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
-                },
-                style_header={
-                    "font_family": "helvetica",
-                    "align": "center",
-                    'padding-right': '10px',
-                    'padding-left': '10px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
-                },
-                style_table={
-                    "overflow": "scroll",
-                },
-                #fixed_rows={"headers": True},
-                markdown_options={"html": True, "link_target": "_self"},
-            )
-
-            paths_table=dash_table.DataTable(
-                columns=[
-                    {
-                        "name": "Paths",
-                        "id": "paths",
-                        "type": "text",
-                        "presentation": "markdown",
-                    },
-                    {
-                        "name": "k",
-                        "id": "k",
-                        "type": "text",
-                        "presentation": "markdown",
-                    },
-                    {
-                        "name": "Frequency",
-                        "id": "frequency",
-                        "type": "text",
-                        "presentation": "markdown",
-                    },
-                ],
-                # columns=[{'name':i,'id':i} for i in new_stats.columns],
-                data=paths.to_dict("records"),
-                style_as_list_view=False,
-                cell_selectable=False,
-                style_cell={
-                    "font_family": "helvetica",
-                    "align": "center",
-                    'padding-right': '10px',
-                    'padding-left': '10px',
-                    'text-align': 'center',
-                    'marginLeft': 'auto',
-                    'marginRight': 'auto'
-                },
-                style_table={
-                    "overflow": "scroll",
-                },
-                #fixed_rows={"headers": True},
-                markdown_options={"html": True, "link_target": "_self"},
-            )
-            df_m_t = pd.DataFrame(mean).T 
-            df_m_t = df_m_t[df_m_t['value'] !=0 ]
-
-            df_m=pd.DataFrame(
-                {
-                    "comps": list(df_m_t.T.keys()),
-                    "values": df_m_t['value'].values,
-                    "variance":df_m_t['variance'].values,
-                    "variance_minus":-df_m_t['variance'].values
-                }
-            )
-            #maxval=np.max(
-            #    [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
-            #)
-            #ymin, ymax=[-maxval, maxval]
-
-            fig=px.bar(
-                df_m,
-                x="comps",
-                y="values",
-                error_y="variance",
-                error_y_minus="variance_minus",
-                labels={"comps": "", "values": "\u0394 ppm"},
-                color="values",
-                color_continuous_scale="tropic_r",
-                hover_data={
-                    "values": False,
-                    "comps": False,
-                    "variance":False,
-                    "error":(":.2e", df_m["variance"]),
-                    "specie": df_m["comps"],
-                    "PPM": (":.1f", df_m["values"]),
-                },
-                # width=500,height=500
-            )
-            fig.update_layout(
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                hovermode="closest",
-                hoverlabel=dict(font_size=16),
-                coloraxis_showscale=False,
-            )
-            fig.update_xaxes(showgrid=False, tickangle=-60, tickmode="linear")
-            #try:
-            #    dtick=int(int(ymax - ymin) / 10)
-            #except:
-            #    dtick = None
-            #    pass
-            #fig.update_yaxes(
-            #    showgrid=True,
-            #    tickmode="linear",
-            #    range=[ymin - 2, ymax + 2],
-            #    dtick=dtick,
-            #)
-
-            resultsgraph=dcc.Graph(
-                figure=fig,
-                animate=False,
-                #config={"scrollZoom": True},
-                #style={"height": "60rem", "width": "100%"},
-            )
-
-            return [
-                [metadata_table],
-                [stats_table],
-                [paths_table],
-                [diff_table],
-                [resultsgraph],
-                [None],
-            ]
 
     with server_is_started:
         server_is_started.notify()
+    
+    app.run(debug=False, port=port, host=host)
 
-    app.run_server(debug=False, port=port, host=host)
+
+#### to go through...
+#    @app.callback(
+#        [
+#            Output("metadata", "children"),
+#            Output("reaction-stats", "children"),
+#            Output("reaction-paths", "children"),
+#            Output("final_concs", "children"), 
+#            Output("output-graph", "children"),
+#            Output("loading-output-1", "children"),
+#        ],
+#        Input("submit-val", "n_clicks"),
+#    )
+#    def apprun(btn1):
+#        if "submit-val" == ctx.triggered_id:
+#            #warnings.simplefilter("ignore")
+#            ### generate a graph with the given data
+#            #g = GraphGenerator.from_dict(filename=default_data#,temperature=ambient_settings['T'],pressure=ambient_settings['P'])
+#            #t = Traversal(g.graph,reaction_data)
+#            #t.run(
+#            #    trange=[ambient_settings["T"]],
+#            #    prange=[ambient_settings["P"]],
+#            #    save=False,
+#            #    ic=concs,
+#            #    **settings,
+#            #)
+#    
+#            metadata=t.metadata
+#            metadata=pd.Series(metadata).reset_index()
+#            metadata=metadata.rename(columns={0: "value"})
+#    
+#            metadata_table=dash_table.DataTable(
+#                columns=[{"name": i,
+#                           "id": i,
+#                           "type":"text",
+#                           "presentation":"markdown"} for i in metadata.columns],
+#                data=metadata.to_dict("records"),
+#                style_as_list_view=False,
+#                cell_selectable=False,
+#                style_cell={
+#                    "font_family": "helvetica",
+#                    "align": "center",
+#                    'padding-right': '30px',
+#                    'padding-left': '30px',
+#                    'text-align': 'center',
+#                    'marginLeft': 'auto',
+#                    'marginRight': 'auto'
+#                },
+#                style_table={
+#                    "overflow": "scroll",
+#                },
+#                markdown_options={"html": True, "link_target": "_self"}
+#                #fixed_rows={"headers": True},
+#            )
+#            #####updating concentrations table 
+#            df_d=(
+#                pd.DataFrame(
+#                    t.initfinaldiff[ambient_settings["T"]
+#                        ][ambient_settings["P"]]
+#                )
+#                .round(1)
+#                .drop("CO2")
+#            )
+#            df_d=df_d.T
+#            df_d=df_d.T.rename({x: _markdown_compound(x) for x in df_d})
+#            df_d=df_d.reset_index()
+#            df_d=df_d.rename(
+#                {
+#                    "index": "compound",
+#                    "initial": "initial (ppm)",
+#                    "final": "final (ppm)",
+#                    "change": "change (ppm)",
+#                }
+#            )
+#    
+#            diff_table=dash_table.DataTable(
+#                columns=[
+#                    {"name": i, 
+#                     "id": i, 
+#                     "type": "text",
+#                     "presentation": "markdown"}
+#                    for i in df_d.columns
+#                ],
+#                data=df_d.to_dict("records"),
+#                style_as_list_view=True,
+#                cell_selectable=False,
+#                style_cell={
+#                    "font_family": "helvetica",
+#                    "align": "center",
+#                    'padding-right': '30px',
+#                    'padding-left': '30px',
+#                    'text-align': 'center',
+#                    'marginLeft': 'auto',
+#                    'marginRight': 'auto'
+#                },
+#                style_table={
+#                    "overflow": "scroll",
+#                },
+#                #fixed_rows={"headers": True},
+#                #style_cell_conditional=[
+#                #    {"if": {"column_id": "index"},
+#                #        "width": "10%", "textAlign": "left"},
+#                #    {
+#                #        "if": {"column_id": ["initial", "final", "change"]},
+#                #        "width": "10%",
+#                #        "textAlign": "left",
+#                #    },
+#                #],
+#                markdown_options={"html": True, "link_target": "_self"},
+#            )
+#            
+#            
+#            ### statistics 
+#            analyse=AnalyseSampling(t.data, markdown=True)
+#            analyse.reaction_statistics()
+#            analyse.mean_sampling()
+#            analyse.reaction_paths()
+#    
+#            mean=analyse.mean_data[ambient_settings["T"]
+#                ][ambient_settings["P"]]
+#            
+#            paths=pd.DataFrame(
+#                analyse.common_paths[ambient_settings["T"]
+#                    ][ambient_settings["P"]]
+#            )
+#            stats=pd.DataFrame(
+#                analyse.stats[ambient_settings["T"]][ambient_settings["P"]]
+#            )
+#            stats_table=dash_table.DataTable(
+#                columns=[
+#                    {
+#                        "name": "Reactions",
+#                        "id": "index",
+#                        "type": "text",
+#                        "presentation": "markdown",
+#                    },
+#                    {
+#                        "name": "k",
+#                        "id": "k",
+#                        "type": "text",
+#                        "presentation": "markdown",
+#                    },
+#                    {
+#                        "name": "Frequency",
+#                        "id": "frequency",
+#                        "type": "text",
+#                        "presentation": "markdown",
+#                    },
+#                ],
+#                data=stats.to_dict("records"),
+#                style_as_list_view=False,
+#                cell_selectable=False,
+#                style_cell={
+#                    "font_family": "helvetica",
+#                    "align": "center",
+#                    'padding-right': '10px',
+#                    'padding-left': '10px',
+#                    'text-align': 'center',
+#                    'marginLeft': 'auto',
+#                    'marginRight': 'auto'
+#                },
+#                style_header={
+#                    "font_family": "helvetica",
+#                    "align": "center",
+#                    'padding-right': '10px',
+#                    'padding-left': '10px',
+#                    'text-align': 'center',
+#                    'marginLeft': 'auto',
+#                    'marginRight': 'auto'
+#                },
+#                style_table={
+#                    "overflow": "scroll",
+#                },
+#                #fixed_rows={"headers": True},
+#                markdown_options={"html": True, "link_target": "_self"},
+#            )
+#    
+#            paths_table=dash_table.DataTable(
+#                columns=[
+#                    {
+#                        "name": "Paths",
+#                        "id": "paths",
+#                        "type": "text",
+#                        "presentation": "markdown",
+#                    },
+#                    {
+#                        "name": "k",
+#                        "id": "k",
+#                        "type": "text",
+#                        "presentation": "markdown",
+#                    },
+#                    {
+#                        "name": "Frequency",
+#                        "id": "frequency",
+#                        "type": "text",
+#                        "presentation": "markdown",
+#                    },
+#                ],
+#                # columns=[{'name':i,'id':i} for i in new_stats.columns],
+#                data=paths.to_dict("records"),
+#                style_as_list_view=False,
+#                cell_selectable=False,
+#                style_cell={
+#                    "font_family": "helvetica",
+#                    "align": "center",
+#                    'padding-right': '10px',
+#                    'padding-left': '10px',
+#                    'text-align': 'center',
+#                    'marginLeft': 'auto',
+#                    'marginRight': 'auto'
+#                },
+#                style_table={
+#                    "overflow": "scroll",
+#                },
+#                #fixed_rows={"headers": True},
+#                markdown_options={"html": True, "link_target": "_self"},
+#            )
+#            df_m_t = pd.DataFrame(mean).T 
+#            df_m_t = df_m_t[df_m_t['value'] !=0 ]
+#    
+#            df_m=pd.DataFrame(
+#                {
+#                    "comps": list(df_m_t.T.keys()),
+#                    "values": df_m_t['value'].values,
+#                    "variance":df_m_t['variance'].values,
+#                    "variance_minus":-df_m_t['variance'].values
+#                }
+#            )
+#            #maxval=np.max(
+#            #    [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
+#            #)
+#            #ymin, ymax=[-maxval, maxval]
+#    
+#            fig=px.bar(
+#                df_m,
+#                x="comps",
+#                y="values",
+#                error_y="variance",
+#                error_y_minus="variance_minus",
+#                labels={"comps": "", "values": "\u0394 ppm"},
+#                color="values",
+#                color_continuous_scale="tropic_r",
+#                hover_data={
+#                    "values": False,
+#                    "comps": False,
+#                    "variance":False,
+#                    "error":(":.2e", df_m["variance"]),
+#                    "specie": df_m["comps"],
+#                    "PPM": (":.1f", df_m["values"]),
+#                },
+#                # width=500,height=500
+#            )
+#            fig.update_layout(
+#                plot_bgcolor="rgba(0,0,0,0)",
+#                paper_bgcolor="rgba(0,0,0,0)",
+#                hovermode="closest",
+#                hoverlabel=dict(font_size=16),
+#                coloraxis_showscale=False,
+#            )
+#            fig.update_xaxes(showgrid=False, tickangle=-60, tickmode="linear")
+#            #try:
+#            #    dtick=int(int(ymax - ymin) / 10)
+#            #except:
+#            #    dtick = None
+#            #    pass
+#            #fig.update_yaxes(
+#            #    showgrid=True,
+#            #    tickmode="linear",
+#            #    range=[ymin - 2, ymax + 2],
+#            #    dtick=dtick,
+#            #)
+#    
+#            resultsgraph=dcc.Graph(
+#                figure=fig,
+#                animate=False,
+#                #config={"scrollZoom": True},
+#                #style={"height": "60rem", "width": "100%"},
+#            )
+#    
+#            return [
+#                [metadata_table],
+#                [stats_table],
+#                [paths_table],
+#                [diff_table],
+#                [resultsgraph],
+#                [None],
+#            ]
+    
+
