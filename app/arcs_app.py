@@ -16,7 +16,7 @@ def start():
     server_is_started = Condition()
 
     # Set the process title.
-    setproctitle.setproctitle('arcs-0.1.0')
+    setproctitle.setproctitle('arcs-1.5.0')
 
     # Spawn the dash process.
     p = Process(target=start_dash, args=(host, port, server_is_started, file_location))
@@ -31,7 +31,7 @@ def start():
     time.sleep(0.2)
 
     # Create the webview.
-    webview.create_window('ARCS 1.4.0', f'http://{host}:{port}',
+    webview.create_window('ARCS 1.5.0', f'http://{host}:{port}',
                           width=1000, 
                           height=1000)
     webview.start()
