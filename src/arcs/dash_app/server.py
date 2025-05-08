@@ -25,9 +25,9 @@ def start_dash(host: str,
 
     terminate_when_parent_process_dies()
 
-    external_stylesheets = [dbc.themes.SIMPLEX]
+    external_stylesheets = [dbc.themes.MINTY]
     
-    load_figure_template("SIMPLEX")
+    load_figure_template("MINTY")
 
     
     def keys_by_depth(dict_, depth=0, output=None):
@@ -347,13 +347,13 @@ def start_dash(host: str,
     
     
     
-    metadatatable = html.Div(
-                        id="metadata",
-                        style={
-                            "align": "center"
-                        },
-                        children=meta,
-                    )
+    #metadatatable = html.Div(
+    #                    id="metadata",
+    #                    style={
+    #                        "align": "center"
+    #                    },
+    #                    children=meta,
+    #               )
     
     offcanvas = html.Div(
         style={
@@ -374,13 +374,6 @@ def start_dash(host: str,
                         ],
                         #color='dark',
                     ),
-                    dbc.Card(
-                        [
-                            dbc.CardBody(metadatatable),
-                            dbc.CardFooter("System Data")
-                        ],
-                        #color='dark'
-                    )
                         ],
                         gap=3
                     )
