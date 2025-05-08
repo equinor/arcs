@@ -370,14 +370,6 @@ class Traversal:
             eqsystem = self.generate_chempy_eqsystem(
                 index=chosen_reaction_index)
 
-            # 6 check that reaction wasn't previously done (can probably leave this out) (supposed to stop infinite loops, but that might be ok)
-            # previous_reactions = [r for r in reactionstats.values() if r]
-            # try:
-            #    if eqsyst.string() == previous_reactions[-1]:
-            #        break
-            # except IndexError:
-            #    pass
-
             # 6 get equilibrium_concentrations and update relevant dictionaries.
             final_concentrations = self.chempy_equilibrium_concentrations(
                 concentrations=_concentrations,
@@ -386,11 +378,14 @@ class Traversal:
             if final_concentrations:
                 i += 1
                 concentrations[i] = final_concentrations
-                reactionstats[i] = self.graph.nodes[chosen_reaction_index]['reaction']['reaction_string']
+                reactionstats[i] = {
+                    'reaction': self.graph.nodes[chosen_reaction_index]['reaction'],
+                    'equilibrium_constant': self.graph.nodes[chosen_reaction_index]['equilibrium_constant']
+                }
 
         return (
             {'concentrations': concentrations,
-                'equation_statistics': reactionstats
+            'reaction_statistics': reactionstats
              }
         )
     

@@ -5,6 +5,10 @@ import numpy as np
 from collections import Counter
 from dash import html
 import warnings 
+import networkx as nx 
+import numpy as np
+import matplotlib as mpl
+from pyvis.network import Network 
 class AnalyseSampling:
     
     def __init__(
@@ -61,29 +65,29 @@ class AnalyseSampling:
         b = int(b)
         return (a + " * 10^" + str(b))
 
-    @staticmethod
-    def get_stats(equations):
+#    @staticmethod
+#    def get_stats(equations):#
 
-        appearances = defaultdict(int)
-        for sample in equations:
-            for i in sample:
-                appearances[i] += 1
+#        appearances = defaultdict(int)
+#        for sample in equations:
+#            for i in sample:
+#                appearances[i] += 1#
 
-        equation_statistics = {}
-        for equation,frequency in appearances.items():
-            eq,k = equation.split(';')
-            if self.cancel_markdown == True:
-                equation_statistics[eq] = {'k':k.split('\n')[0],'frequency':frequency}
-            else: 
-                equation_statistics[self._latex_equation(eq)] = {'k':k.split('\n')[0],'frequency':frequency}
-        try:
-            d = pd.DataFrame(equation_statistics).T.sort_values(by='frequency',ascending=False)
-            d = d.reset_index()
-            d.T['index'] = 'reaction'
-            d = d.to_dict()
-        except Exception:
-            d = {}
-        return(d)
+#        equation_statistics = {}
+#        for equation,frequency in appearances.items():
+#            eq,k = equation.split(';')
+#            if self.cancel_markdown == True:
+#                equation_statistics[eq] = {'k':k.split('\n')[0],#'frequency':frequency}
+#            else: 
+#                equation_statistics[self._latex_equation(eq)] = {'k':k.split#('\n')[0],'frequency':frequency}
+#        try:
+#            d = pd.DataFrame(equation_statistics).T.sort_values#(by='frequency',ascending=False)
+#            d = d.reset_index()
+#            d.T['index'] = 'reaction'
+#            d = d.to_dict()
+#        except Exception:
+#            d = {}
+#        return(d)
             
     def reaction_statistics(
             self,
@@ -95,9 +99,11 @@ class AnalyseSampling:
         """
         equations = []
         for sample in data:
-            for equation in sample['equation_statistics'].values():
+            for equation in sample['reaction_statistics'].values():
                 if equation:
-                    equations.append(equation)
+                    equations.append(
+                        equation['reaction']['reaction_string']
+                    )
 
         statistics = Counter(equations)
 
@@ -105,8 +111,7 @@ class AnalyseSampling:
             statistics = {self.latex_equation(k,use_markdown=True):v for k,v in statistics.items()}
         elif self.use_latex:
             statistics = {self.latex_equation(k,use_markdown=False):v for k,v in statistics.items()}
-
-
+            
         return(statistics)
     
     @staticmethod
@@ -128,14 +133,13 @@ class AnalyseSampling:
         df1 = pd.DataFrame(average_data[1]).mean(axis=0)
         df0 = pd.Series(average_data[0])
         df2 = df1 - df0 
-        return(pd.DataFrame([df0,df1,df2,df.std(axis=0)],index=['initial','mean','diff','std']).T)
+        return(pd.DataFrame([df0,df1,df2,df.std(axis=0),df.var(axis=0)],index=['initial','mean','diff','std','var']).T)
     
     @staticmethod
     def count_path_length(
         data:dict,
     )->dict:
         return(dict(Counter([len(x['concentrations']) for x in data[1:]])))
-    
 
     @staticmethod
     def reduce_data_by_minimum_path_length(
@@ -147,8 +151,96 @@ class AnalyseSampling:
             if len(_data['concentrations']) >=minimum_path_length:
                 new_data.append(_data) 
         return(new_data)
-        
-        
+    
+    def result_to_pyvis(
+            self,
+            data:dict,
+            head:int=10,
+            cmap:str = 'Reds',
+            filename:str = 'graph.html'
+            ):
+        reaction_statistics = pd.Series(
+            self.reaction_statistics(data)
+        ).head(head).sort_values(ascending=False).to_dict()
+
+        reaction_data = {}
+        for sample in data:
+            for step in sample['reaction_statistics'].values():
+                if step:
+                    reaction,k = step.values()
+                    reaction_data[reaction['reaction_string']] = {'reaction':reaction,'equilibrium_constant':k}
+
+        G = nx.MultiDiGraph(directed=True)
+        for i, (reaction_string, reaction_dict) in enumerate(reaction_data.items()):
+            reaction, k = reaction_dict.values()
+            if k < 1:
+                G.add_weighted_edges_from(
+                    [compound, str(i), 1] for compound in reaction['products']
+                )  # products -> reaction
+                G.add_weighted_edges_from(
+                    [str(i), compound, 1] for compound in reaction['reactants']
+                )  # reaction -> products
+            else:
+                G.add_weighted_edges_from(
+                    [compound, str(i), 1] for compound in reaction['reactants']
+                )  # products -> reaction
+                G.add_weighted_edges_from(
+                    [str(i), compound, 1] for compound in reaction['products']
+                )  # reaction -> products
+
+        compound_nodes = []
+
+
+        reaction_nodes = []
+        for node in G.nodes():
+            try:
+                int(node)
+                reaction_nodes.append(node)
+            except Exception:
+                compound_nodes.append(node)
+        #reaction node formatting 
+        ## reaction node sizes = 8 
+        reaction_node_sizes = {str(i):8  for i,r in enumerate(reaction_nodes)} #reaction['frequency']
+        nx.set_node_attributes(G,reaction_node_sizes,name='size')
+        ## reaction_colour set to frequency
+        #frequencies = pd.Series({str(i):reaction['frequency']  for i,reaction in rs.items()}) #
+        colour_map = mpl.colormaps[cmap]
+        norm = mpl.colors.Normalize(
+            vmin=pd.Series(reaction_statistics).min(), vmax=pd.Series(reaction_statistics).max()
+        )
+        reaction_colours = {
+            str(i): mpl.colors.rgb2hex(
+                colour_map(norm(freq))
+            ) for i, (r, freq) in enumerate(reaction_statistics.items())
+        }
+        nx.set_node_attributes(G, reaction_colours, name='color')
+
+        g = Network(height='750%',width='100%',notebook=False,directed=True,font_color="white",neighborhood_highlight=True)
+
+        #g.repulsion(
+        #    node_distance=100,
+        #    spring_length=50,
+        #    damping=0.01,
+        #)
+
+        g.from_nx(G,edge_scaling=False)
+        for i,(reaction,reaction_dict) in enumerate(reaction_data.items()):
+            g.node_map[str(i)]['shape'] = 'circle'
+            g.node_map[str(i)]['title'] = reaction_dict['reaction']['reaction_string'] #'{} ; frequency = {}'.format(
+                #reaction_dict['reaction']['reaction_string'],
+                #reaction_dict['reaction']['frequency']
+            #)
+            g.node_map[str(i)]['label'] = None        
+
+        for compound in compound_nodes:
+            g.node_map[compound]['shape'] = 'box'        
+
+        #g.barnes_hut()        
+
+        g.save_graph(filename)
+
+        return(g)
+
     def reaction_paths(self,index_override=None):
         '''currently chooses the top reaction, and only does what comes after'''
         def _eqpath(pathsstats):

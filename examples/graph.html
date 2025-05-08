@@ -6,9 +6,6 @@
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
             <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
             
-                <link href="lib/tom-select/tom-select.css" rel="stylesheet">
-                <script src="lib/tom-select/tom-select.complete.min.js"></script>
-            
         
 <center>
 <h1></h1>
@@ -37,7 +34,7 @@
              #mynetwork {
                  width: 100%;
                  height: 750%;
-                 background-color: #222222;
+                 background-color: #ffffff;
                  border: 1px solid lightgray;
                  position: relative;
                  float: left;
@@ -55,48 +52,6 @@
     <body>
         <div class="card" style="width: 100%">
             
-            
-              <div id="filter-menu" class="card-header">
-                <div class="row no-gutters">
-                  <div class="col-3 pb-2">
-                    <select
-                            class="form-select"
-                            aria-label="Default select example"
-                            onchange="updateFilter(value, 'item')"
-                            id="select-item"
-                        >
-                        <option value="">Select a network item</option>
-                        <option value="edge">edge</option>
-                        <option value="node">node</option>
-                    </select>
-                  </div>
-                  <div class="col-3 pb-2">
-                    <select
-                            class="form-select"
-                            aria-label="Default select example"
-                            onchange="updateFilter(value, 'property')"
-                            id="select-property"
-                        >
-                        <option value="">Select a property...</option>
-                    </select>
-                  </div>
-                  <div class="col-3 pb-2">
-                    <select
-                            class="form-select"
-                            aria-label="Default select example"
-                            id="select-value"
-                        >
-                        <option value="">Select value(s)...</option>
-                    </select>
-                  </div>
-                  <div class="col-1 pb-2">
-                    <button type="button" class="btn btn-primary btn-block" onclick="highlightFilter(filter);">Filter</button>
-                  </div>
-                  <div class="col-2 pb-2">
-                    <button type="button" class="btn btn-primary btn-block" onclick="clearFilter(true)">Reset Selection</button>
-                  </div>
-                </div>
-              </div>
             
             <div id="mynetwork" class="card-body"></div>
         </div>
@@ -125,132 +80,6 @@
               
 
               
-                  // explicitly using onItemAdd and this function as we need to save multiple values
-                  let updateValueFilter = function() {
-                      return function () {
-                      filter['value'].push(arguments[0])
-                      }
-                  }
-
-                  let valueControl = new TomSelect("#select-value",{
-                      maxItems: null,
-                      valueField: 'id',
-                      labelField: 'title',
-                      searchField: 'title',
-                      create: false,
-                      sortField: {
-                          field: "text",
-                          direction: "asc"
-                      },
-                      onItemAdd: updateValueFilter()
-                  });
-
-                  let addValues = function() {
-                      return function () {
-                          // clear the current value options and add the selected attribute values
-                          // tom-select handles duplicates
-                          let selectedProperty = arguments[0];
-                          valueControl.clear();
-                          valueControl.clearOptions();
-                          filter['value'] = []
-                          if (filter['item'] === 'node') {
-                              for (let each in allNodes) {
-                                  valueControl.addOption({
-                                      id:allNodes[each][selectedProperty],
-                                      title:allNodes[each][selectedProperty]
-                                  })
-                              }
-                          }
-                          else if (filter['item'] === 'edge') {
-                              for (let each in allEdges) {
-                                  valueControl.addOption({
-                                      id:allEdges[each][selectedProperty],
-                                      title:allEdges[each][selectedProperty]
-                                  })
-                              }
-                          }
-                      }
-                  };
-
-                  let propControl = new TomSelect("#select-property",{
-                      valueField: 'id',
-                      labelField: 'title',
-                      searchField: 'title',
-                      create: false,
-                      sortField: {
-                          field: "text",
-                          direction: "asc"
-                      },
-                      onItemAdd: addValues()
-                  });
-
-                  let addProperties = function() {
-                      return function () {
-                          // loops through the selected network item and adds the attributes to dropdown
-                          // tom-select handles duplicates
-                          clearFilter(false)
-                          if (arguments[0] === 'edge') {
-                              for (let each in allEdges) {
-                                  if (allEdges.hasOwnProperty(each)) {
-                                      for (let eachProp in allEdges[each]) {
-                                          if (allEdges[each].hasOwnProperty(eachProp)) {
-                                              propControl.addOption({id: eachProp, title: eachProp})
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                          else if (arguments[0] === 'node') {
-                              for (let each in allNodes) {
-                                  if (allNodes.hasOwnProperty(each)) {
-                                      for (let eachProp in allNodes[each]) {
-                                          if (allNodes[each].hasOwnProperty(eachProp)
-                                              && (eachProp !== 'hidden' && eachProp !== 'savedLabel'
-                                                  && eachProp !== 'hiddenLabel')) {
-                                              propControl.addOption({id: eachProp, title: eachProp})
-
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  };
-
-                  let itemControl = new TomSelect("#select-item",{
-                      create: false,
-                      sortField:{
-                          field: "text",
-                          direction: "asc"
-                      },
-                      onItemAdd: addProperties()
-                  });
-
-                  function clearFilter(reset) {
-                      // utility function to clear all the selected filter options
-                      // if reset is set to true, the existing filter will be removed
-                      // else, only the dropdown options are cleared
-                      propControl.clear();
-                      propControl.clearOptions();
-                      valueControl.clear();
-                      valueControl.clearOptions();
-                      filter = {
-                          item : '',
-                          property : '',
-                          value : []
-                      }
-                      if (reset) {
-                          itemControl.clear();
-                          filterHighlight({nodes: []})
-                      }
-                  }
-
-                  function updateFilter(value, key) {
-                      // key could be 'item' or 'property' and value is as selected in dropdown
-                      filter[key] = value
-                  }
-
-              
 
               // This method is responsible for drawing the graph, returns the drawn network
               function drawGraph() {
@@ -259,8 +88,8 @@
                   
 
                   // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"color": "White", "font": {"color": "white"}, "id": "H2SO3", "label": "H2SO3", "shape": "dot", "size": 10}, {"color": "#22a785", "font": {"color": "white"}, "id": "8", "label": "8", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "146", "label": "146", "shape": "dot", "size": 8}, {"color": "#481b6d", "font": {"color": "white"}, "id": "438", "label": "438", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "H2O", "label": "H2O", "shape": "dot", "size": 10}, {"color": "White", "font": {"color": "white"}, "id": "SO2", "label": "SO2", "shape": "dot", "size": 10}, {"color": "#31678e", "font": {"color": "white"}, "id": "62", "label": "62", "shape": "dot", "size": 8}, {"color": "#46327e", "font": {"color": "white"}, "id": "131", "label": "131", "shape": "dot", "size": 8}, {"color": "#472a7a", "font": {"color": "white"}, "id": "184", "label": "184", "shape": "dot", "size": 8}, {"color": "#433e85", "font": {"color": "white"}, "id": "222", "label": "222", "shape": "dot", "size": 8}, {"color": "#440256", "font": {"color": "white"}, "id": "320", "label": "320", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "344", "label": "344", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "405", "label": "405", "shape": "dot", "size": 8}, {"color": "#481668", "font": {"color": "white"}, "id": "471", "label": "471", "shape": "dot", "size": 8}, {"color": "#453581", "font": {"color": "white"}, "id": "3162", "label": "3162", "shape": "dot", "size": 8}, {"color": "#471063", "font": {"color": "white"}, "id": "5097", "label": "5097", "shape": "dot", "size": 8}, {"color": "#460b5e", "font": {"color": "white"}, "id": "13", "label": "13", "shape": "dot", "size": 8}, {"color": "#450457", "font": {"color": "white"}, "id": "67", "label": "67", "shape": "dot", "size": 8}, {"color": "#481a6c", "font": {"color": "white"}, "id": "354", "label": "354", "shape": "dot", "size": 8}, {"color": "#34618d", "font": {"color": "white"}, "id": "455", "label": "455", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "801", "label": "801", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "2653", "label": "2653", "shape": "dot", "size": 8}, {"color": "#3f4788", "font": {"color": "white"}, "id": "3348", "label": "3348", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "3511", "label": "3511", "shape": "dot", "size": 8}, {"color": "#450457", "font": {"color": "white"}, "id": "4053", "label": "4053", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "O2", "label": "O2", "shape": "dot", "size": 10}, {"color": "#46085c", "font": {"color": "white"}, "id": "11", "label": "11", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "18", "label": "18", "shape": "dot", "size": 8}, {"color": "#40bd72", "font": {"color": "white"}, "id": "19", "label": "19", "shape": "dot", "size": 8}, {"color": "#443b84", "font": {"color": "white"}, "id": "20", "label": "20", "shape": "dot", "size": 8}, {"color": "#482173", "font": {"color": "white"}, "id": "38", "label": "38", "shape": "dot", "size": 8}, {"color": "#450457", "font": {"color": "white"}, "id": "104", "label": "104", "shape": "dot", "size": 8}, {"color": "#39568c", "font": {"color": "white"}, "id": "351", "label": "351", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "384", "label": "384", "shape": "dot", "size": 8}, {"color": "#fde725", "font": {"color": "white"}, "id": "401", "label": "401", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "1390", "label": "1390", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "3652", "label": "3652", "shape": "dot", "size": 8}, {"color": "#481769", "font": {"color": "white"}, "id": "4102", "label": "4102", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "4710", "label": "4710", "shape": "dot", "size": 8}, {"color": "#481467", "font": {"color": "white"}, "id": "4855", "label": "4855", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "H2SO4", "label": "H2SO4", "shape": "dot", "size": 10}, {"color": "White", "font": {"color": "white"}, "id": "H2S", "label": "H2S", "shape": "dot", "size": 10}, {"color": "#46085c", "font": {"color": "white"}, "id": "252", "label": "252", "shape": "dot", "size": 8}, {"color": "#471063", "font": {"color": "white"}, "id": "294", "label": "294", "shape": "dot", "size": 8}, {"color": "#46085c", "font": {"color": "white"}, "id": "402", "label": "402", "shape": "dot", "size": 8}, {"color": "#46327e", "font": {"color": "white"}, "id": "1860", "label": "1860", "shape": "dot", "size": 8}, {"color": "#46085c", "font": {"color": "white"}, "id": "2682", "label": "2682", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "2940", "label": "2940", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "4697", "label": "4697", "shape": "dot", "size": 8}, {"color": "#481467", "font": {"color": "white"}, "id": "4858", "label": "4858", "shape": "dot", "size": 8}, {"color": "#450457", "font": {"color": "white"}, "id": "4965", "label": "4965", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "175", "label": "175", "shape": "dot", "size": 8}, {"color": "#46085c", "font": {"color": "white"}, "id": "226", "label": "226", "shape": "dot", "size": 8}, {"color": "#443b84", "font": {"color": "white"}, "id": "300", "label": "300", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "NOHSO4", "label": "NOHSO4", "shape": "dot", "size": 10}, {"color": "White", "font": {"color": "white"}, "id": "HNO3", "label": "HNO3", "shape": "dot", "size": 10}, {"color": "#450457", "font": {"color": "white"}, "id": "306", "label": "306", "shape": "dot", "size": 8}, {"color": "#460b5e", "font": {"color": "white"}, "id": "310", "label": "310", "shape": "dot", "size": 8}, {"color": "#481f70", "font": {"color": "white"}, "id": "1833", "label": "1833", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "H2", "label": "H2", "shape": "dot", "size": 10}, {"color": "#450457", "font": {"color": "white"}, "id": "32", "label": "32", "shape": "dot", "size": 8}, {"color": "#472c7a", "font": {"color": "white"}, "id": "329", "label": "329", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "469", "label": "469", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "S8", "label": "S8", "shape": "dot", "size": 10}, {"color": "#450457", "font": {"color": "white"}, "id": "295", "label": "295", "shape": "dot", "size": 8}, {"color": "#440154", "font": {"color": "white"}, "id": "3679", "label": "3679", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "NO", "label": "NO", "shape": "dot", "size": 10}, {"color": "#440154", "font": {"color": "white"}, "id": "25", "label": "25", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "NO2", "label": "NO2", "shape": "dot", "size": 10}, {"color": "White", "font": {"color": "white"}, "id": "N2", "label": "N2", "shape": "dot", "size": 10}, {"color": "#472c7a", "font": {"color": "white"}, "id": "30", "label": "30", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "HNO2", "label": "HNO2", "shape": "dot", "size": 10}, {"color": "#450457", "font": {"color": "white"}, "id": "160", "label": "160", "shape": "dot", "size": 8}, {"color": "White", "font": {"color": "white"}, "id": "NH3", "label": "NH3", "shape": "dot", "size": 10}]);
-                  edges = new vis.DataSet([{"arrows": "to", "from": "H2SO3", "to": "8", "width": 1}, {"arrows": "to", "from": "H2SO3", "to": "146", "width": 1}, {"arrows": "to", "from": "H2SO3", "to": "438", "width": 1}, {"arrows": "to", "from": "8", "to": "H2O", "width": 1}, {"arrows": "to", "from": "8", "to": "SO2", "width": 1}, {"arrows": "to", "from": "H2O", "to": "62", "width": 1}, {"arrows": "to", "from": "H2O", "to": "131", "width": 1}, {"arrows": "to", "from": "H2O", "to": "184", "width": 1}, {"arrows": "to", "from": "H2O", "to": "222", "width": 1}, {"arrows": "to", "from": "H2O", "to": "320", "width": 1}, {"arrows": "to", "from": "H2O", "to": "344", "width": 1}, {"arrows": "to", "from": "H2O", "to": "405", "width": 1}, {"arrows": "to", "from": "H2O", "to": "471", "width": 1}, {"arrows": "to", "from": "H2O", "to": "3162", "width": 1}, {"arrows": "to", "from": "H2O", "to": "5097", "width": 1}, {"arrows": "to", "from": "SO2", "to": "13", "width": 1}, {"arrows": "to", "from": "SO2", "to": "67", "width": 1}, {"arrows": "to", "from": "SO2", "to": "131", "width": 1}, {"arrows": "to", "from": "SO2", "to": "354", "width": 1}, {"arrows": "to", "from": "SO2", "to": "455", "width": 1}, {"arrows": "to", "from": "SO2", "to": "801", "width": 1}, {"arrows": "to", "from": "SO2", "to": "2653", "width": 1}, {"arrows": "to", "from": "SO2", "to": "3162", "width": 1}, {"arrows": "to", "from": "SO2", "to": "3348", "width": 1}, {"arrows": "to", "from": "SO2", "to": "3511", "width": 1}, {"arrows": "to", "from": "SO2", "to": "4053", "width": 1}, {"arrows": "to", "from": "O2", "to": "11", "width": 1}, {"arrows": "to", "from": "O2", "to": "18", "width": 1}, {"arrows": "to", "from": "O2", "to": "19", "width": 1}, {"arrows": "to", "from": "O2", "to": "20", "width": 1}, {"arrows": "to", "from": "O2", "to": "38", "width": 1}, {"arrows": "to", "from": "O2", "to": "67", "width": 1}, {"arrows": "to", "from": "O2", "to": "104", "width": 1}, {"arrows": "to", "from": "O2", "to": "131", "width": 1}, {"arrows": "to", "from": "O2", "to": "351", "width": 1}, {"arrows": "to", "from": "O2", "to": "384", "width": 1}, {"arrows": "to", "from": "O2", "to": "401", "width": 1}, {"arrows": "to", "from": "O2", "to": "801", "width": 1}, {"arrows": "to", "from": "O2", "to": "1390", "width": 1}, {"arrows": "to", "from": "O2", "to": "2653", "width": 1}, {"arrows": "to", "from": "O2", "to": "3652", "width": 1}, {"arrows": "to", "from": "O2", "to": "4102", "width": 1}, {"arrows": "to", "from": "O2", "to": "4710", "width": 1}, {"arrows": "to", "from": "O2", "to": "4855", "width": 1}, {"arrows": "to", "from": "11", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "H2S", "to": "11", "width": 1}, {"arrows": "to", "from": "H2S", "to": "18", "width": 1}, {"arrows": "to", "from": "H2S", "to": "252", "width": 1}, {"arrows": "to", "from": "H2S", "to": "294", "width": 1}, {"arrows": "to", "from": "H2S", "to": "351", "width": 1}, {"arrows": "to", "from": "H2S", "to": "401", "width": 1}, {"arrows": "to", "from": "H2S", "to": "402", "width": 1}, {"arrows": "to", "from": "H2S", "to": "1390", "width": 1}, {"arrows": "to", "from": "H2S", "to": "1860", "width": 1}, {"arrows": "to", "from": "H2S", "to": "2682", "width": 1}, {"arrows": "to", "from": "H2S", "to": "2940", "width": 1}, {"arrows": "to", "from": "H2S", "to": "3652", "width": 1}, {"arrows": "to", "from": "H2S", "to": "4102", "width": 1}, {"arrows": "to", "from": "H2S", "to": "4697", "width": 1}, {"arrows": "to", "from": "H2S", "to": "4710", "width": 1}, {"arrows": "to", "from": "H2S", "to": "4855", "width": 1}, {"arrows": "to", "from": "H2S", "to": "4858", "width": 1}, {"arrows": "to", "from": "H2S", "to": "4965", "width": 1}, {"arrows": "to", "from": "H2S", "to": "5097", "width": 1}, {"arrows": "to", "from": "H2SO4", "to": "175", "width": 1}, {"arrows": "to", "from": "H2SO4", "to": "226", "width": 1}, {"arrows": "to", "from": "H2SO4", "to": "300", "width": 1}, {"arrows": "to", "from": "H2SO4", "to": "402", "width": 1}, {"arrows": "to", "from": "13", "to": "NOHSO4", "width": 1}, {"arrows": "to", "from": "HNO3", "to": "13", "width": 1}, {"arrows": "to", "from": "HNO3", "to": "306", "width": 1}, {"arrows": "to", "from": "HNO3", "to": "310", "width": 1}, {"arrows": "to", "from": "HNO3", "to": "1833", "width": 1}, {"arrows": "to", "from": "HNO3", "to": "4697", "width": 1}, {"arrows": "to", "from": "NOHSO4", "to": "405", "width": 1}, {"arrows": "to", "from": "18", "to": "H2SO3", "width": 1}, {"arrows": "to", "from": "H2", "to": "19", "width": 1}, {"arrows": "to", "from": "H2", "to": "32", "width": 1}, {"arrows": "to", "from": "H2", "to": "67", "width": 1}, {"arrows": "to", "from": "H2", "to": "104", "width": 1}, {"arrows": "to", "from": "H2", "to": "175", "width": 1}, {"arrows": "to", "from": "H2", "to": "226", "width": 1}, {"arrows": "to", "from": "H2", "to": "300", "width": 1}, {"arrows": "to", "from": "H2", "to": "306", "width": 1}, {"arrows": "to", "from": "H2", "to": "310", "width": 1}, {"arrows": "to", "from": "H2", "to": "329", "width": 1}, {"arrows": "to", "from": "H2", "to": "354", "width": 1}, {"arrows": "to", "from": "H2", "to": "438", "width": 1}, {"arrows": "to", "from": "H2", "to": "455", "width": 1}, {"arrows": "to", "from": "H2", "to": "469", "width": 1}, {"arrows": "to", "from": "H2", "to": "3348", "width": 1}, {"arrows": "to", "from": "H2", "to": "3511", "width": 1}, {"arrows": "to", "from": "H2", "to": "4053", "width": 1}, {"arrows": "to", "from": "H2", "to": "4697", "width": 1}, {"arrows": "to", "from": "H2", "to": "4965", "width": 1}, {"arrows": "to", "from": "19", "to": "H2O", "width": 1}, {"arrows": "to", "from": "20", "to": "SO2", "width": 1}, {"arrows": "to", "from": "S8", "to": "20", "width": 1}, {"arrows": "to", "from": "S8", "to": "184", "width": 1}, {"arrows": "to", "from": "S8", "to": "295", "width": 1}, {"arrows": "to", "from": "S8", "to": "320", "width": 1}, {"arrows": "to", "from": "S8", "to": "1833", "width": 1}, {"arrows": "to", "from": "S8", "to": "3679", "width": 1}, {"arrows": "to", "from": "NO", "to": "25", "width": 1}, {"arrows": "to", "from": "NO", "to": "38", "width": 1}, {"arrows": "to", "from": "NO", "to": "62", "width": 1}, {"arrows": "to", "from": "NO", "to": "295", "width": 1}, {"arrows": "to", "from": "NO", "to": "344", "width": 1}, {"arrows": "to", "from": "NO", "to": "2682", "width": 1}, {"arrows": "to", "from": "NO", "to": "3511", "width": 1}, {"arrows": "to", "from": "NO", "to": "4710", "width": 1}, {"arrows": "to", "from": "NO", "to": "4965", "width": 1}, {"arrows": "to", "from": "25", "to": "NO2", "width": 1}, {"arrows": "to", "from": "25", "to": "N2", "width": 1}, {"arrows": "to", "from": "NO2", "to": "30", "width": 1}, {"arrows": "to", "from": "NO2", "to": "32", "width": 1}, {"arrows": "to", "from": "NO2", "to": "62", "width": 1}, {"arrows": "to", "from": "NO2", "to": "146", "width": 1}, {"arrows": "to", "from": "NO2", "to": "222", "width": 1}, {"arrows": "to", "from": "NO2", "to": "294", "width": 1}, {"arrows": "to", "from": "NO2", "to": "329", "width": 1}, {"arrows": "to", "from": "NO2", "to": "471", "width": 1}, {"arrows": "to", "from": "NO2", "to": "1860", "width": 1}, {"arrows": "to", "from": "NO2", "to": "3162", "width": 1}, {"arrows": "to", "from": "NO2", "to": "3348", "width": 1}, {"arrows": "to", "from": "NO2", "to": "4053", "width": 1}, {"arrows": "to", "from": "NO2", "to": "4102", "width": 1}, {"arrows": "to", "from": "NO2", "to": "4855", "width": 1}, {"arrows": "to", "from": "NO2", "to": "4858", "width": 1}, {"arrows": "to", "from": "NO2", "to": "5097", "width": 1}, {"arrows": "to", "from": "N2", "to": "104", "width": 1}, {"arrows": "to", "from": "N2", "to": "3652", "width": 1}, {"arrows": "to", "from": "30", "to": "O2", "width": 1}, {"arrows": "to", "from": "30", "to": "N2", "width": 1}, {"arrows": "to", "from": "32", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "HNO2", "to": "160", "width": 1}, {"arrows": "to", "from": "HNO2", "to": "252", "width": 1}, {"arrows": "to", "from": "HNO2", "to": "469", "width": 1}, {"arrows": "to", "from": "HNO2", "to": "1390", "width": 1}, {"arrows": "to", "from": "HNO2", "to": "2940", "width": 1}, {"arrows": "to", "from": "HNO2", "to": "3679", "width": 1}, {"arrows": "to", "from": "38", "to": "NO2", "width": 1}, {"arrows": "to", "from": "62", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "67", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "104", "to": "HNO3", "width": 1}, {"arrows": "to", "from": "131", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "146", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "146", "to": "NO", "width": 1}, {"arrows": "to", "from": "NH3", "to": "160", "width": 1}, {"arrows": "to", "from": "NH3", "to": "384", "width": 1}, {"arrows": "to", "from": "NH3", "to": "801", "width": 1}, {"arrows": "to", "from": "NH3", "to": "2653", "width": 1}, {"arrows": "to", "from": "160", "to": "H2O", "width": 1}, {"arrows": "to", "from": "160", "to": "N2", "width": 1}, {"arrows": "to", "from": "175", "to": "H2O", "width": 1}, {"arrows": "to", "from": "175", "to": "H2SO3", "width": 1}, {"arrows": "to", "from": "184", "to": "O2", "width": 1}, {"arrows": "to", "from": "184", "to": "H2S", "width": 1}, {"arrows": "to", "from": "222", "to": "HNO3", "width": 1}, {"arrows": "to", "from": "222", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "226", "to": "H2O", "width": 1}, {"arrows": "to", "from": "226", "to": "H2S", "width": 1}, {"arrows": "to", "from": "252", "to": "SO2", "width": 1}, {"arrows": "to", "from": "252", "to": "NH3", "width": 1}, {"arrows": "to", "from": "294", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "294", "to": "N2", "width": 1}, {"arrows": "to", "from": "295", "to": "SO2", "width": 1}, {"arrows": "to", "from": "295", "to": "N2", "width": 1}, {"arrows": "to", "from": "300", "to": "H2O", "width": 1}, {"arrows": "to", "from": "300", "to": "SO2", "width": 1}, {"arrows": "to", "from": "306", "to": "H2O", "width": 1}, {"arrows": "to", "from": "306", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "310", "to": "H2O", "width": 1}, {"arrows": "to", "from": "310", "to": "NO2", "width": 1}, {"arrows": "to", "from": "320", "to": "H2S", "width": 1}, {"arrows": "to", "from": "320", "to": "SO2", "width": 1}, {"arrows": "to", "from": "329", "to": "H2O", "width": 1}, {"arrows": "to", "from": "329", "to": "NO", "width": 1}, {"arrows": "to", "from": "344", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "344", "to": "N2", "width": 1}, {"arrows": "to", "from": "351", "to": "H2O", "width": 1}, {"arrows": "to", "from": "351", "to": "SO2", "width": 1}, {"arrows": "to", "from": "354", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "354", "to": "H2S", "width": 1}, {"arrows": "to", "from": "384", "to": "H2O", "width": 1}, {"arrows": "to", "from": "384", "to": "HNO3", "width": 1}, {"arrows": "to", "from": "401", "to": "H2", "width": 1}, {"arrows": "to", "from": "401", "to": "SO2", "width": 1}, {"arrows": "to", "from": "402", "to": "H2O", "width": 1}, {"arrows": "to", "from": "402", "to": "SO2", "width": 1}, {"arrows": "to", "from": "405", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "405", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "438", "to": "H2O", "width": 1}, {"arrows": "to", "from": "438", "to": "H2S", "width": 1}, {"arrows": "to", "from": "455", "to": "H2O", "width": 1}, {"arrows": "to", "from": "455", "to": "H2S", "width": 1}, {"arrows": "to", "from": "469", "to": "H2O", "width": 1}, {"arrows": "to", "from": "469", "to": "N2", "width": 1}, {"arrows": "to", "from": "471", "to": "HNO3", "width": 1}, {"arrows": "to", "from": "471", "to": "NO", "width": 1}, {"arrows": "to", "from": "801", "to": "H2O", "width": 1}, {"arrows": "to", "from": "801", "to": "NOHSO4", "width": 1}, {"arrows": "to", "from": "1390", "to": "H2O", "width": 1}, {"arrows": "to", "from": "1390", "to": "NOHSO4", "width": 1}, {"arrows": "to", "from": "1833", "to": "H2S", "width": 1}, {"arrows": "to", "from": "1833", "to": "SO2", "width": 1}, {"arrows": "to", "from": "1833", "to": "N2", "width": 1}, {"arrows": "to", "from": "1860", "to": "H2", "width": 1}, {"arrows": "to", "from": "1860", "to": "SO2", "width": 1}, {"arrows": "to", "from": "1860", "to": "N2", "width": 1}, {"arrows": "to", "from": "2653", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "2653", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "2682", "to": "H2", "width": 1}, {"arrows": "to", "from": "2682", "to": "SO2", "width": 1}, {"arrows": "to", "from": "2682", "to": "N2", "width": 1}, {"arrows": "to", "from": "2940", "to": "H2O", "width": 1}, {"arrows": "to", "from": "2940", "to": "SO2", "width": 1}, {"arrows": "to", "from": "2940", "to": "N2", "width": 1}, {"arrows": "to", "from": "3162", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "3162", "to": "NO", "width": 1}, {"arrows": "to", "from": "3348", "to": "H2SO3", "width": 1}, {"arrows": "to", "from": "3348", "to": "NO", "width": 1}, {"arrows": "to", "from": "3511", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "3511", "to": "N2", "width": 1}, {"arrows": "to", "from": "3652", "to": "SO2", "width": 1}, {"arrows": "to", "from": "3652", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "3679", "to": "H2", "width": 1}, {"arrows": "to", "from": "3679", "to": "SO2", "width": 1}, {"arrows": "to", "from": "3679", "to": "N2", "width": 1}, {"arrows": "to", "from": "4053", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "4053", "to": "NO", "width": 1}, {"arrows": "to", "from": "4102", "to": "HNO3", "width": 1}, {"arrows": "to", "from": "4102", "to": "NOHSO4", "width": 1}, {"arrows": "to", "from": "4697", "to": "H2SO3", "width": 1}, {"arrows": "to", "from": "4697", "to": "NH3", "width": 1}, {"arrows": "to", "from": "4710", "to": "SO2", "width": 1}, {"arrows": "to", "from": "4710", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "4855", "to": "SO2", "width": 1}, {"arrows": "to", "from": "4855", "to": "HNO2", "width": 1}, {"arrows": "to", "from": "4858", "to": "H2", "width": 1}, {"arrows": "to", "from": "4858", "to": "SO2", "width": 1}, {"arrows": "to", "from": "4858", "to": "NO", "width": 1}, {"arrows": "to", "from": "4965", "to": "SO2", "width": 1}, {"arrows": "to", "from": "4965", "to": "NH3", "width": 1}, {"arrows": "to", "from": "5097", "to": "NH3", "width": 1}, {"arrows": "to", "from": "5097", "to": "NOHSO4", "width": 1}]);
+                  nodes = new vis.DataSet([{"color": "#97c2fc", "font": {"color": "white"}, "id": "H2SO3", "label": "H2SO3", "shape": "box", "size": 10}, {"color": "#67000d", "font": {"color": "white"}, "id": "0", "label": null, "shape": "circle", "size": 8, "title": "1 H2O + 1 SO2 = 1 H2SO3"}, {"color": "#97c2fc", "font": {"color": "white"}, "id": "10", "label": null, "shape": "circle", "size": 8, "title": "3 H2 + 1 H2SO3 = 3 H2O + 1 H2S"}, {"color": "#97c2fc", "font": {"color": "white"}, "id": "H2O", "label": "H2O", "shape": "box", "size": 10}, {"color": "#97c2fc", "font": {"color": "white"}, "id": "SO2", "label": "SO2", "shape": "box", "size": 10}, {"color": "#fee2d5", "font": {"color": "white"}, "id": "6", "label": null, "shape": "circle", "size": 8, "title": "1 O2 + 2 H2O + 2 SO2 = 2 H2SO4"}, {"color": "#f44f39", "font": {"color": "white"}, "id": "2", "label": null, "shape": "circle", "size": 8, "title": "1 H2 + 1 O2 + 1 SO2 = 1 H2SO4"}, {"color": "#fedbcc", "font": {"color": "white"}, "id": "5", "label": null, "shape": "circle", "size": 8, "title": "2 H2 + 2 SO2 = 1 H2SO4 + 1 H2S"}, {"color": "#fff5f0", "font": {"color": "white"}, "id": "8", "label": null, "shape": "circle", "size": 8, "title": "3 H2 + 1 SO2 = 2 H2O + 1 H2S"}, {"color": "#97c2fc", "font": {"color": "white"}, "id": "O2", "label": "O2", "shape": "box", "size": 10}, {"color": "#b21218", "font": {"color": "white"}, "id": "1", "label": null, "shape": "circle", "size": 8, "title": "1 H2 + 1 SO2 = 1 O2 + 1 H2S"}, {"color": "#fcb99f", "font": {"color": "white"}, "id": "3", "label": null, "shape": "circle", "size": 8, "title": "2 H2 + 1 O2 = 2 H2O"}, {"color": "#fee2d5", "font": {"color": "white"}, "id": "7", "label": null, "shape": "circle", "size": 8, "title": "2 O2 + 1 H2S = 1 H2SO4"}, {"color": "#fff5f0", "font": {"color": "white"}, "id": "9", "label": null, "shape": "circle", "size": 8, "title": "3 O2 + 2 H2S = 2 H2O + 2 SO2"}, {"color": "#97c2fc", "font": {"color": "white"}, "id": "H2", "label": "H2", "shape": "box", "size": 10}, {"color": "#97c2fc", "font": {"color": "white"}, "id": "H2S", "label": "H2S", "shape": "box", "size": 10}, {"color": "#fcb99f", "font": {"color": "white"}, "id": "4", "label": null, "shape": "circle", "size": 8, "title": "1 H2 + 1 H2SO4 = 2 H2O + 1 SO2"}, {"color": "#97c2fc", "font": {"color": "white"}, "id": "H2SO4", "label": "H2SO4", "shape": "box", "size": 10}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": "H2SO3", "to": "0", "width": 1}, {"arrows": "to", "from": "H2SO3", "to": "10", "width": 1}, {"arrows": "to", "from": "0", "to": "H2O", "width": 1}, {"arrows": "to", "from": "0", "to": "SO2", "width": 1}, {"arrows": "to", "from": "H2O", "to": "6", "width": 1}, {"arrows": "to", "from": "SO2", "to": "2", "width": 1}, {"arrows": "to", "from": "SO2", "to": "5", "width": 1}, {"arrows": "to", "from": "SO2", "to": "6", "width": 1}, {"arrows": "to", "from": "SO2", "to": "8", "width": 1}, {"arrows": "to", "from": "O2", "to": "1", "width": 1}, {"arrows": "to", "from": "O2", "to": "2", "width": 1}, {"arrows": "to", "from": "O2", "to": "3", "width": 1}, {"arrows": "to", "from": "O2", "to": "6", "width": 1}, {"arrows": "to", "from": "O2", "to": "7", "width": 1}, {"arrows": "to", "from": "O2", "to": "9", "width": 1}, {"arrows": "to", "from": "1", "to": "H2", "width": 1}, {"arrows": "to", "from": "1", "to": "SO2", "width": 1}, {"arrows": "to", "from": "H2S", "to": "1", "width": 1}, {"arrows": "to", "from": "H2S", "to": "7", "width": 1}, {"arrows": "to", "from": "H2S", "to": "9", "width": 1}, {"arrows": "to", "from": "H2", "to": "2", "width": 1}, {"arrows": "to", "from": "H2", "to": "3", "width": 1}, {"arrows": "to", "from": "H2", "to": "4", "width": 1}, {"arrows": "to", "from": "H2", "to": "5", "width": 1}, {"arrows": "to", "from": "H2", "to": "8", "width": 1}, {"arrows": "to", "from": "H2", "to": "10", "width": 1}, {"arrows": "to", "from": "2", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "H2SO4", "to": "4", "width": 1}, {"arrows": "to", "from": "3", "to": "H2O", "width": 1}, {"arrows": "to", "from": "4", "to": "H2O", "width": 1}, {"arrows": "to", "from": "4", "to": "SO2", "width": 1}, {"arrows": "to", "from": "5", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "5", "to": "H2S", "width": 1}, {"arrows": "to", "from": "6", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "7", "to": "H2SO4", "width": 1}, {"arrows": "to", "from": "8", "to": "H2O", "width": 1}, {"arrows": "to", "from": "8", "to": "H2S", "width": 1}, {"arrows": "to", "from": "9", "to": "H2O", "width": 1}, {"arrows": "to", "from": "9", "to": "SO2", "width": 1}, {"arrows": "to", "from": "10", "to": "H2O", "width": 1}, {"arrows": "to", "from": "10", "to": "H2S", "width": 1}]);
 
                   nodeColors = {};
                   allNodes = nodes.get({ returnType: "Object" });
@@ -290,23 +119,7 @@
         "hideNodesOnDrag": false
     },
     "physics": {
-        "barnesHut": {
-            "avoidOverlap": 0,
-            "centralGravity": 0.3,
-            "damping": 0.09,
-            "gravitationalConstant": -80000,
-            "springConstant": 0.001,
-            "springLength": 250
-        },
         "enabled": true,
-        "repulsion": {
-            "centralGravity": 0.2,
-            "damping": 0.01,
-            "nodeDistance": 100,
-            "springConstant": 0.05,
-            "springLength": 50
-        },
-        "solver": "repulsion",
         "stabilization": {
             "enabled": true,
             "fit": true,
