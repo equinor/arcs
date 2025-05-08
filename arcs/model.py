@@ -12,6 +12,8 @@ from bin.generate_tables import process_generic_inputs
 
 MODEL_PATH = Path(__file__).parent.parent / "model"
 
+BOLTZMANN_CONSTANT = 8.617333262 * (10 ** (-5))  # Boltzmann constant k in eV
+
 
 class ReactionType(TypedDict):
     e: chempy.Equilibrium
@@ -42,7 +44,7 @@ def get_table(
         restructured_reactions = {
             _id: {
                 "e": _e,
-                "k": np.nan,  # Oneline of FunctionCall(),
+                "k": _calculate_k(_g, temperature),
                 "g": _g,
             }
             for _id, _e, _g in zip(id, e, g)
@@ -59,6 +61,15 @@ def get_table(
 
     with open(file_path, "rb") as stream:
         return pickle.load(stream)  # type: ignore
+
+
+def _calculate_k(gibbs_energy: float, temperature: int) -> np.float64:
+    try:
+        return np.float64(
+            np.exp((-1) * gibbs_energy / (BOLTZMANN_CONSTANT * temperature))
+        )
+    except (OverflowError, ValueError):
+        return np.float64(0)
 
 
 def run_reaction_calc(
