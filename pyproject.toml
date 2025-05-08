@@ -55,7 +55,7 @@ changelog = "https://github.com/badw/arcs/tree/main/CHANGELOG.md"
 template = ["py.typed"]
 
 [tool.pyright]
-include = ["reactit"]
+include = ["arcs"]
 exclude = ["**/__pycache__"]
 
 [tool.pytest.ini_options]
