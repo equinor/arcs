@@ -8,6 +8,7 @@ from arcs.model import (
     _get_gibbs_constant,
     get_reactions,
     interpolate_gibbs_values,
+    _calculate_k,
 )
 
 PRESSURE_LIST = [
@@ -156,3 +157,23 @@ def test_interpolate_gibbs_values():
     interpolated_result = interpolate_gibbs_values(values, point1, point2, target)[0]
 
     assert expected_result == interpolated_result
+
+
+def test_calculate_k():
+    combinations = []
+    for temperature in TEMPERATURE_LIST:
+        for pressure in PRESSURE_LIST:
+            combinations.append((temperature, pressure))
+
+    for temperature_pressure_pair in combinations:
+        reactions_list = get_reactions(
+            temperature_pressure_pair[0], temperature_pressure_pair[1]
+        )
+
+        for _, reaction_data in reactions_list.items():
+            gibbs_energy = reaction_data["g"]
+            true_k = reaction_data["k"]
+            temperature = temperature_pressure_pair[0]
+
+            calculated_k = _calculate_k(gibbs_energy, temperature)
+            assert np.isclose(calculated_k, true_k, rtol=1e-4, atol=1e-4)
