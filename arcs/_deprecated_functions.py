@@ -741,7 +741,82 @@ version:1.2
                 )[0]['weight']*self.length_multiplier(reaction)
         #limit based on maximum_reaction_number:        
         rankings = {k:rankings[k] for k in list(rankings)[0:maximum_reaction_number]}
-        return(rankings)              
+        return(rankings)    
+
+    def _get_weighted_reaction_rankings_2(
+            self,
+            weighted_random_compounds:dict,
+            maximum_reaction_number:int = 20,
+            shortest_path_method:str = 'Djikstra',
+            ):
+        """
+        given a dictionary of weighted random compounds from self.get_weighted_random_compounds find the shortest path between: 
+        1. compound 0 and compound 1 -> list
+        2. add further reactions based on C0 and CN and C1 and CN 
+        3. weight based on availability of how many weighted_random_compounds are present in the reaction
+        4. weight based on edge weight and (optional) length multiplier for unreasonable large reactions (if option selected)
+        returns a dictionary of ranked reactions and their weighting. 
+
+        #TODO: check based on whether each element is present in the reaction. 
+        """
+        
+        if len(weighted_random_compounds) == 1:
+            return(None)
+
+        c1 = weighted_random_compounds[0]
+        c2 = weighted_random_compounds[1]
+        # 1st find possible paths between compounds 1 & 2 and others
+        possibilities = []
+        for cn in weighted_random_compounds:
+            try:
+                possibilities.append(
+                    [
+                        x[1] for x in list(
+                            nx.shortest_paths.all_shortest_paths(
+                                G=self.graph, source=c1, target=cn)
+                        )
+                    ]
+                )
+                possibilities.append(
+                    [
+                        x[1] for x in list(
+                            nx.shortest_paths.all_shortest_paths(
+                                G=self.graph, source=c2, target=cn)
+                        )
+                    ]
+                )
+            except IndexError:
+                pass
+
+        possibilities = it.chain(*possibilities)
+        #now weight by how many species in the reaction are in the weighted_random_compounds
+        #more present compounds in a reaction is better 
+        possibilities = {
+            reaction_index:self.weight_filter(reaction_index,weighted_random_compounds) for reaction_index in possibilities
+            }
+        possibilities = dict(
+            sorted(possibilities.items(),key=lambda item: item[1],reverse=True)#[0:maximum_reaction_number]
+            )
+        
+        rankings = {}
+        for i,reaction in enumerate(possibilities):
+            try:
+                weight = self.graph.get_edge_data(
+                    u=c1,
+                    v=reaction
+                    )[0]['weight']*self.length_multiplier(reaction)
+            except TypeError:
+                weight = self.graph.get_edge_data(
+                    u=c2,
+                    v=reaction
+                    )[0]['weight']*self.length_multiplier(reaction)
+                    
+                rankings[reaction] = weight 
+
+        #limit based on maximum_reaction_number:
+        #rankings = {k:v for i,(k,v) in enumerate(rankings.items()) if i <maximum_reaction_number}
+        rankings = dict(sorted(rankings.items(),key=lambda item: item[1])[0:maximum_reaction_number])
+        return(rankings)          
 
 #done
 ###############################analysis.py

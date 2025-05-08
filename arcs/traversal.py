@@ -10,8 +10,10 @@ import psutil
 import time
 import datetime
 import os
+from torch import Graph
 import tqdm_pathos
 import itertools as it 
+from arcs.generate import GraphGenerator
 
 class Traversal:
 
@@ -28,27 +30,81 @@ class Traversal:
         self.ncpus = 4    
         self.ceiling = 2000
         self.scale_largest=10
-        self.rank_small_reactions_higher = {'option':True,'by_coefficients':True}
+        self.rank_small_reactions_higher = True
+        self.rank_by_number_of_atoms = False
         self.shortest_path_method='Djikstra'
 
     def length_multiplier(
             self,
             candidate_reaction:int,
-            ):
+            )->float:
         """
-        given a candidate reaction, if self.rank_small_reactions_higher == True, then return the length of the reaction as a multiplier
-        i.e. H2 + 1/2 O2 = H2O has a length multiplier of 3  
+        given a candidate reaction, 
+        
+        if self.rank_small_reactions_higher == True, then return the sum of the coefficients as a multiplier
+
+        i.e. H2 + 1/2 O2 = H2O has a length multiplier of 2.5 
+
+        if self.rank_by_number_of_atoms = True, then rank by the number of atoms in the reactants (which = num_atoms_in_products)
+
+        i.e. H2 + 1/2 O2 = H2O has a length multiplier of 3
+
         """
-        if self.rank_small_reactions_higher['option']:
-            reaction_dict = self.graph.nodes[candidate_reaction]['reaction']
-            num_reactants = len(reaction_dict['reactants'])
-            num_products = len(reaction_dict['products'])   
-            if self.rank_small_reactions_higher['by_coefficients']:
-                num_reactants = np.sum(list(reaction_dict['reactants'].values()))*num_reactants
-                num_products = np.sum(list(reaction_dict['products'].values()))*num_products # all species * products
-            return((num_reactants + num_products))
+        if self.rank_small_reactions_higher:
+            if self.rank_by_number_of_atoms:
+                reaction_dict = self.graph.nodes[candidate_reaction]['reaction']
+                reactants = reaction_dict['reactants']
+                num_atoms = []
+                for species,coefficient in reactants.items():
+                    num_atoms.append(
+                        np.sum(
+                            list(GraphGenerator.parse_molecule(species).values())
+                        ) * coefficient
+                    )
+                return(np.sum(num_atoms))
+            else:
+                reaction_dict = self.graph.nodes[candidate_reaction]['reaction']
+                num_reactants = np.sum(list(reaction_dict['reactants'].values()))
+                num_products = np.sum(list(reaction_dict['products'].values()))
+                return((num_reactants + num_products))
         else:
             return (1)
+        
+    def check_reactant_atoms(
+            self,
+            reaction_index:int,
+            weighted_random_compounds:list
+            )->bool:
+        """
+        takes a reaction index, chosen random_compounds, and checks for atom balance
+        returns bool
+        """
+        reac_atoms = list(
+            dict.fromkeys(
+                list(
+                    it.chain(
+                        *[
+                            list(GraphGenerator.parse_molecule(x)) for x in self.graph.nodes()[reaction_index]['reaction']['reactants']
+                        ]
+                    )
+                )
+            )
+        )
+        random_compounds_atoms = list(
+            dict.fromkeys(
+                list(
+                    it.chain(
+                        *[
+                            list(GraphGenerator.parse_molecule(x)) for x in weighted_random_compounds
+                        ]
+                    )
+                )
+            )
+        )
+        if sorted(reac_atoms) == sorted(random_compounds_atoms):
+             return(True)
+        else:
+             return(False)
 
     @staticmethod
     def scale_large_concentrations(
@@ -75,7 +131,7 @@ class Traversal:
             self,
             concentrations: dict,
             exclude_co2: bool = True,
-            max_compounds: int = 5,
+            max_compounds: int = 5, # max compounds to return
             discovery_threshold: float = 5,  # discovery threshold in %
             scale_largest: float = 10,  # how much to scale the highest components in %
             ceiling: float = 1000,  # ceiling percent larger than the median average in %
@@ -85,7 +141,7 @@ class Traversal:
 
         exceedingly large concentrations (up to ceiling % DEFAULT = 1000% above the median concentration) that may occur are scaled using self.scale_large_concentrations (scaled with scale_largest DEFAULT = 10% of original value) such that reactions may continue even with very large concentrations of species up to a point. 
 
-        returns a dictionary with length up to max_compounds depending on the discovery_threshold and scale_largest factors. 
+        returns a list with length up to max_compounds depending on the discovery_threshold and scale_largest factors. 
 
         CO2 is by default excluded (exclude_co2 = True) as it is considered background, however this can be turned on if you want to test CO2 containing reactions.
         """
@@ -127,160 +183,61 @@ class Traversal:
             except ValueError:
                 pass
 
-        return(list(choices))
-
-    def _get_weighted_reaction_rankings(
-            self,
-            weighted_random_compounds:dict,
-            maximum_reaction_number:int = 20,
-            shortest_path_method:str = 'Djikstra',
-            ):
-        """
-        given a dictionary of weighted random compounds from self.get_weighted_random_compounds find the shortest path between: 
-        1. compound 0 and compound 1 -> list
-        2. add further reactions based on C0 and CN and C1 and CN 
-        3. weight based on edge weight and (optional) length multiplier for unreasonable large reactions (if option selected)
-        returns a dictionary of ranked reactions and their weighting. 
-        """
-        
-        if len(weighted_random_compounds) == 1:
-            return(None)
-
-        possibilities = []
-        c1 = weighted_random_compounds[0]
-        c2 = weighted_random_compounds[1]
-        # 1st find possible paths between 1 and 2
-        c1_c2 = [x[1] for x in list(
-            nx.shortest_paths.all_shortest_paths(G=self.graph, source=c1, target=c2)
-        )
-        ]
-
-        for x in c1_c2:
-            possibilities.append(x)
-
-        # now add overlaps with >2
-        if len(weighted_random_compounds)>2:
-            for cn in weighted_random_compounds[2:]:
-                # compound 1 and compound N
-                c1_cn = [x[1] for x in list(
-                    nx.shortest_paths.all_shortest_paths(G=self.graph, source=c1, target=cn)
-                )
-                ]
-                # compound 2 and compound N 
-                c2_cn = [x[1] for x in list(
-                    nx.shortest_paths.all_shortest_paths(G=self.graph, source=c2, target=cn)
-                )
-                ]
-                for x in list(
-                    set.intersection(*map(set, [c1_c2,c1_cn]))
-                    ):
-                    possibilities.append(x)
-                for x in list(
-                    set.intersection(*map(set, [c1_c2,c2_cn]))
-                    ):
-                    possibilities.append(x)        
-
-        possibilities = list(set(possibilities))
-        rankings = {}
-        for reaction in possibilities:
-            weight = self.graph.get_edge_data(
-                u=c1,
-                v=reaction
-            )[0]['weight']*self.length_multiplier(reaction)
-            rankings[reaction] = weight 
-
-        #limit based on maximum_reaction_number:
-        #rankings = {k:v for i,(k,v) in enumerate(rankings.items()) if i <maximum_reaction_number}
-        rankings = dict(sorted(rankings.items(),key=lambda item: item[1])[0:maximum_reaction_number])
-        return(rankings)
-    
-    def weight_filter(
-            self,
-            reaction_index:int,
-            weighted_random_compounds:list
-            )->int:
-        
-        species = list(
-            self.graph.nodes()[reaction_index]['reaction']['reactants']
-            ) + list(
-                self.graph.nodes()[reaction_index]['reaction']['products']
-                )
-        return(
-            len([x for x in species if x in weighted_random_compounds])
-            )
+        return(list(choices)[0:np.random.randint(2,max_compounds)])
     
     def get_weighted_reaction_rankings(
             self,
-            weighted_random_compounds:dict,
-            maximum_reaction_number:int = 20,
-            shortest_path_method:str = 'Djikstra',
-            ):
+            weighted_random_compounds: list,
+            maximum_reaction_number: int = 20,
+            shortest_path_method: str = 'Djikstra'
+    ):
         """
-        given a dictionary of weighted random compounds from self.get_weighted_random_compounds find the shortest path between: 
-        1. compound 0 and compound 1 -> list
-        2. add further reactions based on C0 and CN and C1 and CN 
-        3. weight based on availability of how many weighted_random_compounds are present in the reaction
-        4. weight based on edge weight and (optional) length multiplier for unreasonable large reactions (if option selected)
-        returns a dictionary of ranked reactions and their weighting. 
+        returns a dictionary of {<reaction_index>:<weighting>} given a list of weighted_random_compounds from self.get_weighted_random_compounds (needs at least 2 to give a result)
 
-        #TODO: check based on whether each element is present in the reaction. 
+        algorithm follows:
+        given weighted_random_compounds = ['NO2','H2O','O2']
+        1. generates combinations of useable compounds 
+            i.e. [['NO2','H2O'],['NO2','O2'],['H2O','O2']]
+        2. for each combination, generate a list of shortest paths using networkx.shortest_paths.all_shortest_paths
+        3. check that the reactant 
+
         """
-        
-        if len(weighted_random_compounds) == 1:
+        #return None if there isn't enough to make a reaction
+        if len(weighted_random_compounds) <=1:
             return(None)
-
-        c1 = weighted_random_compounds[0]
-        c2 = weighted_random_compounds[1]
-        # 1st find possible paths between compounds 1 & 2 and others
+        # 1. generate possible combinations
+        combinations = list(it.combinations(weighted_random_compounds, 2))
+        # 2. generate shortest path possibilities from the combinations
         possibilities = []
-        for cn in weighted_random_compounds:
-            try:
-                possibilities.append(
-                    [
-                        x[1] for x in list(
-                            nx.shortest_paths.all_shortest_paths(
-                                G=self.graph, source=c1, target=cn)
-                        )
-                    ]
+        for compounds in combinations:
+            possibilities.extend([
+                x[1] for x in list(
+                    nx.shortest_paths.all_shortest_paths(
+                        G=self.graph, source=compounds[0], target=compounds[1])
                 )
-                possibilities.append(
-                    [
-                        x[1] for x in list(
-                            nx.shortest_paths.all_shortest_paths(
-                                G=self.graph, source=c2, target=cn)
-                        )
-                    ]
-                )
-            except IndexError:
-                pass
+            ])
 
-        possibilities = it.chain(*possibilities)
-        #now weight by how many species in the reaction are in the weighted_random_compounds
-        #more present compounds in a reaction is better 
-        possibilities = {
-            reaction_index:self.weight_filter(reaction_index,weighted_random_compounds) for reaction_index in possibilities
-            }
-        possibilities = dict(
-            sorted(possibilities.items(),key=lambda item: item[1],reverse=True)#[0:maximum_reaction_number]
-            )
-        
+        # 3. check that all reactant atoms (=product atoms) are accounted for. 
+        # this is so that self.get_chempy_equilibrium_concentrations gives a result.
+        possibilities = [i for i in possibilities if self.check_reactant_atoms(
+                reaction_index=i,
+                weighted_random_compounds=weighted_random_compounds
+                )]
+        # 4. rank the possibilities based on edge weight and a length_multiplier
+        # the length_multiplier is based on number of reaction coefficients
+        # idea: perhaps by number of atoms ? 
         rankings = {}
         for i,reaction in enumerate(possibilities):
-            try:
-                weight = self.graph.get_edge_data(
-                    u=c1,
-                    v=reaction
-                    )[0]['weight']*self.length_multiplier(reaction)
-            except TypeError:
-                weight = self.graph.get_edge_data(
-                    u=c2,
-                    v=reaction
-                    )[0]['weight']*self.length_multiplier(reaction)
-                    
-                rankings[reaction] = weight 
+            for compound in weighted_random_compounds:
+                try:
+                    weight = self.graph.get_edge_data(
+                        u=compound,
+                        v=reaction
+                        )[0]['weight']*self.length_multiplier(reaction)
+                except TypeError:
+                    pass
+            rankings[reaction] = weight 
 
-        #limit based on maximum_reaction_number:
-        #rankings = {k:v for i,(k,v) in enumerate(rankings.items()) if i <maximum_reaction_number}
         rankings = dict(sorted(rankings.items(),key=lambda item: item[1])[0:maximum_reaction_number])
         return(rankings)
     
@@ -290,7 +247,8 @@ class Traversal:
         given a dictionary of ranked reactions from self.get_weighted_reaction_rankings
         chose a reaction based on weights and probabilities
         """
-        weights = {k:1/v for k,v in ranked_reactions.items()} # here higher is better 
+        weights = {k:1/v**2 for k,v in ranked_reactions.items()} # here higher is better 
+        #added a square multiplier to force more the larger coefficients
         probabilities = {k:v/sum(weights.values()) for k,v in weights.items()}
         chosen_reaction = np.random.choice(
                 [
@@ -330,7 +288,7 @@ class Traversal:
 
         equation = Equilibrium(reac=reactants,prod=products,param=k)
         try:
-            return(EqSystem([equation],substances=substances))#substance_factory=Substance.from_formula)) # might not just be able to try a return...
+            return(EqSystem([equation],substances=substances))
         except Exception:
             return(None)
         
@@ -360,7 +318,7 @@ class Traversal:
     def random_walk(
             self,
             initial_concentrations: dict,
-            max_steps: int = 10,
+            max_steps: int = 5,
             discovery_threshold: float = 5,
             max_compounds: int = 5,
             exclude_co2: bool = False,
@@ -449,28 +407,19 @@ class Traversal:
             initial_concentrations:dict,
             nsamples:int = 1000,
             ncpus:int = 4,
-            progress_bar=False,
-            **random_walk_kws:dict,
+            random_walk_kws:dict = {},
+            tqdm_kws:dict = {}
     )->dict:
         """
         samples the graph network nsamples DEFAULT = 1000
         multiprocessed with ncpus DEFAULT = 4  
         """
         self.initial_concentrations = initial_concentrations
-        if not progress_bar:
-            with pmp.Pool(processes=ncpus) as pool:
-                data = pool.map(
-                    self.sampling_function, list(
-                        range(
-                            nsamples
-                        )
-                    )
-                )
-        else:
-            data = tqdm_pathos.map(
+        data = tqdm_pathos.map(
                 self.sampling_function,
                 list(range(nsamples)),
-                n_cpus=ncpus
+                n_cpus=ncpus,
+                tqdm_kwargs = tqdm_kws
             )
 
         return(data)
