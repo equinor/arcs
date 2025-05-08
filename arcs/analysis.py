@@ -169,6 +169,8 @@ class AnalyseSampling:
                 if step:
                     reaction,k = step.values()
                     reaction_data[reaction['reaction_string']] = {'reaction':reaction,'equilibrium_constant':k}
+        
+        reaction_data = {r:d for r,d in reaction_data.items() if r in list(reaction_statistics)}
 
         G = nx.MultiDiGraph(directed=True)
         for i, (reaction_string, reaction_dict) in enumerate(reaction_data.items()):
@@ -217,11 +219,11 @@ class AnalyseSampling:
 
         g = Network(height='750%',width='100%',notebook=False,directed=True,font_color="white",neighborhood_highlight=True)
 
-        #g.repulsion(
-        #    node_distance=100,
-        #    spring_length=50,
-        #    damping=0.01,
-        #)
+#        g.repulsion(
+#            node_distance=100,
+#            spring_length=50,
+#            damping=0.01,
+#        )
 
         g.from_nx(G,edge_scaling=False)
         for i,(reaction,reaction_dict) in enumerate(reaction_data.items()):
@@ -235,7 +237,7 @@ class AnalyseSampling:
         for compound in compound_nodes:
             g.node_map[compound]['shape'] = 'box'        
 
-        #g.barnes_hut()        
+        #g.barnes_hut()
 
         g.save_graph(filename)
 

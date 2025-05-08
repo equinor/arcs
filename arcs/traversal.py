@@ -24,7 +24,7 @@ class Traversal:
         self.ceiling = 2000
         self.scale_largest=10
         self.rank_small_reactions_higher = True
-        self.rank_by_number_of_atoms = False
+        self.rank_by_number_of_atoms = True
         self.shortest_path_method='Djikstra'
 
     def length_multiplier(
