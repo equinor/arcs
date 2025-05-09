@@ -21,7 +21,13 @@ from arcs.generate import GraphGenerator
 from dash.exceptions import PreventUpdate
 
 
-from arcs.dash_app.styling import keys_by_depth,_markdown_compound,format_concentrations_table_for_dash,format_statistics_table_for_dash,format_bar_chart
+from arcs.dash_app.styling import (
+    # keys_by_depth,
+    # _markdown_compound,
+    format_concentrations_table_for_dash,
+    format_statistics_table_for_dash,
+    format_bar_chart
+)
 
 def start_dash(host: str, 
                port: int, 
@@ -36,18 +42,12 @@ def start_dash(host: str,
     load_figure_template("MINTY")
 
     
-    graph = None 
-    table4 = None
-    #graph = html.P('None')
-    #table4 = html.P('None')
+    bar_chart_child = None 
+    stats_table_child = None
+    network_graph_child = None
     
     
     dft_filename= './data/dft_data.json'
-    # generate graph from dft data
-
-    #ambient_conditions = {'temperature':298, 'pressure':1}
-
-    #default_concentrations = {'H2O':10,'SO2':10,'NO2':10}
 
     default_settings = {
         "exclude_co2": True,
@@ -63,20 +63,6 @@ def start_dash(host: str,
         "rank_by_number_of_atoms":True,
         "shortest_path_method":'Djikstra'
     }
-
-
-    #_graph = GraphGenerator().from_dict(
-    #    dft_dict=default_dft_dict,
-    #    temperature=ambient_settings['T'],
-    #    pressure=ambient_settings['P'])
-
-    ### generate Initial Concentrations
-    #concs = GenerateInitialConcentrations(graph=_graph).update_ic(
-    #    default_concentrations
-    #    ,include_co2=False)
-
-
-
     
     ###################### layout of DASH template########################
     app = dash.Dash(
@@ -346,8 +332,16 @@ def start_dash(host: str,
     most_frequent_reactions = html.Div(
         id="reaction-stats",
         style={"align": "center"},
-        children=table4,
+        children=stats_table_child,
     )
+
+    network_graph = html.Div(
+        id="network-graph",
+        style={"align": "center"},
+        children=network_graph_child,
+    )
+
+    
     
     logos = html.Div( # needs work
         children=[
@@ -372,7 +366,7 @@ def start_dash(host: str,
 
     results_concentration_bar_chart = html.Div(
         id="final_concs_barchart",
-        children=graph
+        children=None
     ),
     
     
@@ -474,7 +468,7 @@ def start_dash(host: str,
                                         children=[
                                             dbc.CardHeader(
                                                 "Change in Concentrations"),
-                                            dbc.CardFooter(
+                                            dbc.CardBody(
                                                 dbc.Tabs(
                                                     style={'padding':'2rem'},
                                                     children=[
@@ -503,7 +497,17 @@ def start_dash(host: str,
                                             dbc.CardHeader(
                                                 'Most Frequent Reactions'),
                                             dbc.CardBody(
-                                                most_frequent_reactions),
+                                                dbc.Tabs(
+                                                    style={'padding': '2rem'},
+                                                    children=[
+                                                        dbc.Tab(
+                                                            most_frequent_reactions,label='Reaction Statistics'),
+                                                        dbc.Tab(
+                                                            network_graph, label='Reaction Network')
+                                                    ],
+                                                )
+                                            )
+                                                #most_frequent_reactions),
                                         ],
                                         #color='dark'
                                     ),
@@ -612,6 +616,7 @@ def start_dash(host: str,
             Output("reaction-stats", "children"),
             Output("final_concs_table", "children"), 
             Output("final_concs_barchart", "children"),
+            Output("network-graph","children"),
             Output("loading-output-1", "children"),
         ],
         Input("submit-val", "n_clicks"),
@@ -632,8 +637,6 @@ def start_dash(host: str,
             
             t = Traversal(graph=graph)
             
-            print(ambient_conditions)
-            print(default_concentrations)
             results = t.sample(
                 initial_concentrations = default_concentrations,
                 ncpus=default_settings['ncpus'],
@@ -662,10 +665,26 @@ def start_dash(host: str,
 
             formatted_bar_chart = format_bar_chart(average_data)
 
+            pyvis_kwargs = {
+                'width':'800px',
+                'height':'500px',
+                'notebook':False,
+                'font_color':'white',
+                'cdn_resources':'in_line'}
+
+            g = analysis.result_to_pyvis(results,head=10,**pyvis_kwargs)
+            reaction_network = html.Iframe(
+                srcDoc=g.generate_html(),
+                width="800",
+                height="500px",
+                draggable=True
+            )
+
             return (
                 [formatted_stats_table],
                 [formatted_average_table],
                 [formatted_bar_chart],
+                [reaction_network],
                 [None]
             )
 

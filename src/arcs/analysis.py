@@ -173,7 +173,7 @@ class AnalyseSampling:
             data:dict,
             head:int=10,
             cmap:str = 'Reds',
-            filename:str = 'graph.html'
+            **pyvis_kwargs:dict
             )->pyvis.network.Network:
         
         reaction_statistics = pd.Series(
@@ -234,12 +234,13 @@ class AnalyseSampling:
         nx.set_node_attributes(G, reaction_colours, name='color')
 
         g = Network(
-            height='750%',
-            width='100%',
-            notebook=False,
-            directed=True,
-            font_color='white',
-            neighborhood_highlight=True
+            **pyvis_kwargs
+            #height='750%',
+            #width='100%',
+            #notebook=False,
+            #directed=True,
+            #font_color='white',
+            #neighborhood_highlight=True
             )
 
         g.from_nx(G,edge_scaling=False)
@@ -256,7 +257,7 @@ class AnalyseSampling:
 
         #g.barnes_hut()
 
-        g.save_graph(filename)
+        #g.save_graph(filename)
 
         return(g)
 
