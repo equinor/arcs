@@ -1,4 +1,6 @@
 from multiprocessing import Condition
+
+from traitlets import default
 from arcs.dash_app.domino import terminate_when_parent_process_dies
 import dash
 import dash_bootstrap_components as dbc
@@ -18,10 +20,14 @@ from arcs.traversal import Traversal
 from arcs.generate import GraphGenerator
 from dash.exceptions import PreventUpdate
 
+
+from arcs.dash_app.styling import keys_by_depth,_markdown_compound,format_concentrations_table_for_dash,format_statistics_table_for_dash,format_bar_chart
+
 def start_dash(host: str, 
                port: int, 
-               server_is_started: Condition, 
-               file_location):
+               server_is_started: Condition,
+): 
+              # file_location):
 
     terminate_when_parent_process_dies()
 
@@ -30,61 +36,53 @@ def start_dash(host: str,
     load_figure_template("MINTY")
 
     
-    def keys_by_depth(dict_, depth=0, output=None):
-        if output is None:
-            output = {}
-        if depth not in output:
-            output[depth] = set()
-        for key in dict_:
-            output[depth].add(key)
-            if isinstance(dict_[key], dict):
-                keys_by_depth(dict_[key], depth + 1, output)
-        return(output)
+    graph = None 
+    table4 = None
+    #graph = html.P('None')
+    #table4 = html.P('None')
     
-    def _markdown_compound(_string):
-        md = []
-        for i in _string:
-            try:
-                int(i)
-                md.append("<sub>{}</sub>".format(int(i)))
-            except Exception:
-                md.append(i)
-        return("".join(md))
     
-    graph = html.P('None')
-    table4 = html.P('None')
-    meta = dbc.Alert("Data Shown When Run", color="secondary")  
-    
-
-    default_dft_dict = loadfn('./data/dft_data.json')
+    dft_filename= './data/dft_data.json'
     # generate graph from dft data
-    ambient_settings = {"T": 298, "P": 1} # !NB - was None
 
-    _graph = GraphGenerator().from_dict(
-        dft_dict=default_dft_dict,
-        temperature=ambient_settings['T'],
-        pressure=ambient_settings['P'])
+    #ambient_conditions = {'temperature':298, 'pressure':1}
+
+    #default_concentrations = {'H2O':10,'SO2':10,'NO2':10}
+
+    default_settings = {
+        "exclude_co2": True,
+        "max_compounds": 5,
+        "discovery_threshold": 5,
+        "maximum_reaction_number": 10,
+        "max_steps": 5,
+        "nsamples": 100,
+        "ncpus": 4,
+        "ceiling": 2000,
+        "scale_largest": 0.2,
+        "rank_small_reactions_higher":True,
+        "rank_by_number_of_atoms":True,
+        "shortest_path_method":'Djikstra'
+    }
+
+
+    #_graph = GraphGenerator().from_dict(
+    #    dft_dict=default_dft_dict,
+    #    temperature=ambient_settings['T'],
+    #    pressure=ambient_settings['P'])
 
     ### generate Initial Concentrations
-    default_concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
-    concs = GenerateInitialConcentrations(graph=_graph).update_ic(
-        default_concentrations
-        ,include_co2=False)
+    #concs = GenerateInitialConcentrations(graph=_graph).update_ic(
+    #    default_concentrations
+    #    ,include_co2=False)
 
-    settings = {
-        "nprocs": 4,
-        "sample_length": 1000,
-        "max_rank": 10,
-        "max_compounds": 5,
-        "probability_threshold": 0.1,
-        "path_depth": 5,
-        "ceiling": 2000,
-        "scale_highest": 0.2,
-        "rank_small_reactions_higher":True
-    }
+
+
     
     ###################### layout of DASH template########################
-    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+    app = dash.Dash(
+        __name__, 
+        external_stylesheets=external_stylesheets
+        )
     
     loading_spinner = dls.Rotate(
         id="loading-1",
@@ -92,7 +90,7 @@ def start_dash(host: str,
         margin=9,
         speed_multiplier=0.8,
         color="rgba(58, 136, 254,1)",
-        fullscreen=True,
+        fullscreen=False,
         children=html.Div(id="loading-output-1"),
         fullscreen_style={"background-color": "rgba(0.1,0.1,0.1,0.2)"},
     )
@@ -101,8 +99,8 @@ def start_dash(host: str,
         [
             dbc.Label("Temperature (K)"),
             dbc.Input(
-                placeholder="250",
-                value=250,
+                placeholder="298",
+                value=298,
                 type="number",
                 className="mb-3",
                 id="temperature_input",
@@ -125,7 +123,7 @@ def start_dash(host: str,
         ]
     )
     
-    concentrations_table = dbc.Stack(
+    concentrations_input = dbc.Stack(
         style={
             'textAlign': 'justified',
             "margin-left":"20px",
@@ -134,7 +132,7 @@ def start_dash(host: str,
         gap=3,
         children=[
             dash_table.DataTable(
-                id='concentrations_table',
+                id='concentrations_input',
                 columns=[{
                     'name': 'compound',
                     'id': 'index',
@@ -177,40 +175,25 @@ def start_dash(host: str,
         start_collapsed=True,
         children=[
             dbc.AccordionItem(
-                title="DFT Functional Choice",
+                title="Number of Samples",
                 className="accordion",
                 children=[
-                    html.P(["Functional used to pregenerate the data used in ARCS"]),
-                    dbc.RadioItems(
-                        id="functional_choice",
-                        className="btn btn-outline-primary",
-                        options=[
-                            {"label": "DFT", "value": "DFT"},
-                        ],
-                        value="DFT",
-                    )
-                ],
-            ),
-            dbc.AccordionItem(
-                title="Samples",
-                className="accordion",
-                children=[
-                    html.P(["Number of sampling events used to get a stochastic mean average.",html.Br(),"Default = 100",html.Br(),"Recommended Amount > 500",html.Br()]),
+                    html.P(["Number of sampling events used to get a stochastic mean average.",html.Br(),"Default = 1000",html.Br(),"Recommended Amount > 500",html.Br()]),
                     dcc.Input(
-                        id="samples",
-                        value="100",
+                        id="nsamples",
+                        value="1000",
                         debounce=True,
                         className="form-label mt-4",
                     ),
                 ],
             ),
             dbc.AccordionItem(
-                title="Maximum Path Depth",
+                title="Maximum Random Walk Steps",
                 className="accordion",
                 children=[
-                    html.P(["The maximum path depth is the upper limit for how far down a reaction network a single sampling event goes.",html.Br(),"Default = 5",html.Br()]),
+                    html.P(["The maximum number of steps is the upper limit for how far down a reaction network a single sampling event goes.",html.Br(),"Default = 5",html.Br()]),
                     dcc.Input(
-                        id="pathdepth",
+                        id="max_steps",
                         value="5",
                         debounce=True,
                         className="form-label mt-4",
@@ -218,12 +201,12 @@ def start_dash(host: str,
                 ],
             ),
             dbc.AccordionItem(
-                title="Discovery % Cutoff",
+                title="Discovery % Threshold",
                 className="accordion",
                 children=[
-                    html.P(["The discovery % cutoff, determines the amount (relative to the total concentration of compounds in the system) at which a certain compound is deemed 'chooseable' for ranking possible reactions. This is in order to weight the reactions in terms of the larger concentrations dominating the reaction probabilities.",html.Br(),"Default = 5%",html.Br()]),
+                    html.P(["The discovery % threshold, determines the amount (relative to the total concentration of compounds in the system) at which a certain compound is deemed 'chooseable' for ranking possible reactions. This is in order to weight the reactions in terms of the larger concentrations dominating the reaction probabilities.",html.Br(),"Default = 5%",html.Br()]),
                     dcc.Input(
-                        id="probability_cutoff",
+                        id="discovery_threshold",
                         value="5",
                         debounce=True,
                         className="form-label mt-4",
@@ -235,24 +218,24 @@ def start_dash(host: str,
                 title="Concentration % Ceiling",
                 className="accordion",
                 children=[
-                    html.P(["The concentration % ceiling determines the border by which a component should be scaled down to allow for reactions with smaller components. The component value is then scaled by the amount specified in 'Largest Concentrations Scale Value'. It is important to note that this is only for choosing reactions and not the final value which remains as the large amount. This helps to alleviate situations where no reactions are expected in ARCS due to overweighting towards the large concentration components.",html.Br(),"Default = 500%",html.Br()])
+                    html.P(["The concentration % ceiling determines the border by which a component should be scaled down to allow for reactions with smaller components. The component value is then scaled by the amount specified in 'Largest Concentrations Scale Value'. It is important to note that this is only for choosing reactions and not the final value which remains as the large amount. This helps to alleviate situations where no reactions are expected in ARCS due to overweighting towards the large concentration components.",html.Br(),"Default = 2000%",html.Br()])
                     ,
                     dcc.Input(
                         id="ceiling",
-                        value="500",
+                        value="2000",
                         debounce=True,
                         className="form-label mt-4",
                     ),
                 ],
             ),
             dbc.AccordionItem(
-                title="Largest Concentrations Scale Value",
+                title="Largest Concentrations Scale percentage",
                 className="accordion",
                 children=[
-                    html.P(["Components which have reached the % ceiling in 'Concentration % Ceiling' are scaled by this amount.",html.Br(),"Default = 0.1",html.Br()]),
+                    html.P(["Components which have reached the % ceiling in 'Concentration % Ceiling' are scaled by this amount.",html.Br(),"Default = 10% of original value",html.Br()]),
                     dcc.Input(
-                        id="scale_highest",
-                        value="0.1",
+                        id="scale_largest",
+                        value="10",
                         debounce=True,
                         className="form-label mt-4",
                     )
@@ -262,10 +245,10 @@ def start_dash(host: str,
                 title="Max. Number of Reactions Considered in Choice",
                 className="accordion",
                 children=[
-                    html.P(["The maximum number of equations suitable for a random choice after ranking all possible solutions.",html.Br(),"Default = 5",html.Br()]),
+                    html.P(["The maximum number of equations suitable for a random choice after ranking all possible solutions.",html.Br(),"Default = 10",html.Br()]),
                     dcc.Input(
-                        id="max_rank",
-                        value="5",
+                        id="maximum_reaction_number",
+                        value="10",
                         debounce=True,
                         className="form-label mt-4",
                     )
@@ -285,12 +268,12 @@ def start_dash(host: str,
                 ]
             ),
             dbc.AccordionItem(
-                title="Graph Sampling Method",
+                title="Shortest Path Method",
                 className="accordion",
                 children=[
                     html.P(["There are multiple algorithms that can be used to find the shortest path between two components in the reaction graph.",html.Br(),"Implemented in this work are the 'Bellman-Ford' and 'Dijkstra' methods.",html.Br(),"Default = Dijkstra",html.Br()]),
                     dbc.RadioItems(
-                        id="method",
+                        id="shortest_path_method",
                         className="btn btn-outline-primary",
                         options=[
                             {"label": "Bellman-Ford", "value": "Bellman-Ford"},
@@ -300,23 +283,7 @@ def start_dash(host: str,
                     )
                 ]
             ),
-            dbc.AccordionItem(
-                title="Include Carbon Dioxide as a Reactant?",
-                className="accordion",
-                children=[
-                    html.P(
-                        ["Including CO",html.Sub(2)," as a reactant or assume that CO",html.Sub(2)," is a background solvent.",html.Br(),"Default = False",html.Br()]),
-                    dbc.RadioItems(
-                        id="include_co2",
-                        className="btn btn-outline-primary",
-                        options=[
-                            {"label":"True","value":True},
-                            {"label":"False","value":False},
-                        ],
-                        value=False,
-                    )
-                ]
-            ),
+
             dbc.AccordionItem(
                 title="Rank Smaller Reactions Higher",
                 className="accordion",
@@ -324,7 +291,7 @@ def start_dash(host: str,
                     html.P(
                         ["Sometimes the simplest solutions are the most plausible. Rank Smaller reactions higher in the list.",html.Br(), "Default = True",html.Br()]),
                     dbc.RadioItems(
-                        id="rank_small_reactions",
+                        id="rank_small_reactions_higher",
                         className="btn btn-outline-primary",
                         options=[
                             {"label":"True","value":True},
@@ -345,16 +312,6 @@ def start_dash(host: str,
                 style={'float': 'left',"margin-right":"1rem"}
             )
     
-    
-    
-    #metadatatable = html.Div(
-    #                    id="metadata",
-    #                    style={
-    #                        "align": "center"
-    #                    },
-    #                    children=meta,
-    #               )
-    
     offcanvas = html.Div(
         style={
             'textAlign': 'justified',
@@ -369,8 +326,8 @@ def start_dash(host: str,
                         [
                     dbc.Card(
                         [
-                            dbc.CardBody(arcs_settings),
-                            dbc.CardFooter("ARCS Settings")
+                            dbc.CardHeader("ARCS Settings"),
+                            dbc.CardBody(arcs_settings)
                         ],
                         #color='dark',
                     ),
@@ -408,15 +365,31 @@ def start_dash(host: str,
         ],
     ),
     
-    results_concentration_graph = html.Div(
-        id="final_concs",
+    results_concentration_table = html.Div(
+        id="final_concs_table",
         children=None,
     ),
+
+    results_concentration_bar_chart = html.Div(
+        id="final_concs_barchart",
+        children=graph
+    ),
     
-    finalgraph = html.Div(
-                    id="output-graph",
-                    children=graph
-                ),
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     ############################### layout
@@ -425,9 +398,10 @@ def start_dash(host: str,
         style={'padding': '5rem'},
         children=[
             dbc.Row(dbc.Col(logos)),
+            loading_spinner,
             dbc.Row(
                 [
-                    #html.P("ARCS 1.4.0"),
+                    html.P("ARCS 1.5.0"),
                     html.H3(["Automated Reactions for ","C", "O", html.Sub(2), " Conversion (ARCS)"]),
                     html.Div(
                         [offcanvas,
@@ -457,7 +431,6 @@ def start_dash(host: str,
                     ),
                 ]
             ),
-            #loading_spinner,
             dbc.Tabs(
                 style={'padding':'2rem','align':'center'},
                 children=[
@@ -472,7 +445,7 @@ def start_dash(host: str,
                                         dbc.Card(
                                             children=[
                                                 dbc.CardHeader('Input Concentrations'),
-                                                dbc.CardBody(concentrations_table),
+                                                dbc.CardBody(concentrations_input),
                                             ],
                                             #color='dark'
                                         ),
@@ -506,9 +479,9 @@ def start_dash(host: str,
                                                     style={'padding':'2rem'},
                                                     children=[
                                                         dbc.Tab(
-                                                            finalgraph, label='Graph'),
+                                                            results_concentration_bar_chart, label='BarChart'),
                                                         dbc.Tab(
-                                                            results_concentration_graph, label='Table')
+                                                            results_concentration_table, label='Table')
                                                     ],
                                                 )
                                             ),
@@ -543,7 +516,19 @@ def start_dash(host: str,
                         ),
                         ]
                     )
-    #########################################################################################################################    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    ###############################################################################################    
     #################app callbacks
     #off canvas
     @app.callback(
@@ -558,68 +543,18 @@ def start_dash(host: str,
     
     #update concentrations table (new!)
     @app.callback(
-            Output('concentrations_table','data'),
+            Output('concentrations_input','data'),
             Input('addrows','n_clicks'),
-            State('concentrations_table','data'),
-            State('concentrations_table','columns'))
+            State('concentrations_input','data'),
+            State('concentrations_input','columns'))
     def add_row(n_clicks,rows,columns):
         if n_clicks > 0:
             rows.append({c['id']: '' for c in columns})
         else:
             raise PreventUpdate
         return(rows)
-    #update the concentrations
-    @app.callback(
-            Output('placeholder1','children'),
-            Input('concentrations_table','data'),
-            Input('concentrations_table','columns')
-    )
-    def update_concentrations(rows,columns):
-        for k,v in concs.items(): # reset values
-            if not k == 'CO2':
-                concs[k] = 0
-        for row in rows:
-            spec = row.get('index', None)
-            num = row.get('initial', None)
-            if spec in list(concs.keys()):
-                concs[spec] = float(num) * 1e-6
-            else:
-                pass
     
-    # update settings
-    @app.callback(
-        Output("placeholder2", "children"),
-        [
-            Input("functional_choice","value"),
-            Input("samples", "value"),
-            Input("pathdepth", "value"),
-            Input("probability_cutoff", "value"),
-            Input("ceiling", "value"),
-            Input("scale_highest", "value"),
-            Input("max_rank", "value"),
-            Input("max_compounds", "value"),
-            Input("method", "value"),
-            Input("include_co2", "value"),
-            Input("rank_small_reactions","value")
-        ],
-    )
-    def update_settings(*inputs):
-        settings["sample_length"]=int(inputs[1])
-        settings["path_depth"]=int(inputs[2])
-        settings["probability_threshold"]=float(inputs[3]) / 100
-        settings["ceiling"]=int(inputs[4])
-        settings["scale_highest"]=float(inputs[5])
-        settings["max_rank"]=int(inputs[6])
-        settings["max_compounds"]=int(inputs[7])
-        settings["method"]=str(inputs[8])
-        settings["include_co2"]=bool(inputs[9])
-        settings["rank_small_reactions_higher"]=bool(inputs[10])
-        
-        #print(inputs[0])
-        #print(functional_choice_dict[inputs[0]])
-        #default_data = load_data(functional_choice_dict[inputs[0]])
-    
-    #update T and P
+    ####update T and P and load a new graph
     @app.callback(
         Output("placeholder3", "children"),
         [
@@ -628,9 +563,112 @@ def start_dash(host: str,
         ],
     )
     def update_t_and_p(*inputs):
-        ambient_settings["T"]=int(inputs[0])
-        ambient_settings["P"]=int(inputs[1])
+        global ambient_conditions
+        ambient_conditions = {
+            'temperature':float(inputs[0]),
+            'pressure':float(inputs[1])
+            }
     
+    ####update the concentrations
+    @app.callback(
+            Output('placeholder1','children'),
+            Input('concentrations_input','data'),
+            Input('concentrations_input','columns'),
+    )
+    def update_concentrations(rows,columns):
+        global default_concentrations
+        default_concentrations = {
+                row.get('index',None):float(row.get('initial',None)) for row in rows
+                }
+
+    # update settings
+    @app.callback(
+        Output("placeholder2", "children"),
+        [
+            Input("nsamples", "value"),
+            Input("max_steps", "value"),
+            Input("discovery_cutoff", "value"),
+            Input("ceiling", "value"),
+            Input("scale_largest", "value"),
+            Input("maximum_reaction_number", "value"),
+            Input("max_compounds", "value"),
+            Input("shortest_path_method", "value"),
+            Input("rank_small_reactions_higher","value")
+        ],
+    )
+    def update_settings(inputs):
+        default_settings["nsamples"]=int(inputs[1])
+        default_settings["max_steps"]=int(inputs[2])
+        default_settings["discovery_threshold"]=float(inputs[3]) / 100
+        default_settings["ceiling"]=int(inputs[4])
+        default_settings["scale_largest"]=float(inputs[5])
+        default_settings["maximum_reaction_number"]=int(inputs[6])
+        default_settings["max_compounds"]=int(inputs[7])
+        default_settings["shortest_path_method"]=str(inputs[8])
+        default_settings["rank_small_reactions_higher"]=bool(inputs[10])
+
+    @app.callback(
+        [
+            Output("reaction-stats", "children"),
+            Output("final_concs_table", "children"), 
+            Output("final_concs_barchart", "children"),
+            Output("loading-output-1", "children"),
+        ],
+        Input("submit-val", "n_clicks"),
+    )
+    def apprun(btn1):
+        global default_concentrations
+        global ambient_conditions
+
+        if "submit-val" == ctx.triggered_id:
+            graph = GraphGenerator().from_file(
+                filename=dft_filename,
+                temperature=ambient_conditions['temperature'],
+                pressure=ambient_conditions['pressure'],
+                max_reaction_length=3 # for quick testing and debugging - can make this a setting later. 
+            )
+
+            default_concentrations = GenerateInitialConcentrations(graph=graph).update_ic(update_dict=default_concentrations,include_co2=True)
+            
+            t = Traversal(graph=graph)
+            
+            print(ambient_conditions)
+            print(default_concentrations)
+            results = t.sample(
+                initial_concentrations = default_concentrations,
+                ncpus=default_settings['ncpus'],
+                nsamples=default_settings['nsamples'],
+                tqdm_kws={'disable':False} #can turn off for debugging
+            )
+            
+            analysis = AnalyseSampling()
+
+            reaction_statistics = pd.Series(
+                analysis.reaction_statistics(results)
+                ).sort_values(ascending=False)
+            
+            reaction_statistics = pd.DataFrame(
+                reaction_statistics,columns=['frequency']
+                ).reset_index()
+            
+            formatted_stats_table = format_statistics_table_for_dash(reaction_statistics)
+            
+            average_data = pd.DataFrame(analysis.average_sampling(results))
+            average_data = average_data.loc[~(average_data==0).all(axis=1)]
+            average_data.sort_values(by='diff',inplace=True)
+            
+
+            formatted_average_table = format_concentrations_table_for_dash(average_data.round(2))
+
+            formatted_bar_chart = format_bar_chart(average_data)
+
+            return (
+                [formatted_stats_table],
+                [formatted_average_table],
+                [formatted_bar_chart],
+                [None]
+            )
+
 
 
     with server_is_started:
@@ -639,283 +677,9 @@ def start_dash(host: str,
     app.run(debug=False, port=port, host=host)
 
 
-#### to go through...
-#    @app.callback(
-#        [
-#            Output("metadata", "children"),
-#            Output("reaction-stats", "children"),
-#            Output("reaction-paths", "children"),
-#            Output("final_concs", "children"), 
-#            Output("output-graph", "children"),
-#            Output("loading-output-1", "children"),
-#        ],
-#        Input("submit-val", "n_clicks"),
-#    )
-#    def apprun(btn1):
-#        if "submit-val" == ctx.triggered_id:
-#            #warnings.simplefilter("ignore")
-#            ### generate a graph with the given data
-#            #g = GraphGenerator.from_dict(filename=default_data#,temperature=ambient_settings['T'],pressure=ambient_settings['P'])
-#            #t = Traversal(g.graph,reaction_data)
-#            #t.run(
-#            #    trange=[ambient_settings["T"]],
-#            #    prange=[ambient_settings["P"]],
-#            #    save=False,
-#            #    ic=concs,
-#            #    **settings,
-#            #)
-#    
-#            metadata=t.metadata
-#            metadata=pd.Series(metadata).reset_index()
-#            metadata=metadata.rename(columns={0: "value"})
-#    
-#            metadata_table=dash_table.DataTable(
-#                columns=[{"name": i,
-#                           "id": i,
-#                           "type":"text",
-#                           "presentation":"markdown"} for i in metadata.columns],
-#                data=metadata.to_dict("records"),
-#                style_as_list_view=False,
-#                cell_selectable=False,
-#                style_cell={
-#                    "font_family": "helvetica",
-#                    "align": "center",
-#                    'padding-right': '30px',
-#                    'padding-left': '30px',
-#                    'text-align': 'center',
-#                    'marginLeft': 'auto',
-#                    'marginRight': 'auto'
-#                },
-#                style_table={
-#                    "overflow": "scroll",
-#                },
-#                markdown_options={"html": True, "link_target": "_self"}
-#                #fixed_rows={"headers": True},
-#            )
-#            #####updating concentrations table 
-#            df_d=(
-#                pd.DataFrame(
-#                    t.initfinaldiff[ambient_settings["T"]
-#                        ][ambient_settings["P"]]
-#                )
-#                .round(1)
-#                .drop("CO2")
-#            )
-#            df_d=df_d.T
-#            df_d=df_d.T.rename({x: _markdown_compound(x) for x in df_d})
-#            df_d=df_d.reset_index()
-#            df_d=df_d.rename(
-#                {
-#                    "index": "compound",
-#                    "initial": "initial (ppm)",
-#                    "final": "final (ppm)",
-#                    "change": "change (ppm)",
-#                }
-#            )
-#    
-#            diff_table=dash_table.DataTable(
-#                columns=[
-#                    {"name": i, 
-#                     "id": i, 
-#                     "type": "text",
-#                     "presentation": "markdown"}
-#                    for i in df_d.columns
-#                ],
-#                data=df_d.to_dict("records"),
-#                style_as_list_view=True,
-#                cell_selectable=False,
-#                style_cell={
-#                    "font_family": "helvetica",
-#                    "align": "center",
-#                    'padding-right': '30px',
-#                    'padding-left': '30px',
-#                    'text-align': 'center',
-#                    'marginLeft': 'auto',
-#                    'marginRight': 'auto'
-#                },
-#                style_table={
-#                    "overflow": "scroll",
-#                },
-#                #fixed_rows={"headers": True},
-#                #style_cell_conditional=[
-#                #    {"if": {"column_id": "index"},
-#                #        "width": "10%", "textAlign": "left"},
-#                #    {
-#                #        "if": {"column_id": ["initial", "final", "change"]},
-#                #        "width": "10%",
-#                #        "textAlign": "left",
-#                #    },
-#                #],
-#                markdown_options={"html": True, "link_target": "_self"},
-#            )
-#            
-#            
-#            ### statistics 
-#            analyse=AnalyseSampling(t.data, markdown=True)
-#            analyse.reaction_statistics()
-#            analyse.mean_sampling()
-#            analyse.reaction_paths()
-#    
-#            mean=analyse.mean_data[ambient_settings["T"]
-#                ][ambient_settings["P"]]
-#            
-#            paths=pd.DataFrame(
-#                analyse.common_paths[ambient_settings["T"]
-#                    ][ambient_settings["P"]]
-#            )
-#            stats=pd.DataFrame(
-#                analyse.stats[ambient_settings["T"]][ambient_settings["P"]]
-#            )
-#            stats_table=dash_table.DataTable(
-#                columns=[
-#                    {
-#                        "name": "Reactions",
-#                        "id": "index",
-#                        "type": "text",
-#                        "presentation": "markdown",
-#                    },
-#                    {
-#                        "name": "k",
-#                        "id": "k",
-#                        "type": "text",
-#                        "presentation": "markdown",
-#                    },
-#                    {
-#                        "name": "Frequency",
-#                        "id": "frequency",
-#                        "type": "text",
-#                        "presentation": "markdown",
-#                    },
-#                ],
-#                data=stats.to_dict("records"),
-#                style_as_list_view=False,
-#                cell_selectable=False,
-#                style_cell={
-#                    "font_family": "helvetica",
-#                    "align": "center",
-#                    'padding-right': '10px',
-#                    'padding-left': '10px',
-#                    'text-align': 'center',
-#                    'marginLeft': 'auto',
-#                    'marginRight': 'auto'
-#                },
-#                style_header={
-#                    "font_family": "helvetica",
-#                    "align": "center",
-#                    'padding-right': '10px',
-#                    'padding-left': '10px',
-#                    'text-align': 'center',
-#                    'marginLeft': 'auto',
-#                    'marginRight': 'auto'
-#                },
-#                style_table={
-#                    "overflow": "scroll",
-#                },
-#                #fixed_rows={"headers": True},
-#                markdown_options={"html": True, "link_target": "_self"},
-#            )
-#    
-#            paths_table=dash_table.DataTable(
-#                columns=[
-#                    {
-#                        "name": "Paths",
-#                        "id": "paths",
-#                        "type": "text",
-#                        "presentation": "markdown",
-#                    },
-#                    {
-#                        "name": "k",
-#                        "id": "k",
-#                        "type": "text",
-#                        "presentation": "markdown",
-#                    },
-#                    {
-#                        "name": "Frequency",
-#                        "id": "frequency",
-#                        "type": "text",
-#                        "presentation": "markdown",
-#                    },
-#                ],
-#                # columns=[{'name':i,'id':i} for i in new_stats.columns],
-#                data=paths.to_dict("records"),
-#                style_as_list_view=False,
-#                cell_selectable=False,
-#                style_cell={
-#                    "font_family": "helvetica",
-#                    "align": "center",
-#                    'padding-right': '10px',
-#                    'padding-left': '10px',
-#                    'text-align': 'center',
-#                    'marginLeft': 'auto',
-#                    'marginRight': 'auto'
-#                },
-#                style_table={
-#                    "overflow": "scroll",
-#                },
-#                #fixed_rows={"headers": True},
-#                markdown_options={"html": True, "link_target": "_self"},
-#            )
-#            df_m_t = pd.DataFrame(mean).T 
-#            df_m_t = df_m_t[df_m_t['value'] !=0 ]
-#    
-#            df_m=pd.DataFrame(
-#                {
-#                    "comps": list(df_m_t.T.keys()),
-#                    "values": df_m_t['value'].values,
-#                    "variance":df_m_t['variance'].values,
-#                    "variance_minus":-df_m_t['variance'].values
-#                }
-#            )
-#            #maxval=np.max(
-#            #    [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
-#            #)
-#            #ymin, ymax=[-maxval, maxval]
-#    
-#            fig=px.bar(
-#                df_m,
-#                x="comps",
-#                y="values",
-#                error_y="variance",
-#                error_y_minus="variance_minus",
-#                labels={"comps": "", "values": "\u0394 ppm"},
-#                color="values",
-#                color_continuous_scale="tropic_r",
-#                hover_data={
-#                    "values": False,
-#                    "comps": False,
-#                    "variance":False,
-#                    "error":(":.2e", df_m["variance"]),
-#                    "specie": df_m["comps"],
-#                    "PPM": (":.1f", df_m["values"]),
-#                },
-#                # width=500,height=500
-#            )
-#            fig.update_layout(
-#                plot_bgcolor="rgba(0,0,0,0)",
-#                paper_bgcolor="rgba(0,0,0,0)",
-#                hovermode="closest",
-#                hoverlabel=dict(font_size=16),
-#                coloraxis_showscale=False,
-#            )
-#            fig.update_xaxes(showgrid=False, tickangle=-60, tickmode="linear")
-#            #try:
-#            #    dtick=int(int(ymax - ymin) / 10)
-#            #except:
-#            #    dtick = None
-#            #    pass
-#            #fig.update_yaxes(
-#            #    showgrid=True,
-#            #    tickmode="linear",
-#            #    range=[ymin - 2, ymax + 2],
-#            #    dtick=dtick,
-#            #)
-#    
-#            resultsgraph=dcc.Graph(
-#                figure=fig,
-#                animate=False,
-#                #config={"scrollZoom": True},
-#                #style={"height": "60rem", "width": "100%"},
-#            )
+
+
+
 #    
 #            return [
 #                [metadata_table],

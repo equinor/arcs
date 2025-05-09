@@ -19,7 +19,7 @@ def start():
     setproctitle.setproctitle('arcs-1.5.0')
 
     # Spawn the dash process.
-    p = Process(target=start_dash, args=(host, port, server_is_started, file_location))
+    p = Process(target=start_dash, args=(host, port, server_is_started))#, file_location))
     p.start()
     # If the dash process dies, follow along.
     terminate_when_process_dies(p)

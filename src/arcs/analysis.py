@@ -3,7 +3,9 @@ from collections import Counter
 import warnings 
 import networkx as nx 
 import matplotlib as mpl
+import pyvis
 from pyvis.network import Network 
+from matplotlib.colors import Normalize,rgb2hex
 class AnalyseSampling:
     
     def __init__(
@@ -128,7 +130,26 @@ class AnalyseSampling:
         df1 = pd.DataFrame(average_data[1]).mean(axis=0)
         df0 = pd.Series(average_data[0])
         df2 = df1 - df0 
-        return(pd.DataFrame([df0,df1,df2,df.std(axis=0),df.var(axis=0)],index=['initial','mean','diff','std','var']).T)
+        return (
+            pd.DataFrame(
+                [
+                    df0,
+                    df1,
+                    df2,
+                    df.sem(axis=0),
+                    df.std(axis=0),
+                    df.var(axis=0)
+                ],
+                index=[
+                    'initial',
+                    'mean',
+                    'diff',
+                    'sem',
+                    'std',
+                    'var'
+                ]
+            ).T.to_dict()
+        )
     
     @staticmethod
     def count_path_length(
@@ -153,7 +174,8 @@ class AnalyseSampling:
             head:int=10,
             cmap:str = 'Reds',
             filename:str = 'graph.html'
-            ):
+            )->pyvis.network.Network:
+        
         reaction_statistics = pd.Series(
             self.reaction_statistics(data)
         ).head(head).sort_values(ascending=False).to_dict()
@@ -187,7 +209,6 @@ class AnalyseSampling:
 
         compound_nodes = []
 
-
         reaction_nodes = []
         for node in G.nodes():
             try:
@@ -202,23 +223,24 @@ class AnalyseSampling:
         ## reaction_colour set to frequency
         #frequencies = pd.Series({str(i):reaction['frequency']  for i,reaction in rs.items()}) #
         colour_map = mpl.colormaps[cmap]
-        norm = mpl.colors.Normalize(
+        norm = Normalize(
             vmin=pd.Series(reaction_statistics).min(), vmax=pd.Series(reaction_statistics).max()
         )
         reaction_colours = {
-            str(i): mpl.colors.rgb2hex(
+            str(i): rgb2hex(
                 colour_map(norm(freq))
             ) for i, (r, freq) in enumerate(reaction_statistics.items())
         }
         nx.set_node_attributes(G, reaction_colours, name='color')
 
-        g = Network(height='750%',width='100%',notebook=False,directed=True,font_color="white",neighborhood_highlight=True)
-
-#        g.repulsion(
-#            node_distance=100,
-#            spring_length=50,
-#            damping=0.01,
-#        )
+        g = Network(
+            height='750%',
+            width='100%',
+            notebook=False,
+            directed=True,
+            font_color='white',
+            neighborhood_highlight=True
+            )
 
         g.from_nx(G,edge_scaling=False)
         for i,(reaction,reaction_dict) in enumerate(reaction_data.items()):

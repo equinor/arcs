@@ -14,12 +14,12 @@ class Traversal:
         self.graph = graph
         
         #default values:
-        self.exclude_co2 = False
+        self.exclude_co2 = True
         self.max_compounds = 5
         self.discovery_threshold=5 # % percent
-        self.maximum_reaction_numbe = 5
+        self.maximum_reaction_number = 10
         self.nsamples=1000
-        self.max_steps=10
+        self.max_steps=5
         self.ncpus = 4    
         self.ceiling = 2000
         self.scale_largest=10
