@@ -4,7 +4,7 @@ from arcs.dash_app.domino import terminate_when_parent_process_dies
 import dash
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
-import dash_loading_spinners as dls
+#import dash_loading_spinners as dls
 from dash import html
 from dash import dash_table
 from dash import dcc
@@ -68,20 +68,24 @@ def start_dash(host: str,
         external_stylesheets=external_stylesheets
         )
     
-    loading_spinner = dls.Audio(
-        id="loading-1",
-        width=100,
-        height=30,
-        thickness=16,
-        #margin=5,
-        #speed_multiplier=0.8,
-        color="rgba(58, 136, 254,1)",
-        debounce=True,
-        fullscreen=False,
-        children=html.Div(id="loading-output-1"),
-        fullscreen_style={"background-color": "rgba(0.9,0.9,0.9,0.2)"},
-    )
+#    loading_spinner = dls.Audio(
+#        id="loading-1",
+#        width=100,
+#        height=30,
+#        thickness=16,
+#        #margin=5,
+#        #speed_multiplier=0.8,
+#        color="rgba(58, 136, 254,1)",
+#        debounce=True,
+#        fullscreen=False,
+#        children=html.Div(id="loading-output-1"),
+#        fullscreen_style={"background-color": "rgba(0.9,0.9,0.9,0.2)"},
+#    )
     
+    loading_spinner = dcc.Loading(html.Div(id="loading-output-1"),id="loading-1",type='circle')
+    
+    
+
     temperature_input = html.Div(
         [
             dbc.Label("Temperature (K)"),
