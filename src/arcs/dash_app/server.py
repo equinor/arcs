@@ -692,7 +692,8 @@ def start_dash(host: str,
                 'height':'500px',
                 'notebook':False,
                 'font_color':'white',
-                'cdn_resources':'in_line'}
+                'cdn_resources':'in_line',
+                'directed':True}
 
             g = analysis.result_to_pyvis(results,head=15,**pyvis_kwargs)
             reaction_network = html.Iframe(
