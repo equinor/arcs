@@ -1,6 +1,5 @@
 from multiprocessing import Condition
 
-from traitlets import default
 from arcs.dash_app.domino import terminate_when_parent_process_dies
 import dash
 import dash_bootstrap_components as dbc
@@ -40,7 +39,8 @@ def start_dash(host: str,
     load_figure_template("MINTY")
 
     
-    bar_chart_child = None 
+    bar_chart_child = None
+    concs_table_child = None 
     stats_table_child = None
     network_graph_child = None
 
@@ -384,38 +384,21 @@ def start_dash(host: str,
     
     results_concentration_table = html.Div(
         id="final_concs_table",
-        children=None,
+        children=concs_table_child,
     ),
 
     results_concentration_bar_chart = html.Div(
         id="final_concs_barchart",
-        children=None
+        children=bar_chart_child
     ),
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     ############################### layout
     
     app.layout = html.Div(
         style={'padding': '5rem'},
         children=[
             dbc.Row(dbc.Col(logos)),
-            loading_spinner,
+            html.Div(loading_spinner),
             dbc.Row(
                 [
                     html.P("ARCS 1.5.0"),
@@ -641,13 +624,16 @@ def start_dash(host: str,
             Output("loading-output-1", "children"),
         ],
         Input("submit-val", "n_clicks"),
+        prevent_initial_call=True,
     )
     def apprun(btn1):
-        global default_concentrations
-        global ambient_conditions
-        nonlocal traversal_settings
 
         if "submit-val" == ctx.triggered_id:
+
+            global default_concentrations
+            global ambient_conditions
+            nonlocal traversal_settings
+
             graph = GraphGenerator().from_file(
                 filename=dft_filename,
                 temperature=ambient_conditions['temperature'],
@@ -710,8 +696,6 @@ def start_dash(host: str,
                 [reaction_network],
                 [None]
             )
-
-
 
     with server_is_started:
         server_is_started.notify()
