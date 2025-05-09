@@ -11,9 +11,7 @@ from dash import dash_table
 from dash import dcc
 from dash import ctx
 from dash.dependencies import Input, Output, State
-import plotly.express as px
 import pandas as pd
-from monty.serialization import loadfn
 from arcs.generate import GenerateInitialConcentrations
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import Traversal
@@ -45,11 +43,8 @@ def start_dash(host: str,
     bar_chart_child = None 
     stats_table_child = None
     network_graph_child = None
-    
-    
-    dft_filename= './data/dft_data.json'
 
-    default_settings = {
+    traversal_settings = {
         "exclude_co2": True,
         "max_compounds": 5,
         "discovery_threshold": 5,
@@ -59,10 +54,13 @@ def start_dash(host: str,
         "ncpus": 4,
         "ceiling": 2000,
         "scale_largest": 0.2,
-        "rank_small_reactions_higher":True,
-        "rank_by_number_of_atoms":True,
-        "shortest_path_method":'Djikstra'
+        "rank_small_reactions_higher": True,
+        "rank_by_number_of_atoms": True,
+        "shortest_path_method": 'Djikstra'
     }
+    
+    
+    dft_filename= './data/dft_data.json'
     
     ###################### layout of DASH template########################
     app = dash.Dash(
@@ -72,8 +70,8 @@ def start_dash(host: str,
     
     loading_spinner = dls.Rotate(
         id="loading-1",
-        width=150,
-        margin=9,
+        width=80,
+        margin=5,
         speed_multiplier=0.8,
         color="rgba(58, 136, 254,1)",
         fullscreen=False,
@@ -160,6 +158,19 @@ def start_dash(host: str,
     arcs_settings = dbc.Accordion(
         start_collapsed=True,
         children=[
+                dbc.AccordionItem(
+                title="Number of CPUS",
+                className="accordion",
+                children=[
+                    html.P(["Number of CPUs used for sampling, default = 4"]),
+                    dcc.Input(
+                        id="ncpus",
+                        value="4",
+                        debounce=True,
+                        className="form-label mt-4",
+                    ),
+                ],
+            ),
             dbc.AccordionItem(
                 title="Number of Samples",
                 className="accordion",
@@ -308,8 +319,8 @@ def start_dash(host: str,
             dbc.Button("Settings", id="open-offcanvas", n_clicks=0,className='btn btn-info',style={'float': 'left',"margin-right":"1rem"}),
             dbc.Offcanvas(
                 children=[
-                    dbc.Stack(
-                        [
+                    #dbc.Stack(
+                    #    [
                     dbc.Card(
                         [
                             dbc.CardHeader("ARCS Settings"),
@@ -317,9 +328,9 @@ def start_dash(host: str,
                         ],
                         #color='dark',
                     ),
-                        ],
-                        gap=3
-                    )
+                    #    ],
+                    #    gap=3
+                    #)
                 ],
                 id="offcanvas",
                 is_open=False,
@@ -352,7 +363,7 @@ def start_dash(host: str,
                 style={
                     "width": "10%",
                     "height": "10%",
-                    "padding": "0.05rem",
+                    "padding": "0.02rem",
                     "align": "end",
                 },
             ),
@@ -398,9 +409,10 @@ def start_dash(host: str,
                     html.P("ARCS 1.5.0"),
                     html.H3(["Automated Reactions for ","C", "O", html.Sub(2), " Conversion (ARCS)"]),
                     html.Div(
-                        [offcanvas,
-                         submit_button,
-                         ]
+                        [
+                            offcanvas,
+                            submit_button,
+                        ]
                         ),
                     html.Div(
                         # for updating the concentrations to be used in ARCS (no need for displaying)
@@ -415,11 +427,6 @@ def start_dash(host: str,
                     ),
                     html.Div(
                         id="placeholder3",  # placeholder3 is for updating the sliders data to be used in ARCS
-                        children=None,
-                        style={"display": "none"},
-                    ),
-                    html.Div(
-                        id="placeholder4",  # placeholder4 is for updating the upload file 
                         children=None,
                         style={"display": "none"},
                     ),
@@ -584,32 +591,34 @@ def start_dash(host: str,
         default_concentrations = {
                 row.get('index',None):float(row.get('initial',None)) for row in rows
                 }
-
-    # update settings
+    
+    # update settings - this is currently not working...
     @app.callback(
         Output("placeholder2", "children"),
         [
+            Input("ncpus","value"),
             Input("nsamples", "value"),
             Input("max_steps", "value"),
-            Input("discovery_cutoff", "value"),
+            Input("discovery_threshold", "value"),
             Input("ceiling", "value"),
             Input("scale_largest", "value"),
             Input("maximum_reaction_number", "value"),
             Input("max_compounds", "value"),
             Input("shortest_path_method", "value"),
-            Input("rank_small_reactions_higher","value")
+            Input("rank_small_reactions_higher","value"),
         ],
     )
-    def update_settings(inputs):
-        default_settings["nsamples"]=int(inputs[1])
-        default_settings["max_steps"]=int(inputs[2])
-        default_settings["discovery_threshold"]=float(inputs[3]) / 100
-        default_settings["ceiling"]=int(inputs[4])
-        default_settings["scale_largest"]=float(inputs[5])
-        default_settings["maximum_reaction_number"]=int(inputs[6])
-        default_settings["max_compounds"]=int(inputs[7])
-        default_settings["shortest_path_method"]=str(inputs[8])
-        default_settings["rank_small_reactions_higher"]=bool(inputs[10])
+    def update_settings(*inputs):
+        traversal_settings["ncpus"] = int(inputs[0])
+        traversal_settings["nsamples"]=int(inputs[1])
+        traversal_settings["max_steps"]=int(inputs[2])
+        traversal_settings["discovery_threshold"]=float(inputs[3])
+        traversal_settings["ceiling"]=int(inputs[4])
+        traversal_settings["scale_largest"]=float(inputs[5])
+        traversal_settings["maximum_reaction_number"]=int(inputs[6])
+        traversal_settings["max_compounds"]=int(inputs[7])
+        traversal_settings["shortest_path_method"]=str(inputs[8])
+        traversal_settings["rank_small_reactions_higher"]=bool(inputs[9])
 
     @app.callback(
         [
@@ -630,7 +639,7 @@ def start_dash(host: str,
                 filename=dft_filename,
                 temperature=ambient_conditions['temperature'],
                 pressure=ambient_conditions['pressure'],
-                max_reaction_length=3 # for quick testing and debugging - can make this a setting later. 
+                max_reaction_length=5 # for quick testing and debugging - can make this a setting later. 
             )
 
             default_concentrations = GenerateInitialConcentrations(graph=graph).update_ic(update_dict=default_concentrations,include_co2=True)
@@ -639,9 +648,9 @@ def start_dash(host: str,
             
             results = t.sample(
                 initial_concentrations = default_concentrations,
-                ncpus=default_settings['ncpus'],
-                nsamples=default_settings['nsamples'],
-                tqdm_kws={'disable':False} #can turn off for debugging
+                ncpus=traversal_settings['ncpus'],
+                nsamples=traversal_settings['nsamples'],
+                tqdm_kws={'disable':True} #can turn off for debugging
             )
             
             analysis = AnalyseSampling()
@@ -672,10 +681,10 @@ def start_dash(host: str,
                 'font_color':'white',
                 'cdn_resources':'in_line'}
 
-            g = analysis.result_to_pyvis(results,head=10,**pyvis_kwargs)
+            g = analysis.result_to_pyvis(results,head=15,**pyvis_kwargs)
             reaction_network = html.Iframe(
                 srcDoc=g.generate_html(),
-                width="800",
+                width="800px",
                 height="500px",
                 draggable=True
             )
@@ -694,19 +703,4 @@ def start_dash(host: str,
         server_is_started.notify()
     
     app.run(debug=False, port=port, host=host)
-
-
-
-
-
-#    
-#            return [
-#                [metadata_table],
-#                [stats_table],
-#                [paths_table],
-#                [diff_table],
-#                [resultsgraph],
-#                [None],
-#            ]
-    
 

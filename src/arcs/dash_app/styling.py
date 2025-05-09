@@ -159,10 +159,6 @@ def format_bar_chart(dataframe):
             "sem": dataframe['sem'].values,
         }
     )
-            #maxval=np.max(
-            #    [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
-            #)
-            #ymin, ymax=[-maxval, maxval]
     
     fig = px.bar(
         dataframe,
