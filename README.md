@@ -65,7 +65,7 @@ stats = pd.Series(analysis.reaction_statistics(data)).sort_values(ascending=Fals
 stats.head(10)
 ```
 
-> 1 H2 + 1 SO2 = 1 O2 + 1 H2S              369
+>``` 1 H2 + 1 SO2 = 1 O2 + 1 H2S              369
 > 1 H2O + 1 SO2 = 1 H2SO3                  270
 > 2 H2 + 1 O2 = 2 H2O                      227
 > 3 O2 + 2 H2S = 2 H2O + 2 SO2             163
@@ -101,7 +101,7 @@ average_data.round(2)
 >H2SO4       0.0   0.65  0.65  0.05  2.47   6.08
 >NO          0.0   1.45  1.45  0.07  3.45  11.89
 >H2          0.0   2.19  2.19  0.08  4.04  16.32
->SO2        10.0  12.65  2.65  0.11  5.55  30.82```
+>SO2        10.0  12.65  2.65  0.11  5.55  30.82
 
 
 ### GUI
