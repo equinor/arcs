@@ -26,6 +26,12 @@ an example Jupyter Notebook can be found here:
 
 `./examples/example.ipynb`
 
+an example DFT data is found here: 
+
+`./app/data/dft_data.json`
+
+which was run using VASP and the SCAN meta-GGA functional. 
+
 
 simple usage: 
 
@@ -54,7 +60,9 @@ results = t.sample(
   )
 ```
 
-`results` can then be analysed with: 
+`results` can then be analysed with `arcs.analysis.AnalyseSampling`
+
+1. reaction statistics
 
 ```
 from arcs.analysis import AnalyseSampling
@@ -77,7 +85,7 @@ stats.head(10)
 >1 H2 + 1 NO2 = 1 H2O + 1 NO               68
 >```
 
-or to get mean data:
+2. Mean average data
 
 ```
 average_data = pd.DataFrame(analysis.average_sampling(data))
@@ -103,24 +111,15 @@ average_data.round(2)
 >H2          0.0   2.19  2.19  0.08  4.04  16.32
 >SO2        10.0  12.65  2.65  0.11  5.55  30.82
 
+### ARCS App 
 
-### GUI
-
-The GUI is created using the `plotly DASH` ([https://github.com/plotly/dash](https://github.com/plotly/dash)) framework.  
+The app is created using the `plotly DASH` ([https://github.com/plotly/dash](https://github.com/plotly/dash)) framework.  
 
 The `arcs-app` can be run from the `app` directory in the terminal through; 
 
 ```
-python app/arcs-app
+python app/arcs-app.py
 ```
-
-new data can be applied by placing in the 
-
-```
-app/data
-```
-
-directory 
 
 
 <p align="center">
