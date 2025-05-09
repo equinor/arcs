@@ -123,5 +123,5 @@ python app/arcs-app.py
 
 
 <p align="center">
- <img src="./static/ARCS-gui.png" width="300" height="300">
+ <img src="./static/ARCS-gui.png" height="300">
 </p>
