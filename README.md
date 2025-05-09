@@ -96,7 +96,8 @@ average_data.round(2)
 
 
 
->```compound      initial   mean  diff   sem   std    var
+>```
+>compound  initial mean  diff  sem   std   var
 >H2S        10.0   4.88 -5.12  0.10  4.75  22.53
 >NO2        10.0   6.19 -3.81  0.10  4.85  23.48
 >O2         10.0   6.24 -3.76  0.12  5.76  33.18
