@@ -1,12 +1,5 @@
-arcs/__pycache__
-arcs.egg-info
-./.DS_Store
-./arcs/dash_app/assets/.DS_Store
-./dash-app/.DS_Store
-./bin/.ipynb_checkpoints
-./arcs/dash_app/assets/.ipynb_checkpoints
-./arcs/.ipynb_checkpoints
-./arcs/__pycache__
-./arcs/dash_app/__pycache__
-./dash-app/__pycache__
+**/__pycache__
+**/arcs.egg-info
+**/.DS_Store
+**/.ipynb_checkpoints
 build

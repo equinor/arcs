@@ -11,15 +11,13 @@ def start():
     warnings.simplefilter('ignore')
     port = int(os.getenv("PORT", "8050"))
     host = os.getenv("HOST", "127.0.0.1")
-    this_dir, this_filename = os.path.split(__file__)
-    file_location = os.path.join(os.path.dirname(__file__),'data/')
     server_is_started = Condition()
 
     # Set the process title.
-    setproctitle.setproctitle('arcs-0.1.0')
+    setproctitle.setproctitle('arcs-1.5.0')
 
     # Spawn the dash process.
-    p = Process(target=start_dash, args=(host, port, server_is_started, file_location))
+    p = Process(target=start_dash, args=(host, port, server_is_started))#, file_location))
     p.start()
     # If the dash process dies, follow along.
     terminate_when_process_dies(p)
@@ -31,9 +29,11 @@ def start():
     time.sleep(0.2)
 
     # Create the webview.
-    webview.create_window('ARCS 1.4.0', f'http://{host}:{port}',
+    webview.create_window('ARCS 1.5.0', f'http://{host}:{port}',
                           width=1000, 
-                          height=1000)
+                          height=1000,
+                          )
+    
     webview.start()
 
     # Reached when window is closed.
