@@ -65,17 +65,17 @@ stats = pd.Series(analysis.reaction_statistics(data)).sort_values(ascending=Fals
 stats.head(10)
 ```
 
->``` 1 H2 + 1 SO2 = 1 O2 + 1 H2S              369
-> 1 H2O + 1 SO2 = 1 H2SO3                  270
-> 2 H2 + 1 O2 = 2 H2O                      227
-> 3 O2 + 2 H2S = 2 H2O + 2 SO2             163
-> 3 H2 + 1 SO2 = 2 H2O + 1 H2S             136
-> 1 H2O + 1 NO2 + 1 NO = 2 HNO2            115
-> 1 H2 + 1 SO2 + 1 NO2 = 1 H2SO3 + 1 NO    114
-> 1 H2O + 2 NO2 = 1 HNO3 + 1 HNO2           78
-> 1 H2 + 1 H2SO4 = 2 H2O + 1 SO2            72
-> 1 H2 + 1 NO2 = 1 H2O + 1 NO               68
-
+>```1 H2 + 1 SO2 = 1 O2 + 1 H2S              369
+>1 H2O + 1 SO2 = 1 H2SO3                  270
+>2 H2 + 1 O2 = 2 H2O                      227
+>3 O2 + 2 H2S = 2 H2O + 2 SO2             163
+>3 H2 + 1 SO2 = 2 H2O + 1 H2S             136
+>1 H2O + 1 NO2 + 1 NO = 2 HNO2            115
+>1 H2 + 1 SO2 + 1 NO2 = 1 H2SO3 + 1 NO    114
+>1 H2O + 2 NO2 = 1 HNO3 + 1 HNO2           78
+>1 H2 + 1 H2SO4 = 2 H2O + 1 SO2            72
+>1 H2 + 1 NO2 = 1 H2O + 1 NO               68
+>```
 
 or to get mean data:
 
