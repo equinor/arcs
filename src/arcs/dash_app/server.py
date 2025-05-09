@@ -68,15 +68,18 @@ def start_dash(host: str,
         external_stylesheets=external_stylesheets
         )
     
-    loading_spinner = dls.Rotate(
+    loading_spinner = dls.Audio(
         id="loading-1",
-        width=80,
-        margin=5,
-        speed_multiplier=0.8,
+        width=100,
+        height=30,
+        thickness=16,
+        #margin=5,
+        #speed_multiplier=0.8,
         color="rgba(58, 136, 254,1)",
+        debounce=True,
         fullscreen=False,
         children=html.Div(id="loading-output-1"),
-        fullscreen_style={"background-color": "rgba(0.1,0.1,0.1,0.2)"},
+        fullscreen_style={"background-color": "rgba(0.9,0.9,0.9,0.2)"},
     )
     
     temperature_input = html.Div(
@@ -137,19 +140,28 @@ def start_dash(host: str,
                 ],
                 row_deletable=True,
                 style_as_list_view=False,
+                style_header={
+                    "font_family": "helvetica",
+                    "align": "left",
+                    'padding-right': '10px',
+                    'padding-left': '10px',
+                    'text-align': 'left',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto'
+                },
                 style_cell={
                     "font_family": "helvetica",
-                    "align": "center",
+                    "align": "left",
                     'padding-right': '30px',
                     'padding-left': '30px',
-                    'text-align': 'center',
+                    'text-align': 'left',
                     'marginLeft': 'auto',
                     'marginRight': 'auto'
                 },
                 style_table={
                     "overflow": "scroll",
                 },
-                fixed_rows={"headers": True},
+                #fixed_rows={"headers": True},
     ),
     dbc.Button('add compound', id='addrows', n_clicks=0)
         ]
@@ -633,6 +645,7 @@ def start_dash(host: str,
     def apprun(btn1):
         global default_concentrations
         global ambient_conditions
+        nonlocal traversal_settings
 
         if "submit-val" == ctx.triggered_id:
             graph = GraphGenerator().from_file(
