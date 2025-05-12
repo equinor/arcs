@@ -1,25 +1,17 @@
 from __future__ import annotations
 
-import os
 
 import pandas as pd
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from api.authentication import authenticated_user_claims
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import traverse
 from dotenv import load_dotenv
 
 load_dotenv()
-app = FastAPI(dependencies=[Depends(authenticated_user_claims)])
-app.swagger_ui_init_oauth = {
-    "clientId": os.environ.get("CLIENT_ID"),
-    "appName": "ARCS API",
-    "usePkceWithAuthorizationCodeGrant": True,  # Enable PKCE
-    "scope": os.environ.get("API_SCOPE"),
-}
+app = FastAPI()
 
 origins = [
     "http://localhost:5173",
