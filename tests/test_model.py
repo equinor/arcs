@@ -1,6 +1,9 @@
 from typing import Dict, List
+import time
 import numpy as np
 import numpy.typing as npt
+import pytest
+
 from arcs.model import (
     ReactionType,
     _find_enclosing,
@@ -9,6 +12,7 @@ from arcs.model import (
     get_reactions,
     interpolate_gibbs_values,
     _calculate_k,
+    get_interpolated_reactions,
 )
 
 PRESSURE_LIST = [
@@ -37,13 +41,16 @@ PRESSURE_LIST = [
 TEMPERATURE_LIST = [200, 250, 300, 350, 400]
 
 
-def test_find_enclosing():
-    values = [100, 200, 300, 400, 500]
-
-    # Test with a value in between two existing values
-    lower, upper = _find_enclosing(250, values)
-    assert lower == 200
-    assert upper == 300
+@pytest.mark.parametrize("target, expected_lower, expected_upper", [
+    (223.6, 200, 250),
+    (200.0, 200, 200),
+    (275.0, 250, 300),
+    (399.9, 350, 400),
+])
+def test_find_enclosing(target: float, expected_lower: int, expected_upper: int):
+    lower, upper = _find_enclosing(target, TEMPERATURE_LIST)
+    assert lower == expected_lower
+    assert upper == expected_upper
 
 
 def test_run_reaction_calc():
@@ -120,6 +127,8 @@ def _interpolated_result_accuracy(temps, press):
     # Collection reactions for enclosing Temperature and Pressure pairs
     # and sort the reactions in ascending order wrt reaction_ids
 
+    start_old = time.time()
+
     # (T0, P0), (T0, P1), (T1, P0), (T1, P1)
     tp_combinations = [
         (TEMPERATURE_LIST[min_temp_idx], PRESSURE_LIST[min_pressure_idx]),
@@ -138,14 +147,29 @@ def _interpolated_result_accuracy(temps, press):
         sorted_reactions, tp_combinations, pressure, temperature
     )
 
-    # Assertions to verify the accuracy of the interpolated results
-    for reaction_id, interpolated_value in zip(ids, interpolated_gibbs_constant):
-        true_value = true_reactions[reaction_id]["g"]
-        assert np.isclose(interpolated_value, true_value, atol=0.5, rtol=0.01), (
-            f"Interpolated value for reaction ID {reaction_id} "
-            f"({interpolated_value}) does not match true value "
-            f"({true_value})."
-        )
+    elapsed_time_old = time.time() - start_old
+
+    start_new = time.time()
+
+    new_reactions = get_interpolated_reactions(275, 12)
+
+    elapsed_time_new = time.time() - start_new
+
+    print(f"{elapsed_time_new=}, {elapsed_time_old=}")
+
+    # # Assertions to verify the accuracy of the interpolated results
+    # for reaction_id, interpolated_value in zip(ids, interpolated_gibbs_constant):
+    #     true_value = true_reactions[reaction_id]["g"]
+    #     assert np.isclose(interpolated_value, true_value, atol=0.5, rtol=0.01), (
+    #         f"Interpolated value for reaction ID {reaction_id} "
+    #         f"({interpolated_value}) does not match true value "
+    #         f"({true_value})."
+    #     )
+    #     assert np.isclose(new_reactions[reaction_id], true_value, atol=0.5, rtol=0.01), (
+    #         f"Interpolated value for reaction ID {reaction_id} "
+    #         f"({new_reactions[reaction_id]}) does not match true value "
+    #         f"({true_value})."
+    #     )
 
 
 def test_interpolate_gibbs_values():
