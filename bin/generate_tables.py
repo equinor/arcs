@@ -109,7 +109,7 @@ def _process_file(filepath: Path) -> None:
 
 
 def process_generic_inputs(
-    reactions: dict[Any, dict[str, Any]],
+    reactions: dict[int, ReactionType],
     temperature: int,
     pressure: int,
     path: Path,
