@@ -690,7 +690,7 @@ def start_dash(host: str,
                 srcDoc=g.generate_html(),
                 width="800px",
                 height="500px",
-                draggable=True
+                #draggable=True
             )
 
             return (

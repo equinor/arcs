@@ -29,10 +29,11 @@ def start():
     time.sleep(0.2)
 
     # Create the webview.
-    webview.create_window('ARCS 1.5.0', f'http://{host}:{port}',
-                          width=1000, 
-                          height=1000,
-                          )
+    webview.create_window(
+            'ARCS 1.5.0', f'http://{host}:{port}',
+            width=1000, 
+            height=1000
+            )
     
     webview.start()
 
