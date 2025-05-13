@@ -15,6 +15,152 @@ from monty.serialization import loadfn
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
 
+
+def parse_molecule(formula: str) -> dict:
+    """
+    parses a molecule string i.e. 'H2O' into a dictionary broken down into elemental counts 
+    i.e. {'H':2,'O':1} 
+    taken with permission from https://github.com/badw/reactit.git
+    """
+    # Regular expression to match elements and their counts
+    pattern = r'([A-Z][a-z]?)(\d*)'
+    matches = re.findall(pattern, formula)
+
+    atom_count = defaultdict(int)
+
+    for element, count in matches:
+        if count == '':
+            count = 1  # Default count is 1 if not specified
+        else:
+            count = int(count)  # Convert count to integer
+
+        atom_count[element] += count
+
+    return dict(atom_count)
+
+class GetEnergyandVibrationsAseCalc:
+    """Class to get the Total Energy and Vibrations from a directory containing a calculations
+    """
+    def __init__(self,aseatomscalc:ase.Atoms,asevibrationscalc):
+        self.aseatomscalc = aseatomscalc
+        self.asevibrationscalc = asevibrationscalc
+
+        self.get_atoms()
+    
+    @staticmethod
+    def get_initial_magnetic_moments(aseatoms:ase.Atoms)->list:
+        magmoms = []
+        for atomic_number in aseatoms.get_atomic_numbers():
+            magmoms.append([0 if atomic_number %2 == 0 else 1][0])
+        return(magmoms)
+        
+    def get_atoms(self):
+        """
+        generates an ASE.Atoms object from a given POSCAR with magnetic moments
+        """
+
+        self.aseatomscalc.set_initial_magnetic_moments(
+            self.get_initial_magnetic_moments(aseatoms=self.aseatomscalc)
+        )
+        
+    def get_energy(self)->float:
+        """
+        grabs the total energy from a VASP OUTCAR file (assumes one formula unit per cell)
+        """
+        return(self.aseatomscalc.get_potential_energy())
+    
+    def get_spin(self)->int:
+        """
+        determines the spin of a system 
+        """
+        if self.aseatomscalc.get_chemical_formula() in ['O2','CO3']:
+            return(1)
+        else:    
+            nelect = self.aseatomscalc.get_atomic_numbers().sum()
+            return([0 if nelect %2 == 0 else 0.5][0])
+            
+    def get_pointgroup(self)->str:
+        """
+        uses pymatgen's pymatgen.symmetry.analyzer.PointGroupAnalyzer class to determine the point group of an ase.Atoms object
+        returns a string
+        """
+        pg = PointGroupAnalyzer(
+            AseAtomsAdaptor.get_molecule(self.aseatomscalc)
+        ).get_pointgroup()
+
+        return(pg.sch_symbol)
+    
+    def islinear(self)->str:
+        """
+        determines whether the molecule is linear - can determine this from the point group (if * the molecule is linear)
+        """
+        if self.aseatomscalc.get_global_number_of_atoms() == 1:
+            return('monatomic')
+        else:
+            pg = self.get_pointgroup()
+            if '*' in pg:
+                return('linear')
+            else:
+                return('nonlinear')
+
+    def get_rotation_num(self)->int:
+        """
+        determines the rotational number from the point group
+        returns an integer
+        """
+        pg = [x for x in self.get_pointgroup()]
+        if pg[0] == 'C':
+            if pg[-1] == 'i':
+                rot = 1
+            elif pg[-1] == 's':
+                rot = 1
+            elif pg[-1] == 'h':
+                rot = int(pg[1])
+            elif pg[-1] == 'v':
+                if pg[1] == '*':
+                    rot = 1
+                else:
+                    rot = int(pg[1])
+            elif len(pg) == 2:
+                rot = int(pg[-1])
+                
+        elif pg[0] == 'D':
+            if pg[-1] == 'h':
+                if pg[1] == '*':
+                    rot = 2
+                else:
+                    rot = 2*int(pg[1])
+            elif pg[-1] == 'd':
+                rot = 2*int(pg[1])
+            elif len(pg) == 2:
+                rot = 2*int(pg[1])
+            
+        elif pg[0] == 'T':
+            rot = 12
+        
+        elif pg[0] == 'O':
+            rot = 24
+        
+        elif pg[0] == 'I':
+            rot = 60        
+                    
+        return(rot)          
+    
+    def get_vibrations(self):
+        """
+        returns the frequencies and eigenvectors of the vibrations
+        """
+        return(self.asevibrationscalc.get_energies())
+    
+    def as_dict(self):
+        return({'atoms':self.aseatomscalc.todict(),
+                'pointgroup':self.get_pointgroup(),
+                'spin':self.get_spin(),
+                'rotation_num':self.get_rotation_num(),
+                'islinear':self.islinear(),
+                'energy':self.get_energy(),
+                'vibrations':self.get_vibrations()})
+
 class GetEnergyandVibrationsVASP:
     """Class to get the Total Energy and Vibrations from a directory containing a calculations
     """
@@ -163,7 +309,7 @@ class GetEnergyandVibrationsVASP:
         return(frequencies)
     
     def as_dict(self):
-        return({'atoms':self.get_atoms().todict(),
+        return({'atoms':self.aseatomscalc.todict(),
                 'pointgroup':self.get_pointgroup(),
                 'spin':self.get_spin(),
                 'rotation_num':self.get_rotation_num(),
@@ -202,13 +348,14 @@ class ReactionGibbsandEquilibrium:
             natoms=Atoms.fromdict(dft_dict['atoms']).get_global_number_of_atoms(),
             ignore_imag_modes=True
         )
+
         gibbs_free_energy = igt.get_gibbs_energy(temperature,pressure*100000,verbose=False)
 
         return(gibbs_free_energy)
     
     def reaction_gibbs(
             self,
-            reaction: dict,#chempy.Equilibrium,
+            reaction: dict,#reactit dict
             pressure: float,  # in in bar
             temperature: float,  #  in K
     ) -> float:
@@ -221,6 +368,13 @@ class ReactionGibbsandEquilibrium:
         """
         products = reaction['products']
         reactants = reaction['reactants']
+        num_atoms = 0
+        for reactant,coeff in reactants.items():
+            num_atoms += np.sum(
+                list(
+                    parse_molecule(reactant).values()
+                )
+            )*coeff
         reaction_compounds = list(products)+list(reactants)
 
         gibbs = {
@@ -241,7 +395,7 @@ class ReactionGibbsandEquilibrium:
                 ]
             )
 
-        return(float(prod_sum - reac_sum))
+        return(float(prod_sum - reac_sum)/num_atoms) # this is in number of reactant atoms... to avoid super large K values
     
     @staticmethod
     def equilibrium_constant(
@@ -253,7 +407,7 @@ class ReactionGibbsandEquilibrium:
         from DeltaG = -k_B T ln(K)
         """
         K = np.exp(
-                -(gibbs_free_energy*e)/(Boltzmann*temperature)
+                -(gibbs_free_energy)/(Boltzmann/e*temperature)
                 )
         return(K)
     
@@ -298,29 +452,6 @@ class GraphGenerator:
         """
         #self.applied_reactions = applied_reactions
 
-    @staticmethod
-    def parse_molecule(formula:str)->dict: 
-        """
-        parses a molecule string i.e. 'H2O' into a dictionary broken down into elemental counts 
-        i.e. {'H':2,'O':1} 
-        taken with permission from https://github.com/badw/reactit.git
-        """
-        # Regular expression to match elements and their counts 
-        pattern = r'([A-Z][a-z]?)(\d*)' 
-        matches = re.findall(pattern, formula) 
-         
-        atom_count = defaultdict(int) 
-     
-        for element, count in matches: 
-            if count == '': 
-                count = 1  # Default count is 1 if not specified 
-            else: 
-                count = int(count)  # Convert count to integer 
-             
-            atom_count[element] += count 
-     
-        return dict(atom_count)      
-
     def cost_function(
             self,
             gibbs_free_energy: float,  # in eV
@@ -345,19 +476,19 @@ class GraphGenerator:
             for i in range(coefficient):
                 compounds.append(reactant)
 
-        num_atoms = np.sum(
-            [
-                np.sum(
-                    [
-                        y for x, y in self.parse_molecule(compound).items() 
-                    ]
-                )
-                for compound in compounds
-            ]
-        )
+#        num_atoms = np.sum(
+#            [
+#                np.sum(
+#                    [
+#                        y for x, y in parse_molecule(compound).items() 
+#                    ]
+#                )
+#                for compound in compounds
+#            ]
+#        )
         
         return(
-            np.log(1+(273/temperature)*np.exp(gibbs_free_energy/num_atoms/1))
+            np.log(1+(273/temperature)*np.exp(gibbs_free_energy))#/num_atoms/1)) #as we have made the Gibbs free energy per reactnat atom
             )
 
     def generate_multidigraph(

@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import tqdm_pathos
 import itertools as it 
-from arcs.generate import GraphGenerator
+from arcs.generate import parse_molecule
 
 class Traversal:
 
@@ -51,7 +51,7 @@ class Traversal:
                 for species,coefficient in reactants.items():
                     num_atoms.append(
                         np.sum(
-                            list(GraphGenerator.parse_molecule(species).values())
+                            list(parse_molecule(species).values())
                         ) * coefficient
                     )
                 return(np.sum(num_atoms))
@@ -77,7 +77,7 @@ class Traversal:
                 list(
                     it.chain(
                         *[
-                            list(GraphGenerator.parse_molecule(x)) for x in self.graph.nodes()[reaction_index]['reaction']['reactants']
+                            list(parse_molecule(x)) for x in self.graph.nodes()[reaction_index]['reaction']['reactants']
                         ]
                     )
                 )
@@ -88,7 +88,7 @@ class Traversal:
                 list(
                     it.chain(
                         *[
-                            list(GraphGenerator.parse_molecule(x)) for x in weighted_random_compounds
+                            list(parse_molecule(x)) for x in weighted_random_compounds
                         ]
                     )
                 )
@@ -288,7 +288,8 @@ class Traversal:
     def chempy_equilibrium_concentrations(
             self,
             concentrations:dict,
-            equilibrium_reaction:EqSystem
+            equilibrium_reaction:EqSystem,
+            chempy_sane=False,
             )->dict:
         """
         generate equilibrium concentrations 
@@ -301,7 +302,10 @@ class Traversal:
         try:
             result = equilibrium_reaction.solve(init_concs=_concs)
             #assert result.success and result.sane
-            assert result.success and result.sane
+            if chempy_sane:
+                assert result.success and result.sane
+            else:
+                assert result.success
             for compound,concentration in enumerate(result.conc):
                 _concs[equilibrium_reaction.substance_names()[compound]] = concentration
             return(_concs)
@@ -318,7 +322,8 @@ class Traversal:
             scale_largest: float = 10,  # in %
             ceiling: float = 1000,  # in %
             maximum_reaction_number: int = 5,
-            shortest_path_method='djikstra'
+            shortest_path_method='djikstra',
+            chempy_sane=True, # typically for very large 
     ) -> dict:
         """
         does a random sampling of the reaction network with max_steps  DEFAULT = 10.
@@ -366,7 +371,8 @@ class Traversal:
             # 6 get equilibrium_concentrations and update relevant dictionaries.
             final_concentrations = self.chempy_equilibrium_concentrations(
                 concentrations=_concentrations,
-                equilibrium_reaction=eqsystem
+                equilibrium_reaction=eqsystem,
+                chempy_sane=chempy_sane
             )
             if final_concentrations:
                 i += 1
