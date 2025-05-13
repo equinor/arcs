@@ -309,7 +309,7 @@ class GetEnergyandVibrationsVASP:
         return(frequencies)
     
     def as_dict(self):
-        return({'atoms':self.aseatomscalc.todict(),
+        return({'atoms':self.get_atoms().todict(),
                 'pointgroup':self.get_pointgroup(),
                 'spin':self.get_spin(),
                 'rotation_num':self.get_rotation_num(),
