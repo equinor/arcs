@@ -86,11 +86,9 @@ def get_interpolated_reactions(temperature: float, pressure: float) -> dict[int,
     temperature_list: Tuple[int, int] = _find_enclosing(temperature, TEMPERATURE_LIST)
 
     results = []
-    tlogp_combinations = []
-
+    tlogp_combinations = [[t, np.log(p)] for t in temperature_list for p in pressure_list]
     for p in pressure_list:
         for t in temperature_list:
-            tlogp_combinations.append([t, np.log(p)])
             reactions = get_reactions(t, p)
             for reaction_id in range(len(reactions)):
                 g_value = reactions[reaction_id]['g']
@@ -237,7 +235,7 @@ def interpolate_gibbs_values(
 
 def _find_enclosing(target: float, values: List[int]) -> Tuple[int, int]:
     lower_boundary = max(max([x for x in values if x <= target]), values[0])
-    upper_boundary = min(min([x for x in values if x >= target]), values[-1])
+    upper_boundary = min(min([x for x in values if x > target]), values[-1])
     return lower_boundary, upper_boundary
 
 
