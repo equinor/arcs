@@ -43,7 +43,7 @@ TEMPERATURE_LIST = [200, 250, 300, 350, 400]
 
 @pytest.mark.parametrize("target, expected_lower, expected_upper", [
     (223.6, 200, 250),
-    (200.0, 200, 200),
+    (200.0, 200, 250),
     (275.0, 250, 300),
     (399.9, 350, 400),
 ])
@@ -151,25 +151,25 @@ def _interpolated_result_accuracy(temps, press):
 
     start_new = time.time()
 
-    new_reactions = get_interpolated_reactions(275, 12)
+    new_reactions = get_interpolated_reactions(temperature, pressure)
 
     elapsed_time_new = time.time() - start_new
 
     print(f"{elapsed_time_new=}, {elapsed_time_old=}")
 
-    # # Assertions to verify the accuracy of the interpolated results
-    # for reaction_id, interpolated_value in zip(ids, interpolated_gibbs_constant):
-    #     true_value = true_reactions[reaction_id]["g"]
-    #     assert np.isclose(interpolated_value, true_value, atol=0.5, rtol=0.01), (
-    #         f"Interpolated value for reaction ID {reaction_id} "
-    #         f"({interpolated_value}) does not match true value "
-    #         f"({true_value})."
-    #     )
-    #     assert np.isclose(new_reactions[reaction_id], true_value, atol=0.5, rtol=0.01), (
-    #         f"Interpolated value for reaction ID {reaction_id} "
-    #         f"({new_reactions[reaction_id]}) does not match true value "
-    #         f"({true_value})."
-    #     )
+    # Assertions to verify the accuracy of the interpolated results
+    for reaction_id, interpolated_value in zip(ids, interpolated_gibbs_constant):
+        true_value = true_reactions[reaction_id]["g"]
+        # assert np.isclose(interpolated_value, true_value, atol=1, rtol=0.01), (
+        #     f"Interpolated value for reaction ID {reaction_id} "
+        #     f"({interpolated_value}) does not match true value "
+        #     f"({true_value})."
+        # )
+        assert np.isclose(new_reactions[reaction_id]['g'], true_value, atol=0.1, rtol=0.01), (
+            f"Interpolated value for reaction ID {reaction_id} "
+            f"({new_reactions[reaction_id]['g']}) does not match true value "
+            f"({true_value})."
+        )
 
 
 def test_interpolate_gibbs_values():
