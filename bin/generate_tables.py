@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-from pathlib import Path
-from collections import defaultdict
+
 import os
-from typing import IO, TYPE_CHECKING, Any
-import numpy as np
 import pickle
 import re
+from collections import defaultdict
 from multiprocessing import Pool
+from pathlib import Path
+from typing import IO, TYPE_CHECKING
 
+import numpy as np
 
 if TYPE_CHECKING:
     from arcs.model import ReactionType, Table
