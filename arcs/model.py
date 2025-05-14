@@ -8,7 +8,7 @@ from typing import List, Tuple, TypedDict
 import chempy
 import numpy as np
 import numpy.typing as npt
-from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import LinearNDInterpolator  # type: ignore
 
 from bin.generate_tables import process_generic_inputs
 
@@ -75,7 +75,7 @@ def get_table(
             pickle.dump(reactions, stream)
 
     with open(file_path, "rb") as stream:
-        return pickle.load(stream)
+        return pickle.load(stream)  # type: ignore
 
 
 def get_interpolated_reactions(
@@ -84,7 +84,7 @@ def get_interpolated_reactions(
     pressure_list: Tuple[int, int] = _find_enclosing(pressure, PRESSURE_LIST)
     temperature_list: Tuple[int, int] = _find_enclosing(temperature, TEMPERATURE_LIST)
 
-    results = {}
+    results: dict[int, List[float]] = {}
     tlogp_combinations = [
         [t, np.log(p)] for t in temperature_list for p in pressure_list
     ]
