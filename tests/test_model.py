@@ -49,34 +49,30 @@ def test_find_enclosing(target: float, expected_lower: int, expected_upper: int)
     assert upper == expected_upper
 
 
-def test__interpolated_result_accuracy():
+def test_interpolated_result_accuracy():
     for temp in range(len(TEMPERATURE_LIST) - 1):
         for press in range(len(PRESSURE_LIST) - 1):
-            _interpolated_result_accuracy(temp, press)
+            temperature = TEMPERATURE_LIST[temp]
+            pressure = PRESSURE_LIST[press]
 
+            true_reactions = get_reactions(temperature, pressure)
+            interpolated_reactions = get_interpolated_reactions(temperature, pressure)
 
-def _interpolated_result_accuracy(temps, press):
-    temperature = TEMPERATURE_LIST[temps]
-    pressure = PRESSURE_LIST[press]
-
-    true_reactions = get_reactions(temperature, pressure)
-    interpolated_reactions = get_interpolated_reactions(temperature, pressure)
-
-    assert [
-        np.isclose(
-            interpolated_reactions[reaction_id]["g"], true_reactions[reaction_id]["g"]
-        )
-        for reaction_id in range(len(true_reactions))
-    ]
+            assert [
+                np.isclose(
+                    interpolated_reactions[reaction_id]["g"],
+                    true_reactions[reaction_id]["g"],
+                )
+                for reaction_id in range(len(true_reactions))
+            ]
 
 
 def test_calculate_k():
     for temperature in TEMPERATURE_LIST:
         for pressure in PRESSURE_LIST:
             reactions_list = get_reactions(temperature, pressure)
-
-        for reaction_id in range(len(reactions_list)):
-            gibbs_energy = reactions_list[reaction_id]["g"]
-            true_k = reactions_list[reaction_id]["k"]
-            calculated_k = _calculate_k(gibbs_energy, temperature)
-            assert np.isclose(calculated_k, true_k, rtol=1e-4, atol=1e-4)
+            for reaction_id in range(len(reactions_list)):
+                gibbs_energy = reactions_list[reaction_id]["g"]
+                true_k = reactions_list[reaction_id]["k"]
+                calculated_k = _calculate_k(gibbs_energy, temperature)
+                assert np.isclose(calculated_k, true_k, rtol=1e-4, atol=1e-4)
