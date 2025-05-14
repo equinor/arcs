@@ -7,7 +7,7 @@ name = "arcs"
 description="ARCS - Automated Reactions for CO2 Storage"
 version = "1.5.0"
 readme = "README.md"
-license = { text = "BSD-3" }
+license = { text = "MIT" }
 authors = [{ name = "Benjamin A. D. Williamson", email = "benjamin.williamson@ntnu.no" }]
 keywords = ["Chemistry", "Organic Chemistry", "Reactions","Materials Science"]
 classifiers = [
