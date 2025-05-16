@@ -150,7 +150,10 @@ class GetEnergyandVibrationsAseCalc:
         """
         returns the frequencies and eigenvectors of the vibrations
         """
-        return(self.asevibrationscalc.get_energies())
+        if isinstance(self.asevibrationscalc,np.ndarray):
+            return(self.asevibrationscalc)
+        else:
+            return(self.asevibrationscalc.get_energies())
     
     def as_dict(self):
         return({'atoms':self.aseatomscalc.todict(),
