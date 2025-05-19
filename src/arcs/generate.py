@@ -1,5 +1,6 @@
 import os
 from ase.io import read
+from ase.units import Hartree
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from ase.thermochemistry import IdealGasThermo
@@ -163,6 +164,130 @@ class GetEnergyandVibrationsAseCalc:
                 'islinear':self.islinear(),
                 'energy':self.get_energy(),
                 'vibrations':self.get_vibrations()})
+    
+class GetEnergyandVibrationsPsi4:
+    """Class to get the Total Energy and Vibrations from a directory containing a calculations
+    """
+    def __init__(
+            self,
+            aseatoms:ase.Atoms,
+            energy:float,
+            vibrations:np.ndarray
+            ):
+        
+        self.inversecmtoev = 1.23981e-4
+        self.aseatoms = aseatoms
+        self.vibrations = vibrations * self.inversecmtoev # in cm-1 (direct from psi4 output )
+        self.energy = energy * Hartree #in Hartree?
+        self.get_atoms()
+    
+    @staticmethod
+    def get_initial_magnetic_moments(aseatoms:ase.Atoms)->list:
+        magmoms = []
+        for atomic_number in aseatoms.get_atomic_numbers():
+            magmoms.append([0 if atomic_number %2 == 0 else 1][0])
+        return(magmoms)
+        
+    def get_atoms(self):
+        """
+        generates an ASE.Atoms object from a given POSCAR with magnetic moments
+        """
+
+        self.aseatoms.set_initial_magnetic_moments(
+            self.get_initial_magnetic_moments(aseatoms=self.aseatoms)
+        )
+        
+    def get_energy(self)->float:
+        """
+        grabs the total energy from a VASP OUTCAR file (assumes one formula unit per cell)
+        """
+        return(self.energy)
+    
+    def get_spin(self)->int:
+        """
+        determines the spin of a system 
+        """
+        if self.aseatoms.get_chemical_formula() in ['O2','CO3']:
+            return(1)
+        else:    
+            nelect = self.aseatoms.get_atomic_numbers().sum()
+            return([0 if nelect %2 == 0 else 0.5][0])
+            
+    def get_pointgroup(self)->str:
+        """
+        uses pymatgen's pymatgen.symmetry.analyzer.PointGroupAnalyzer class to determine the point group of an ase.Atoms object
+        returns a string
+        """
+        pg = PointGroupAnalyzer(
+            AseAtomsAdaptor.get_molecule(self.aseatoms)
+        ).get_pointgroup()
+
+        return(pg.sch_symbol)
+    
+    def islinear(self)->str:
+        """
+        determines whether the molecule is linear - can determine this from the point group (if * the molecule is linear)
+        """
+        if self.aseatoms.get_global_number_of_atoms() == 1:
+            return('monatomic')
+        else:
+            pg = self.get_pointgroup()
+            if '*' in pg:
+                return('linear')
+            else:
+                return('nonlinear')
+
+    def get_rotation_num(self)->int:
+        """
+        determines the rotational number from the point group
+        returns an integer
+        """
+        pg = [x for x in self.get_pointgroup()]
+        if pg[0] == 'C':
+            if pg[-1] == 'i':
+                rot = 1
+            elif pg[-1] == 's':
+                rot = 1
+            elif pg[-1] == 'h':
+                rot = int(pg[1])
+            elif pg[-1] == 'v':
+                if pg[1] == '*':
+                    rot = 1
+                else:
+                    rot = int(pg[1])
+            elif len(pg) == 2:
+                rot = int(pg[-1])
+                
+        elif pg[0] == 'D':
+            if pg[-1] == 'h':
+                if pg[1] == '*':
+                    rot = 2
+                else:
+                    rot = 2*int(pg[1])
+            elif pg[-1] == 'd':
+                rot = 2*int(pg[1])
+            elif len(pg) == 2:
+                rot = 2*int(pg[1])
+            
+        elif pg[0] == 'T':
+            rot = 12
+        
+        elif pg[0] == 'O':
+            rot = 24
+        
+        elif pg[0] == 'I':
+            rot = 60        
+                    
+        return(rot)          
+    
+    def as_dict(self):
+        return({'atoms':self.aseatoms.todict(),
+                'pointgroup':self.get_pointgroup(),
+                'spin':self.get_spin(),
+                'rotation_num':self.get_rotation_num(),
+                'islinear':self.islinear(),
+                'energy':self.get_energy(),
+                'vibrations':self.vibrations})
 
 class GetEnergyandVibrationsVASP:
     """Class to get the Total Energy and Vibrations from a directory containing a calculations
