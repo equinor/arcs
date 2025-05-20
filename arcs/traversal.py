@@ -410,7 +410,7 @@ def traverse(
     )
 
     mean_concs = pd.DataFrame([s["data"] for s in results.values()]).mean()
-    df_summary = pd.DataFrame({"initial": concs, "final": mean_concs})
+    df_summary = pd.DataFrame({"initial": concs, "final": mean_concs}) * 1e6
     df_summary = df_summary.dropna(how="all").fillna(0.0)
     df_summary["change"] = df_summary["final"] - df_summary["initial"]
 
