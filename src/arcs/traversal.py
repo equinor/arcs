@@ -10,7 +10,7 @@ from arcs.generate import parse_molecule
 
 class Traversal:
 
-    def __init__(self,graph,max_reaction_length=5):
+    def __init__(self,graph,max_reaction_length=5,**kws):
         self.graph = graph
         
         #default values:
@@ -18,7 +18,6 @@ class Traversal:
         self.max_compounds = 5
         self.discovery_threshold=5 # % percent
         self.maximum_reaction_number = 10
-        self.nsamples=1000
         self.max_steps=5
         self.ncpus = 4    
         self.ceiling = 2000
@@ -26,10 +25,12 @@ class Traversal:
         self.rank_small_reactions_higher = True
         self.rank_by_number_of_atoms = True
         self.shortest_path_method='Djikstra'
+        self.__dict__.update(kws)
 
     def length_multiplier(
             self,
-            candidate_reaction:int,
+            candidate_reaction:int=None,
+            **kws
             )->float:
         """
         given a candidate reaction, 
@@ -43,6 +44,8 @@ class Traversal:
         i.e. H2 + 1/2 O2 = H2O has a length multiplier of 3
 
         """
+        self.__dict__.update(kws)
+
         if self.rank_small_reactions_higher:
             if self.rank_by_number_of_atoms:
                 reaction_dict = self.graph.nodes[candidate_reaction]['reaction']
@@ -66,12 +69,15 @@ class Traversal:
     def check_reactant_atoms(
             self,
             reaction_index:int,
-            weighted_random_compounds:list
+            weighted_random_compounds:list,
+            **kws
             )->bool:
         """
         takes a reaction index, chosen random_compounds, and checks for atom balance
         returns bool
         """
+        self.__dict__.update(kws)
+
         reac_atoms = list(
             dict.fromkeys(
                 list(
@@ -99,35 +105,27 @@ class Traversal:
         else:
              return(False)
 
-    @staticmethod
-    def scale_large_concentrations(
-        concentrations:dict,
-        scale_largest:float,
-        ceiling:float,
-        )->dict:
+    def scale_large_concentrations(self, concentrations: dict, **kws) -> dict:
         """
         function that takes a dict of concentrations and scales abnormally large concentrations (above ceiling DEFAULT = 3000%) and scales them by scale_highest (DEFAULT = 10% of original value)
 
         this is to be used with self.get_weighted_random_compounds
         """
+        self.__dict__.update(kws)
 
         median_conc = np.median([v for v in concentrations.values() if v > 0])
-        species_above_ceiling = {k:v for k,v in concentrations.items() if v > (median_conc * (1+(ceiling/100)))}
+        species_above_ceiling = {k:v for k,v in concentrations.items() if v > (median_conc * (1+(self.ceiling/100)))}
         #modify the ceiling by scaling it down to a suitable value 
         #should still max out if concentrations become way to high 
         for k,v in species_above_ceiling.items():
-            concentrations[k] = v*1/scale_largest
+            concentrations[k] = v*1/self.scale_largest
 
         return(concentrations)
 
     def get_weighted_random_compounds(
             self,
             concentrations: dict,
-            exclude_co2: bool = True,
-            max_compounds: int = 5, # max compounds to return
-            discovery_threshold: float = 5,  # discovery threshold in %
-            scale_largest: float = 10,  # how much to scale the highest components in %
-            ceiling: float = 1000,  # ceiling percent larger than the median average in %
+            **kws
     ) -> list:
         """
         given a dictionary of concentrations e.g. {'H2O':100,'NO2':50} a weighted ranking can be returned with probabilities given a discovery threshold DEFAULT = 5%. 
@@ -138,21 +136,25 @@ class Traversal:
 
         CO2 is by default excluded (exclude_co2 = True) as it is considered background, however this can be turned on if you want to test CO2 containing reactions.
         """
+        self.__dict__.update(kws)
 
         concs = copy.deepcopy(concentrations)
 
-        if exclude_co2:
+        if self.exclude_co2:
             # CO2 will always be too large as it is the background
             del concs['CO2']
 
         # scale potential large concentrations
         concs = self.scale_large_concentrations(
-            concentrations=concs, scale_largest=scale_largest, ceiling=ceiling)
+            concentrations=concs, scale_largest=self.scale_largest, ceiling=self.ceiling
+        )
 
         # get the probabilities based upon relative concentrations:
         p_1 = {k: v/sum(concs.values()) for k, v in concs.items()}
         # now filter based upon the probability threshold: (discovery)
-        p_2 = {k: v for k, v in p_1.items() if v > discovery_threshold/100}
+        p_2 = {k: v for k, v in p_1.items() if v >= self.discovery_threshold/100}
+        if not p_2:
+            return([])
         # remake the probabilities
         p_3 = {k: v/sum(p_2.values()) for k, v in p_2.items()}
         # make a list of choices based upon the probabilities
@@ -163,7 +165,7 @@ class Traversal:
         )
         #  now make a list max_compounds long of random choices based on available
         choices = {} 
-        for i in range(max_compounds):
+        for i in range(self.max_compounds):
             try:
                 compound = np.random.choice(available)
                 choices[compound] = p_3[compound]
@@ -175,14 +177,12 @@ class Traversal:
                 )
             except ValueError:
                 pass
-
-        return(list(choices)[0:np.random.randint(2,max_compounds)])
+        return(list(choices)[0:np.random.randint(2,self.max_compounds)])
     
     def get_weighted_reaction_rankings(
             self,
             weighted_random_compounds: list,
-            maximum_reaction_number: int = 20,
-            shortest_path_method: str = 'Djikstra'
+            **kws
     ):
         """
         returns a dictionary of {<reaction_index>:<weighting>} given a list of weighted_random_compounds from self.get_weighted_random_compounds (needs at least 2 to give a result)
@@ -195,6 +195,8 @@ class Traversal:
         3. check that the reactant 
 
         """
+        self.__dict__.update(kws)
+
         #return None if there isn't enough to make a reaction
         if len(weighted_random_compounds) <=1:
             return(None)
@@ -206,7 +208,7 @@ class Traversal:
             possibilities.extend([
                 x[1] for x in list(
                     nx.shortest_paths.all_shortest_paths(
-                        G=self.graph, source=compounds[0], target=compounds[1])
+                        G=self.graph, source=compounds[0], target=compounds[1],method=self.shortest_path_method)
                 )
             ])
 
@@ -214,7 +216,8 @@ class Traversal:
         # this is so that self.get_chempy_equilibrium_concentrations gives a result.
         possibilities = [i for i in possibilities if self.check_reactant_atoms(
                 reaction_index=i,
-                weighted_random_compounds=weighted_random_compounds
+                weighted_random_compounds=weighted_random_compounds,
+                **kws
                 )]
         # 4. rank the possibilities based on edge weight and a length_multiplier
         # the length_multiplier is based on number of reaction coefficients
@@ -226,12 +229,13 @@ class Traversal:
                     weight = self.graph.get_edge_data(
                         u=compound,
                         v=reaction
-                        )[0]['weight']*self.length_multiplier(reaction)
+                        )[0]['weight']*self.length_multiplier(reaction,**kws)
                 except TypeError:
                     pass
-            rankings[reaction] = weight 
+            rankings[reaction] = weight # this should be ammended to return None as well
 
-        rankings = dict(sorted(rankings.items(),key=lambda item: item[1])[0:maximum_reaction_number])
+        rankings = dict(sorted(rankings.items(),key=lambda item: item[1])[0:self.maximum_reaction_number])
+        
         return(rankings)
     
     @staticmethod
@@ -284,9 +288,9 @@ class Traversal:
             return(EqSystem([equation],substances=substances))
         except Exception:
             return(None)
-        
+    
+    @staticmethod 
     def chempy_equilibrium_concentrations(
-            self,
             concentrations:dict,
             equilibrium_reaction:EqSystem,
             chempy_sane=False,
@@ -297,6 +301,7 @@ class Traversal:
         elsewise 
         return None
         """
+        
         warnings.simplefilter('ignore')
         _concs = copy.deepcopy(concentrations)
         try:
@@ -315,15 +320,8 @@ class Traversal:
     def random_walk(
             self,
             initial_concentrations: dict,
-            max_steps: int = 5,
-            discovery_threshold: float = 5,
-            max_compounds: int = 5,
-            exclude_co2: bool = False,
-            scale_largest: float = 10,  # in %
-            ceiling: float = 1000,  # in %
-            maximum_reaction_number: int = 5,
-            shortest_path_method='djikstra',
             chempy_sane=True, # typically for very large 
+            **kws
     ) -> dict:
         """
         does a random sampling of the reaction network with max_steps  DEFAULT = 10.
@@ -336,26 +334,27 @@ class Traversal:
         4. calculate the equilibrium concentrations 
         5. update the concentrations and reaction statistics 
         """
+        self.__dict__.update(kws)
 
         concentrations = {0: initial_concentrations}
         reactionstats = {0: None}
         i = 0
-        for step in range(1, max_steps+1):
+        for step in range(1, self.max_steps+1):
             _concentrations = copy.deepcopy(concentrations[i])
             # 1 grab weighted_random_compounds
             weighted_random_compounds = self.get_weighted_random_compounds(
                 concentrations=_concentrations,
-                exclude_co2=exclude_co2,
-                max_compounds=max_compounds,
-                discovery_threshold=discovery_threshold,
-                scale_largest=scale_largest,
-                ceiling=ceiling
+                exclude_co2=self.exclude_co2,
+                max_compounds=self.max_compounds,
+                discovery_threshold=self.discovery_threshold,
+                scale_largest=self.scale_largest,
+                ceiling=self.ceiling,
+                **kws
             )
             # 2 grab reaction rankings
             ranked_reactions = self.get_weighted_reaction_rankings(
                 weighted_random_compounds=weighted_random_compounds,
-                maximum_reaction_number=maximum_reaction_number,
-                shortest_path_method=shortest_path_method,
+                **kws
             )
             # 3 if no reactions found then break the for loop
             if not ranked_reactions:
@@ -388,32 +387,39 @@ class Traversal:
              }
         )
     
-    def sampling_function(self,iterable):
+    def sampling_function(self,iterable,**kws):
         """
         sampling function to be multiprocessed - runs one random walk
         """
+        self.__dict__.update(kws)
         initial_concentrations = self.initial_concentrations
-        return(self.random_walk(initial_concentrations=initial_concentrations)) 
+        return(
+            self.random_walk(initial_concentrations=initial_concentrations,**kws)
+            ) 
     
 
     def sample(
             self,
             initial_concentrations:dict,
-            nsamples:int = 1000,
-            ncpus:int = 4,
-            random_walk_kws:dict = {},
-            tqdm_kws:dict = {}
+            nsamples:int,
+            ncpus:int,
+            tqdm_kws:dict = {},
+            **kws
     )->dict:
         """
         samples the graph network nsamples DEFAULT = 1000
         multiprocessed with ncpus DEFAULT = 4  
         """
+        self.__dict__.update(kws)
+
         self.initial_concentrations = initial_concentrations
+        
         data = tqdm_pathos.map(
                 self.sampling_function,
                 list(range(nsamples)),
                 n_cpus=ncpus,
-                tqdm_kwargs = tqdm_kws
+                tqdm_kwargs = tqdm_kws,
+                **kws
             )
 
         return(data)

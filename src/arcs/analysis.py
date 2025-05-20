@@ -85,10 +85,24 @@ class AnalyseSampling:
 #        except Exception:
 #            d = {}
 #        return(d)
+    @staticmethod
+    def flip_reaction(reaction_data):
+        k = reaction_data['equilibrium_constant']
+        reaction_string = reaction_data['reaction']['reaction_string']
+        reactants = reaction_data['reaction']['reactants']
+        products = reaction_data['reaction']['products']
+        if k >= 1:
+            return(reaction_data)
+        else:
+            new_dict = {'reactants':products,'products':reactants}
+            r,p = reaction_string.split(' = ')
+            new_dict['reaction_string'] = f'{p} = {r}'
+            return({'reaction':new_dict,'equilibrium_constant':1/k}) 
             
     def reaction_statistics(
             self,
-            data:dict
+            data:dict,
+            flip_reaction:bool=True
             )->dict:
         """
         function that takes the reaction statistics of each sample and combines them
@@ -98,9 +112,14 @@ class AnalyseSampling:
         for sample in data:
             for equation in sample['reaction_statistics'].values():
                 if equation:
-                    equations.append(
-                        equation['reaction']['reaction_string']
-                    )
+                    if flip_reaction:
+                        equations.append(
+                            self.flip_reaction(equation)['reaction']['reaction_string']
+                        )
+                    else:
+                        equations.append(
+                            equation['reaction']['reaction_string']
+                        )
 
         statistics = Counter(equations)
 
@@ -177,7 +196,7 @@ class AnalyseSampling:
             )->pyvis.network.Network:
         
         reaction_statistics = pd.Series(
-            self.reaction_statistics(data)
+            self.reaction_statistics(data,flip_reaction=False)
         ).head(head).sort_values(ascending=False).to_dict()
 
         reaction_data = {}
@@ -246,7 +265,7 @@ class AnalyseSampling:
         g.from_nx(G,edge_scaling=False)
         for i,(reaction,reaction_dict) in enumerate(reaction_data.items()):
             g.node_map[str(i)]['shape'] = 'circle'
-            g.node_map[str(i)]['title'] = reaction_dict['reaction']['reaction_string'] #'{} ; frequency = {}'.format(
+            g.node_map[str(i)]['title'] = self.flip_reaction(reaction_dict)['reaction']['reaction_string'] #'{} ; frequency = {}'.format(
                 #reaction_dict['reaction']['reaction_string'],
                 #reaction_dict['reaction']['frequency']
             #)

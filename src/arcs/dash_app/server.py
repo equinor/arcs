@@ -647,7 +647,7 @@ def start_dash(host: str,
 
             default_concentrations = GenerateInitialConcentrations(graph=graph).update_ic(update_dict=default_concentrations,include_co2=True)
             
-            t = Traversal(graph=graph)
+            t = Traversal(graph=graph,**traversal_settings)
             
             results = t.sample(
                 initial_concentrations = default_concentrations,
