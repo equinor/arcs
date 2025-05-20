@@ -3,7 +3,7 @@ from __future__ import annotations
 import pickle
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Tuple, TypedDict
+from typing import List, TypedDict, Set
 
 import chempy
 import numpy as np
@@ -81,15 +81,19 @@ def get_table(
 def get_interpolated_reactions(
     temperature: float, pressure: float
 ) -> dict[int, ReactionType]:
-    pressure_list: Tuple[int, int] = _find_enclosing(pressure, PRESSURE_LIST)
-    temperature_list: Tuple[int, int] = _find_enclosing(temperature, TEMPERATURE_LIST)
+    pressure_boundary: Set[int] = _find_enclosing(pressure, PRESSURE_LIST)
+    temperature_boundary: Set[int] = _find_enclosing(temperature, TEMPERATURE_LIST)
+
+    if len(pressure_boundary) == 1 and len(temperature_boundary) == 1:
+        # no need to do interpolation
+        return get_reactions(temperature, pressure)
 
     results: dict[int, List[float]] = {}
     tlogp_combinations = [
-        [t, np.log(p)] for t in temperature_list for p in pressure_list
+        [t, np.log(p)] for t in temperature_boundary for p in pressure_boundary
     ]
-    for p in pressure_list:
-        for t in temperature_list:
+    for p in pressure_boundary:
+        for t in temperature_boundary:
             reactions = get_reactions(t, p)
             for reaction_id in range(len(reactions)):
                 g_value = reactions[reaction_id]["g"]
@@ -97,13 +101,24 @@ def get_interpolated_reactions(
                     results[reaction_id] = []
                 results[reaction_id].append(g_value)
 
-    interpolators = [
-        LinearNDInterpolator(tlogp_combinations, np.array(results[i]))
-        for i in range(len(results))
-    ]
-    gibbs_values = [
-        interpolator(temperature, np.log(pressure)) for interpolator in interpolators
-    ]
+    if len(tlogp_combinations) == 2:
+        # interpolate single axis
+        interpolators = [
+            np.interp(tlogp_combinations, np.array(results[i]))
+            for i in range(len(results))
+        ]
+    if len(tlogp_combinations) == 4:
+        # interpolate both axis
+        interpolators = [
+            LinearNDInterpolator(tlogp_combinations, np.array(results[i]))
+            for i in range(len(results))
+        ]
+
+        gibbs_values = [
+            interpolator(temperature, np.log(pressure))
+            for interpolator in interpolators
+        ]
+
     reactions_table = {}
     for reaction_id in range(len(reactions)):
         reaction: ReactionType = reactions[reaction_id]
@@ -123,10 +138,10 @@ def _calculate_k(gibbs_energy: float, temperature: float) -> np.float64:
         return np.float64(0)
 
 
-def _find_enclosing(target: float, values: List[int]) -> Tuple[int, int]:
+def _find_enclosing(target: float, values: List[int]) -> Set[int]:
     lower_boundary = max(max([x for x in values if x <= target]), values[0])
-    upper_boundary = min(min([x for x in values if x > target]), values[-1])
-    return lower_boundary, upper_boundary
+    upper_boundary = min(min([x for x in values if x >= target]), values[-1])
+    return set([lower_boundary, upper_boundary])
 
 
 def get_reaction_compounds(reactions: dict[int, ReactionType]) -> dict[int, set[str]]:
