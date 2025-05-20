@@ -1,8 +1,8 @@
 
-
+<div id="toc">
 <img src="./static/ARCS_Logo.png" width="100" align="left" alt="ARCS Logo seasoned by ChatGPT"> 
 
-<div id="toc">
+
   <ul style="list-style: none">
     <summary>
       <h2> <pre>ARCS - Automated Reactions for CO<sub>2</sub> Storage</pre> </h2>
