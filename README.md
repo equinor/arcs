@@ -119,3 +119,12 @@ python arcs-app.py
 <p align="center">
  <img src="./static/ARCS-gui.png" height="300">
 </p>
+
+
+### Credits
+
+This project was funded by and carried out with collaboration from [Equinor](https://www.equinor.com/no), [Total Energies](https://ts.totalenergies.com), and [Shell](https://www.shell.com) 
+
+A forked and modified version of ARCS is available at https://github.com/equinor/arcs 
+
+This version of ARCS is an "under-development" version of ARCS.
