@@ -77,16 +77,18 @@ class AnalyseSampling:
         self.stats = self._get_stats(equations)
 
     def mean_sampling(self) -> None:
-        df = pd.DataFrame({k: v["data"] for k, v in self.data.items()}).T.fillna(0)
+        df = (
+            pd.DataFrame({k: v["data"] for k, v in self.data.items()}).T.fillna(0) * 1e6
+        )
 
         initial_concs = df.iloc[0]
-        final_concentrations = df.mean() / 1e-6
+        final_concentrations = df.mean()
         diff = df - initial_concs
 
         mean_values = {
             compound: {
-                "value": diff[compound].mean() / 1e-6,
-                "variance": diff[compound].var() / 1e-6,  # type:ignore
+                "value": diff[compound].mean(),
+                "variance": diff[compound].var(),  # type:ignore
             }
             for compound in df.columns
         }

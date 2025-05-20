@@ -7,15 +7,15 @@ from arcs.analysis import AnalyseSampling
 def analysis():
     data = {
         0: {
-            "data": {"A": 1.0, "B": 2.0, "C": 3.0},
+            "data": {"A": 1.0 * 1e-6, "B": 2.0 * 1e-6, "C": 3.0 * 1e-6},
             "equation_statistics": ["A + B = C; 1.0", "B + C = D; 2.0"],
         },
         1: {
-            "data": {"A": 1.5, "B": 2.5, "C": 3.5},
+            "data": {"A": 1.5 * 1e-6, "B": 2.5 * 1e-6, "C": 3.5 * 1e-6},
             "equation_statistics": ["A + B = C; 1.0", "C + D = E; 3.0"],
         },
         2: {
-            "data": {"A": 2.0, "B": 3.0, "C": 4.0},
+            "data": {"A": 2.0 * 1e-6, "B": 3.0 * 1e-6, "C": 4.0 * 1e-6},
             "equation_statistics": ["A + B = C; 1.0", "B + C = D; 2.0"],
         },
     }
@@ -32,8 +32,10 @@ def test_mean_sampling(analysis):
         "C": {"value": 0.5, "variance": 0.25},
     }
 
-    assert analysis.final_concs == expected_final_concs
-    assert analysis.mean_data == expected_mean_data
+    assert analysis.final_concs == pytest.approx(expected_final_concs, rel=1e-6)
+    assert analysis.mean_data["A"] == pytest.approx(expected_mean_data["A"], rel=1e-6)
+    assert analysis.mean_data["B"] == pytest.approx(expected_mean_data["B"], rel=1e-6)
+    assert analysis.mean_data["C"] == pytest.approx(expected_mean_data["C"], rel=1e-6)
 
 
 def test_get_stats(analysis):

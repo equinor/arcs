@@ -10,10 +10,10 @@ warnings.filterwarnings("ignore")
 
 def run_simulation(samples, iter, nproc):
     start = time.time()
-    temperature = 300
-    pressure = 10
-    concs = {"SO2": 10e-6, "NO2": 0, "H2S": 10e-6, "H2O": 30e-6, "O2": 10e-6}
-
+    temperature = 250
+    pressure = 30
+    concs = {"SO2": 10e-6, "NO2": 0, "H2S": 10e-6, "H2O": 6e-6, "O2": 0}
+    concs = {"H2": 0.0, "H2O": 6.0, "H2S": 10.0, "S8": 0.0, "SO2": 10.0}
     results = traverse(
         temperature,
         pressure,
