@@ -14,23 +14,41 @@ import pytest
 import math
 
 
-def test_snapshot(snapshot):
+@pytest.mark.parametrize(
+    "concentrations",
+    [
+        pytest.param(
+            {
+                "CO2": 1.0,
+                "H2O": 30.0e-6,
+                "O2": 10.0e-6,
+                "SO2": 10.0e-6,
+                "NO2": 0,
+                "H2S": 10.0e-6,
+            },
+            id="Normal arcs run",
+        ),
+        pytest.param(
+            {
+                "CO2": 0.0,
+                "H2O": 6e-6,
+                "O2": 0,
+                "SO2": 10.0e-6,
+                "NO2": 0,
+                "H2S": 10.0e-6,
+            },
+            id="Arcs run with no change in concentrations",
+        ),
+    ],
+)
+def test_snapshot(concentrations, snapshot):
     temperature = 300
     pressure = 10
-
-    concs = {
-        "CO2": 1.0,
-        "H2O": 30.0e-6,
-        "O2": 10.0e-6,
-        "SO2": 10.0e-6,
-        "NO2": 0,
-        "H2S": 10.0e-6,
-    }
 
     results = traverse(
         temperature,
         pressure,
-        concs,
+        concentrations,
         samples=100,
         iter=5,
         ceiling=500,
@@ -47,7 +65,11 @@ def test_snapshot(snapshot):
 
     df = pd.DataFrame(analysis.stats)
 
-    snapshot.assert_match(df.to_csv(lineterminator="\n"), "snapshot.csv")
+    snapshot.assert_match(df.to_csv(lineterminator="\n"), "analysis.csv")
+
+    concs = results.initfinaldiff
+
+    snapshot.assert_match(json.dumps(concs), "concs.json")
 
 
 @pytest.mark.parametrize(

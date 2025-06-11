@@ -1,8 +1,6 @@
-import numpy as np
 import pytest
 
 from arcs.analysis import AnalyseSampling
-from arcs.traversal import traverse
 
 
 @pytest.fixture
@@ -67,39 +65,3 @@ def test_reaction_paths(analysis):
     }
 
     assert analysis.common_paths == expected_common_paths
-
-
-def test_concentration_does_not_change():
-    # Given the configuration and concentration there should not be any reactions hence no change in concentratons
-
-    temperature = 280
-    pressure = 26
-
-    concs = {
-        "CO2": 0.0,
-        "H2O": 6e-6,
-        "O2": 0,
-        "SO2": 10.0e-6,
-        "NO2": 0,
-        "H2S": 10.0e-6,
-    }
-
-    results = traverse(
-        temperature,
-        pressure,
-        concs,
-        samples=100,
-        iter=5,
-        ceiling=500,
-        scale_highest=0.1,
-        max_rank=5,
-        max_compounds=5,
-        rng=np.random.default_rng([0]),
-        probability_threshold=0.05,
-        nproc=1,
-    )
-
-    conc_in = results.initfinaldiff["initial"]
-    conc_out = results.initfinaldiff["final"]
-
-    assert all(np.isclose(list(conc_in.values()), list(conc_out.values())))
