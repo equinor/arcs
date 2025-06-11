@@ -68,6 +68,11 @@ def test_snapshot(concentrations, snapshot):
     snapshot.assert_match(df.to_csv(lineterminator="\n"), "analysis.csv")
 
     concs = results.initfinaldiff
+    concs = {
+        "initial": {k: round(v, 6) for k, v in concs["initial"].items()},
+        "final": {k: round(v, 6) for k, v in concs["final"].items()},
+        "change": {k: round(v, 6) for k, v in concs["change"].items()},
+    }
 
     snapshot.assert_match(json.dumps(concs), "concs.json")
 
