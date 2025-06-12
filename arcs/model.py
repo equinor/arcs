@@ -3,7 +3,7 @@ from __future__ import annotations
 import pickle
 from functools import lru_cache
 from pathlib import Path
-from typing import List, TypedDict, Set
+from typing import List, TypedDict
 
 import chempy
 import numpy as np
@@ -81,8 +81,8 @@ def get_table(
 def get_interpolated_reactions(
     temperature: float, pressure: float
 ) -> dict[int, ReactionType]:
-    pressure_boundary: Set[int] = _find_enclosing(pressure, PRESSURE_LIST)
-    temperature_boundary: Set[int] = _find_enclosing(temperature, TEMPERATURE_LIST)
+    pressure_boundary = _find_enclosing(pressure, PRESSURE_LIST)
+    temperature_boundary = _find_enclosing(temperature, TEMPERATURE_LIST)
 
     if len(pressure_boundary) == 1 and len(temperature_boundary) == 1:
         # no need to do interpolation
@@ -101,12 +101,18 @@ def get_interpolated_reactions(
                     results[reaction_id] = []
                 results[reaction_id].append(g_value)
 
-    if len(tlogp_combinations) == 2:
-        # interpolate single axis
-        interpolators = [
-            np.interp(tlogp_combinations, np.array(results[i]))
-            for i in range(len(results))
+    if len(pressure_boundary) == 1:
+        t_vals = [t[0] for t in tlogp_combinations]
+        gibbs_values = [
+            np.interp(temperature, t_vals, results[i]) for i in range(len(results))
         ]
+
+    if len(temperature_boundary) == 1:
+        p_vals = [p[0] for p in tlogp_combinations]
+        gibbs_values = [
+            np.interp(pressure, p_vals, results[i]) for i in range(len(results))
+        ]
+
     if len(tlogp_combinations) == 4:
         # interpolate both axis
         interpolators = [
@@ -138,10 +144,10 @@ def _calculate_k(gibbs_energy: float, temperature: float) -> np.float64:
         return np.float64(0)
 
 
-def _find_enclosing(target: float, values: List[int]) -> Set[int]:
+def _find_enclosing(target: float, values: List[int]) -> tuple[int, ...]:
     lower_boundary = max(max([x for x in values if x <= target]), values[0])
     upper_boundary = min(min([x for x in values if x >= target]), values[-1])
-    return set([lower_boundary, upper_boundary])
+    return tuple(sorted(set([lower_boundary, upper_boundary])))
 
 
 def get_reaction_compounds(reactions: dict[int, ReactionType]) -> dict[int, set[str]]:
