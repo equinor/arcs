@@ -88,7 +88,7 @@ class AnalyseSampling:
         mean_values = {
             compound: {
                 "value": diff[compound].mean(),
-                "variance": diff[compound].var(),  # type:ignore
+                "variance": diff[compound].var(),
             }
             for compound in df.columns
         }
