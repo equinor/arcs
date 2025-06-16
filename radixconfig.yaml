@@ -56,10 +56,17 @@ spec:
         - name: http
           port: 5001
       publicPort: http
+      horizontalScaling:
+        maxReplicas: 4
+        minReplicas: 1
+        triggers:
+          - name: memory
+            memory:
+              value: 80
       resources:
         requests:
-          memory: "8Gi"
-          cpu: "2000m"
+          memory: "16Gi"
+          cpu: "12000m"
         limits:
-            memory: "8Gi"
-            cpu: "4000m"
+            memory: "32Gi"
+            cpu: "12000m"
