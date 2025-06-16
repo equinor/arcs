@@ -372,7 +372,7 @@ def traverse(
     rng: np.random.Generator | None = None,
     reactions: dict[int, Any] | None = None,
     table: Table | None = None,
-    nproc: int = 1,
+    nproc: int = 0,
 ) -> TraversalResult:
     if rng is None:
         rng = np.random.default_rng()
