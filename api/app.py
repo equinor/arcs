@@ -61,6 +61,7 @@ def run_simulation(form: SimulationRequest):
         form.pressure,
         form.concs,
         samples=form.samples,
+        nproc=4,  # We hardcode to avoid exhausting too early. Should be a better solution
     )
 
     analysis = AnalyseSampling(results.data)
