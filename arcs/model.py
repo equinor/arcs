@@ -128,9 +128,9 @@ def get_interpolated_reactions(
     reactions_table = {}
     for reaction_id in range(len(reactions)):
         reaction: ReactionType = reactions[reaction_id]
-        reaction["k"] = _calculate_k(gibbs_values[reaction_id], temperature)
-        reaction["g"] = gibbs_values[reaction_id]
-        reactions_table[reaction_id] = reaction
+        k = _calculate_k(gibbs_values[reaction_id], temperature)
+        g = gibbs_values[reaction_id]
+        reactions_table[reaction_id] = ReactionType(e=reaction["e"], k=k, g=g)
 
     return reactions_table
 

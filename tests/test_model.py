@@ -90,6 +90,7 @@ def test_interpolated_result_accuracy():
 
 
 def test_calculate_k():
+    get_reactions.cache_clear()
     for temperature in TEMPERATURE_LIST:
         for pressure in PRESSURE_LIST:
             reactions_list = get_reactions(temperature, pressure)
