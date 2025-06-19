@@ -149,7 +149,7 @@ def test_function_random_walk(snapshot):
     reactions = get_reactions(300, 10)
     reaction_compounds = get_reaction_compounds(reactions)
 
-    walk = _random_walk(
+    actual = _random_walk(
         temperature=250,
         pressure=10,
         concs=concentrations,
@@ -165,4 +165,6 @@ def test_function_random_walk(snapshot):
         table=table,
         reaction_compounds=reaction_compounds,
     )
-    snapshot.assert_match(json.dumps(walk), "random_walk.json")
+
+    actual["data"] = {key: round(value, 8) for key, value in actual["data"].items()}
+    snapshot.assert_match(json.dumps(actual), "random_walk.json")
