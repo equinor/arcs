@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from itertools import product
+import re
 from functools import lru_cache
 from pathlib import Path
-import pickle
-from typing import List, Tuple, TypedDict, Dict
+from typing import TYPE_CHECKING, TypedDict
 import chempy
 import numpy as np
-import numpy.typing as npt
+import xarray as xr
 from scipy import interpolate  # type: ignore
-from bin.generate_tables import process_generic_inputs
+
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+
+type Table = dict[tuple[str, str], tuple[npt.NDArray[np.int16], npt.NDArray[np.float64]]]
 
 MODEL_PATH = Path(__file__).parent.parent / "model"
-
-BOLTZMANN_CONSTANT = 8.617333262 * (10 ** (-5))  # Boltzmann constant k in eV
+BOLTZMANN_CONSTANT = np.float64(8.617333262e-5)  # Boltzmann constant in eV K⁻¹
 
 
 class ReactionType(TypedDict):
@@ -21,147 +28,114 @@ class ReactionType(TypedDict):
     g: float
 
 
+DATASET = xr.open_dataset(MODEL_PATH / "dataset.nc", engine="h5netcdf")
+TEMPERATURES: npt.NDArray[np.int64] = DATASET["temperature"].values
+PRESSURES: npt.NDArray[np.int64] = DATASET["pressure"].values
+SUBSTANCES: set[str] = set(DATASET.attrs["substances"])
+
+
+_PARSER_PATTERN = re.compile(r"(\d+ )?((:?[A-Z][a-z]?\d*)+)")
+_MOLECULE_PATTERN = re.compile(r"[A-Z][a-z]?(\d+)?")
+
+
+def _parse_side(string: str) -> dict[str, int]:
+    return {
+        m[2]: int(m[1]) if m[1] else 1
+        for m in _PARSER_PATTERN.finditer(string)
+    }
+
+
+def _parse_reaction(string: str) -> chempy.Equilibrium:
+    reac, prod = string.split("=")
+    return chempy.Equilibrium(
+        _parse_side(reac), _parse_side(prod), checks=()
+    )
+
+
 @lru_cache
-def get_reactions(temperature: int, pressure: int) -> dict[int, ReactionType]:
-    with open(
-        MODEL_PATH / f"T{temperature}_P{pressure}" / "reactions.p", "rb"
-    ) as stream:
-        return pickle.load(stream)  # type: ignore
+def _num_atoms(name: str) -> int:
+    return sum(int(x) if x else 1 for x in _MOLECULE_PATTERN.findall(name))
 
 
-Table = dict[tuple[str, str], tuple[npt.NDArray[np.int16], npt.NDArray[np.float64]]]
+def _cost_function(
+    gibbs: float,
+    temperature: float,
+    compounds: dict[str, int],
+) -> float:
+    num_atoms = sum(_num_atoms(k) * v for k, v in compounds.items())
+    return np.log(1 + (273 / temperature) * np.exp(gibbs / num_atoms))
+
+
+@lru_cache
+def get_reactions() -> list[chempy.Equilibrium]:
+    return list(map(_parse_reaction, DATASET["reaction"].values))
+
+
+@lru_cache
+def get_gibbs(temperature: int, pressure: int) -> npt.NDArray[np.float64]:
+    return DATASET["gibbs"].sel(temperature=temperature, pressure=pressure).values.ravel()
 
 
 @lru_cache
 def get_table(
     temperature: int, pressure: int, *, rank_small_reactions_higher: bool = True
 ) -> Table:
-    suffix = "-rank_small_reactions_higher" if rank_small_reactions_higher else ""
-    file_path = MODEL_PATH / f"T{temperature}_P{pressure}" / f"table{suffix}.p"
+    gibbs = get_gibbs(temperature, pressure)
+    table: dict[tuple[str, str], list[tuple[int, np.float64]]] = defaultdict(list)
 
-    if not file_path.exists():
-        g, e, id = run_reaction_calc(pressure, temperature)
-        restructured_reactions = {
-            _id: {
-                "e": _e,
-                "k": _calculate_k(_g, temperature),
-                "g": _g,
-            }
-            for _id, _e, _g in zip(id, e, g)
-        }
+    for i, (g, eq) in enumerate(zip(gibbs, get_reactions())):
+        substances = set(eq.reac) | set(eq.prod)
 
-        process_generic_inputs(
-            restructured_reactions, temperature, pressure, MODEL_PATH
+        mult = 10 ** len(substances) if rank_small_reactions_higher else 1
+
+        f_cost = np.float64(1 / _cost_function(g, temperature, eq.reac) * mult)
+        b_cost = np.float64(1 / _cost_function(-g, temperature, eq.prod) * mult)
+        for cost, srcs in [(f_cost, eq.reac), (b_cost, eq.prod)]:
+            for src, dst in product(srcs, substances):
+                if src == dst:
+                    continue
+                table[(src, dst)].append((i, cost))
+
+    new_table: Table = {}
+    for key, val in table.items():
+        new_index = np.array([i for i, _ in val])
+        new_gibbs = np.array([g for _, g in val])
+        sorted_indices = np.argsort(new_gibbs)[::-1]
+        new_table[key] = (
+            new_index[sorted_indices].astype(np.int16),
+            new_gibbs[sorted_indices],
         )
 
-        destination_directory = MODEL_PATH / f"T{temperature}_P{pressure}"
-        reactions_file_path = destination_directory / "reactions.p"
-        with open(reactions_file_path, "wb") as stream:
-            pickle.dump(restructured_reactions, stream)
-
-    with open(file_path, "rb") as stream:
-        return pickle.load(stream)  # type: ignore
+    return new_table
 
 
-def _calculate_k(gibbs_energy: float, temperature: int) -> np.float64:
-    try:
-        return np.float64(
-            np.exp((-1) * gibbs_energy / (BOLTZMANN_CONSTANT * temperature))
-        )
-    except (OverflowError, ValueError):
-        return np.float64(0)
+def get_equilibrium_constants(temperature: int, pressure: int) -> npt.NDArray[np.float64]:
+    gibbs = get_gibbs(temperature, pressure)
+    return np.exp(gibbs / (BOLTZMANN_CONSTANT * temperature))
 
 
-def run_reaction_calc(
-    pressure: int, temperature: int
-) -> Tuple[List[float], List[chempy.Equilibrium], List[int]]:
-    pressure_list = [
-        1,
-        2,
-        5,
-        10,
-        15,
-        20,
-        25,
-        30,
-        35,
-        40,
-        45,
-        50,
-        100,
-        125,
-        150,
-        175,
-        200,
-        225,
-        250,
-        275,
-        300,
-    ]
-    temperature_list = [200, 250, 300, 350, 400]
-
-    temperature_boundaries: Tuple[int, int] = _find_enclosing(
-        temperature, temperature_list
-    )
-    pressure_boundaries: Tuple[int, int] = _find_enclosing(pressure, pressure_list)
-
-    pt_combinations: List[Tuple[int, int]] = [
-        (t, p) for t in temperature_boundaries for p in pressure_boundaries
-    ]
-
-    reactions: List[Dict[int, ReactionType]] = [
-        get_reactions(t, p) for (t, p) in pt_combinations
-    ]
-
-    sorted_reactions = [dict(sorted(reaction.items())) for reaction in reactions]
-
-    return _get_gibbs_constant(sorted_reactions, pt_combinations, pressure, temperature)
-
-
-def _get_gibbs_constant(
-    enclosing_reactions: List[Dict[int, ReactionType]],
-    pt_combinations: List[Tuple[int, int]],
-    pressure: int,
+def _interp_gibbs(
     temperature: int,
-) -> Tuple[List[float], List[chempy.Equilibrium], List[int]]:
+    pressure: int,
+) -> npt.NDArray[np.float64]:
     """
     Calculates Gibbs contant using linear interpolation between 2 enclosing points
 
     Returns: Data required for reaction table
     """
-
-    gibbs_values: List[float] = []
-    equilibrium: List[chempy.Equilibrium] = []
-
-    for reactions in enclosing_reactions:  # Runs for each P & T enclosing set
-        reaction_gibbs_values = []
-        reaction_ids = []
-        for (
-            reaction_id,
-            reaction_data,
-        ) in reactions.items():  # Runs for all 9113 reaction ids
-            g_value = reaction_data["g"]
-            _e = reaction_data["e"]
-            equilibrium.append(_e)
-            reaction_gibbs_values.append(g_value)
-            reaction_ids.append(reaction_id)
-        gibbs_values.append(reaction_gibbs_values)  # type: ignore
-
-    gibbs_values = np.array(gibbs_values)  # type: ignore
-
-    # Unpack list of tuples
-    (T0, P0), (T0, P1), (T1, P0), (T1, P1) = pt_combinations
+    t_lower, t_upper = _find_enclosing(TEMPERATURES, temperature)
+    p_lower, p_upper = _find_enclosing(PRESSURES, pressure)
 
     # Keeping pressure constant
-    gibbs_values_p_low = np.array([gibbs_values[0], gibbs_values[2]]).transpose()
-    gibbs_values_p_high = np.array([gibbs_values[1], gibbs_values[3]]).transpose()
+    gibbs_p_lower = DATASET["gibbs"].sel(temperature=[t_lower, t_upper], pressure=p_lower).values.transpose()
+    gibbs_p_upper = DATASET["gibbs"].sel(temperature=[t_lower, t_upper], pressure=p_upper).values.transpose()
 
     # Interpolate Gibbs values for temperature
     g_val_low_pressure = interpolate_gibbs_values(
-        gibbs_values_p_low, T0, T1, temperature
+        gibbs_p_lower, t_lower, t_upper, temperature
     )
     g_val_high_pressure = interpolate_gibbs_values(
-        gibbs_values_p_high, T0, T1, temperature
+        gibbs_p_upper, t_lower, t_upper, temperature
     )
 
     # Prepare for pressure interpolation
@@ -171,27 +145,30 @@ def _get_gibbs_constant(
 
     # Interpolate Gibbs values for pressure
     calculated_gibbs_values = interpolate_gibbs_values(
-        gibbs_values_for_changing_pressure, P0, P1, pressure
+        gibbs_values_for_changing_pressure, p_lower, p_higher, pressure
     )
 
-    return [calculated_gibbs_values, equilibrium, reaction_ids]  # type: ignore
+    return calculated_gibbs_values
 
 
 def interpolate_gibbs_values(
     values: npt.NDArray[np.float64], point1: int, point2: int, target: int
-) -> List[float]:
+) -> npt.NDArray[np.float64]:
     interpolation = [interpolate.interp1d([point1, point2], y) for y in values]
-    return [f(target) for f in interpolation]
+    return np.array([f(target) for f in interpolation])
 
 
-def _find_enclosing(target: int, values: List[int]) -> Tuple[int, int]:
-    if target in values:
-        return target, target
-    lower_candidate = max(list(filter(lambda x: x < target, values)))
-    upper_candidate = min(list(filter(lambda x: x > target, values)))
+def _find_enclosing(a: npt.NDArray[np.int64], x: int) -> tuple[np.int64, np.int64]:
+    index = np.searchsorted(a, x)
+    try:
+        y = a[index]
+        if index == 0 and x != y:
+            raise IndexError()
+        return (y, y) if x == y else (a[index - 1], y)
+    except IndexError:
+        raise IndexError(f"Search value must be between {a[0]} and {a[-1]}, is {x}")
 
-    return lower_candidate, upper_candidate
 
-
-def get_reaction_compounds(reactions: dict[int, ReactionType]) -> dict[int, set[str]]:
-    return {k: set(r["e"].reac) | set(r["e"].prod) for k, r in reactions.items()}
+@lru_cache
+def get_reaction_compounds() -> dict[int, set[str]]:
+    return {k: set(r.reac) | set(r.prod) for k, r in enumerate(get_reactions())}

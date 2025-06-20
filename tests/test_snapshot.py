@@ -7,7 +7,7 @@ from arcs.traversal import (
     _get_weighted_random_compounds,
     _random_walk,
 )
-from arcs.model import Table, get_reaction_compounds, get_reactions, get_table
+from arcs.model import Table, get_equilibrium_constants, get_reaction_compounds, get_reactions, get_table
 from arcs.analysis import AnalyseSampling
 from chempy import Equilibrium
 import pytest
@@ -55,19 +55,20 @@ def test_snapshot(snapshot):
     [(1e-12, True, False), (1, False, False), (1e12, False, True)],
 )
 def test_synthetic(k, expected_left_shift, expected_right_shift):
-    reactions = {
-        1: {
-            "e": Equilibrium.from_string("H2 + Br2 = 2 HBr"),
-            "k": k,
-        }
-    }
+    reactions = [
+        Equilibrium.from_string("H2 + Br2 = 2 HBr"),
+    ]
     table: Table = {
-        ("H2", "Br2"): ([1], [1.0]),
-        ("H2", "HBr"): ([1], [1.0]),
-        ("Br2", "H2"): ([1], [1.0]),
-        ("Br2", "HBr"): ([1], [1.0]),
-        ("HBr", "H2"): ([1], [1.0]),
-        ("HBr", "Br2"): ([1], [1.0]),
+        ("H2", "Br2"): ([0], [1.0]),
+        ("H2", "HBr"): ([0], [1.0]),
+        ("Br2", "H2"): ([0], [1.0]),
+        ("Br2", "HBr"): ([0], [1.0]),
+        ("HBr", "H2"): ([0], [1.0]),
+        ("HBr", "Br2"): ([0], [1.0]),
+    }
+    equilibrium_constants = np.array([k])
+    reaction_compounds = {
+        0: {"H2", "Br2", "HBr"},
     }
 
     concs = {
@@ -82,6 +83,8 @@ def test_synthetic(k, expected_left_shift, expected_right_shift):
         concs=concs,
         table=table,
         reactions=reactions,
+        equilibrium_constants=equilibrium_constants,
+        reaction_compounds=reaction_compounds,
         samples=1,
         iter=1,
         nproc=1,
@@ -118,7 +121,6 @@ def test_function_get_weighted_random_compounds(snapshot):
 
 
 def test_function_get_weighted_reaction_rankings(snapshot):
-    reactions = get_reactions(300, 100)
     table = get_table(300, 10)
     concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
 
@@ -137,7 +139,7 @@ def test_function_get_weighted_reaction_rankings(snapshot):
         choices=list(weighted_random_compounds),
         max_rank=5,
         table=table,
-        reaction_compounds=get_reaction_compounds(reactions),
+        reaction_compounds=get_reaction_compounds(),
     )
     ranking = {int(k): float(v) for k, v in zip(*ranking)}
     snapshot.assert_match(json.dumps(ranking), "weighted_reaction_ranking.json")
@@ -146,8 +148,6 @@ def test_function_get_weighted_reaction_rankings(snapshot):
 def test_function_random_walk(snapshot):
     concentrations = {"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6}
     table = get_table(300, 10)
-    reactions = get_reactions(300, 10)
-    reaction_compounds = get_reaction_compounds(reactions)
 
     walk = _random_walk(
         temperature=250,
@@ -161,8 +161,9 @@ def test_function_random_walk(snapshot):
         scale_highest=0.1,
         ceiling=2100,
         rng=np.random.default_rng([0]),
-        reactions=reactions,
+        reactions=get_reactions(),
+        equilibrium_constants=get_equilibrium_constants(300, 10),
         table=table,
-        reaction_compounds=reaction_compounds,
+        reaction_compounds=get_reaction_compounds(),
     )
     snapshot.assert_match(json.dumps(walk), "random_walk.json")

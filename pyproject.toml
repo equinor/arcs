@@ -40,6 +40,8 @@ fastapi = "^0.115.2"
 uvicorn = "^0.32.0"
 pydantic = "^2.9.2"
 python-dotenv = "^1.0.1"
+h5netcdf = "^1.6.1"
+xarray = "^2025.6.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"

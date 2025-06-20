@@ -1,49 +1,32 @@
-from typing import Dict, List
+import pytest
 import numpy as np
-import numpy.typing as npt
 from arcs.model import (
+    TEMPERATURES,
     ReactionType,
     _find_enclosing,
-    run_reaction_calc,
-    _get_gibbs_constant,
-    get_reactions,
+    _interp_gibbs,
     interpolate_gibbs_values,
-    _calculate_k,
 )
 
-PRESSURE_LIST = [
-    1,
-    2,
-    5,
-    10,
-    15,
-    20,
-    25,
-    30,
-    35,
-    40,
-    45,
-    50,
-    100,
-    125,
-    150,
-    175,
-    200,
-    225,
-    250,
-    275,
-    300,
-]
-TEMPERATURE_LIST = [200, 250, 300, 350, 400]
 
+@pytest.mark.parametrize("value, expect_lower, expect_upper",[
+    pytest.param(100, 100, 100, id="100 (lower bound exact match)"),
+    pytest.param(500, 500, 500, id="500 (upper bound exact match)"),
+    pytest.param(300, 300, 300, id="300 (exact match)"),
+    pytest.param(250, 200, 300, id="250 (between 200 and 300)"),
+    pytest.param(0, None, None, id="0 (out of bounds)"),
+    pytest.param(600, None, None, id="600 (out of bounds)"),
+])
+def test_find_enclosing(value: int, expect_lower: int | None, expect_upper: int | None):
+    values = np.array([100, 200, 300, 400, 500])
 
-def test_find_enclosing():
-    values = [100, 200, 300, 400, 500]
-
-    # Test with a value in between two existing values
-    lower, upper = _find_enclosing(250, values)
-    assert lower == 200
-    assert upper == 300
+    if expect_lower is not None and expect_upper is not None:
+        lower, upper = _find_enclosing(values, value)
+        assert lower == expect_lower
+        assert upper == expect_upper
+    else:
+        with pytest.raises(IndexError, match="Search value must be between 100 and 500"):
+            _find_enclosing(values, value)
 
 
 def test_run_reaction_calc():
@@ -51,7 +34,7 @@ def test_run_reaction_calc():
     pressure = 2
 
     # Assuming this function returns a list with the Gibbs free energy values
-    gibbs_values, equilibrium, reaction_ids = run_reaction_calc(pressure, temperature)
+    gibbs_values, equilibrium, reaction_ids = _interp_gibbs(temperature, pressure)
 
     # Check if the returned values are of expected types
     assert isinstance(gibbs_values, list)
@@ -67,7 +50,7 @@ def test_run_reaction_calc():
     assert len(gibbs_values) == len(reaction_ids)
 
 
-def test_get_gibbs_constant():
+def test_interp_gibbs():
     # Mock data for reactions and pressure/temperature combinations
     reactions = [
         {1: {"e": None, "k": 1.0, "g": 100.0}, 2: {"e": None, "k": 1.5, "g": 150.0}},
@@ -80,7 +63,7 @@ def test_get_gibbs_constant():
     temperature = 375
 
     # Call the function
-    calculated_gibbs_values, equilibrium, reaction_ids = _get_gibbs_constant(
+    calculated_gibbs_values, equilibrium, reaction_ids = _interp_gibbs(
         reactions, pt_combinations, pressure, temperature
     )
 
@@ -97,7 +80,7 @@ def test_get_gibbs_constant():
 
 
 def test__interpolated_result_accuracy():
-    for temp in range(len(TEMPERATURE_LIST) - 1):
+    for temp in range(len(TEMPERATURES) - 1):
         for press in range(len(PRESSURE_LIST) - 1):
             _interpolated_result_accuracy(temp, press)
 
@@ -134,7 +117,7 @@ def _interpolated_result_accuracy(temps, press):
 
     sorted_reactions = [dict(sorted(reaction.items())) for reaction in reactions]
 
-    interpolated_gibbs_constant, _, ids = _get_gibbs_constant(
+    interpolated_gibbs_constant, _, ids = _interp_gibbs(
         sorted_reactions, tp_combinations, pressure, temperature
     )
 
@@ -149,31 +132,12 @@ def _interpolated_result_accuracy(temps, press):
 
 
 def test_interpolate_gibbs_values():
-    values: npt.NDArray[np.float64] = [np.array([1269, 1519])]
-    point1: int = 250
-    point2: int = 300
-    target: int = 275
-    expected_result: int = 1394
-    interpolated_result = interpolate_gibbs_values(values, point1, point2, target)[0]
+    values = np.array([1269, 1519])
+    point1 = 250
+    point2 = 300
+    target = 275
+    expected_result = [1394]
 
-    assert expected_result == interpolated_result
+    result = interpolate_gibbs_values(values, point1, point2, target)
 
-
-def test_calculate_k():
-    combinations = []
-    for temperature in TEMPERATURE_LIST:
-        for pressure in PRESSURE_LIST:
-            combinations.append((temperature, pressure))
-
-    for temperature_pressure_pair in combinations:
-        reactions_list = get_reactions(
-            temperature_pressure_pair[0], temperature_pressure_pair[1]
-        )
-
-        for _, reaction_data in reactions_list.items():
-            gibbs_energy = reaction_data["g"]
-            true_k = reaction_data["k"]
-            temperature = temperature_pressure_pair[0]
-
-            calculated_k = _calculate_k(gibbs_energy, temperature)
-            assert np.isclose(calculated_k, true_k, rtol=1e-4, atol=1e-4)
+    assert (expected_result == result).all()

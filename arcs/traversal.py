@@ -15,7 +15,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from arcs.model import get_reaction_compounds, get_table, get_reactions, Table
+from arcs.model import get_equilibrium_constants, get_reactions, get_reaction_compounds, get_table, Table
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -132,63 +132,42 @@ def _get_weighted_reaction_rankings(
 
     sum = np.sum(weights)
     if not sum:
-        return None
+        raise NotImplementedError()
 
     weights /= sum
     return (reactions, weights)
 
 
 def _generate_eqsystem(
-    index: int, temperature: int, pressure: int, *, reactions: dict[int, Any]
+    reaction: Equilibrium, k: float
 ) -> EqSystem | None:
-    charged_species = {
+    charged_species: dict[str, int] = {
         "CO3H": -1,
         "NH4": +1,
         "NH2CO2": -1,
     }
-    reaction = reactions[index]
-    reactants = reaction["e"].reac
-    products = reaction["e"].prod
-    k = reaction["k"]
-    substances = {}
-
-    reaction_compounds = list(it.chain(*[list(reactants) + list(products)]))
-    for compound in reaction_compounds:
-        if compound in list(charged_species.keys()):
-            substance = Substance.from_formula(
-                compound, **{"charge": charged_species[compound]}
-            )
-            substances[substance.name] = substance
-        else:
-            substance = Substance.from_formula(
-                compound, **{"charge": 0}
-            )  # ,charge=0) # charge buggers up everything have removed for now....
-            substances[substance.name] = substance
-    equilibrium = Equilibrium(reac=reactants, prod=products, param=k)
-    try:
-        return EqSystem(
-            [equilibrium], substances
-        )  # might not just be able to try a return...
-    except Exception:
-        return None
-
+    substances = [
+        Substance.from_formula(compound, charge=charged_species.get(compound, 0))
+        for compound in it.chain(reaction.reac, reaction.prod)
+    ]
+    equilibrium = reaction.copy()
+    equilibrium.param = k
+    return EqSystem([equilibrium], substances)
 
 def _equilibrium_concentrations(
     concs: dict[str, float], eq: EqSystem
 ) -> tuple[dict[str, float], str]:
     # something is going wrong here...
     equilibrium_concentrations = defaultdict(lambda: 0.0, concs)
-    try:
-        root_concs, solution_data, sane = eq.root(equilibrium_concentrations)
+    root_concs, solution_data, sane = eq.root(equilibrium_concentrations)
 
-        assert solution_data["success"] and sane
-        for i, conc in enumerate(root_concs):
-            equilibrium_concentrations[eq.substance_names()[i]] = conc
-        concs = equilibrium_concentrations
-        eq = eq.string()
-    except Exception:
-        concs = equilibrium_concentrations
-        eq = None
+    if not sane or not solution_data["success"]:
+        return (concs, None)
+
+    for i, conc in enumerate(root_concs):
+        equilibrium_concentrations[eq.substance_names()[i]] = conc
+    concs = equilibrium_concentrations
+    eq = eq.string()
     return (dict(concs), eq)
 
 
@@ -211,7 +190,8 @@ def _random_walk(
     scale_highest: float,
     ceiling: int,
     rng: np.random.Generator,
-    reactions: dict[int, Any],
+    reactions: list[Equilibrium],
+    equilibrium_constants: npt.NDArray[np.float64],
     table: Table,
     reaction_compounds: dict[int, set[str]],
 ) -> _RandomWalk:
@@ -220,20 +200,17 @@ def _random_walk(
 
     for _ in range(iter):
         previous_conc_step = conc_history[-1]
-        try:
-            choices = _get_weighted_random_compounds(
-                temperature,
-                pressure,
-                previous_conc_step,
-                max_compounds=max_compounds,
-                probability_threshold=probability_threshold,
-                co2=co2,
-                scale_highest=scale_highest,
-                ceiling=ceiling,
-                rng=rng,
-            )
-        except Exception:
-            break
+        choices = _get_weighted_random_compounds(
+            temperature,
+            pressure,
+            previous_conc_step,
+            max_compounds=max_compounds,
+            probability_threshold=probability_threshold,
+            co2=co2,
+            scale_highest=scale_highest,
+            ceiling=ceiling,
+            rng=rng,
+        )
         if len(choices) <= 1:
             break
         rankings = _get_weighted_reaction_rankings(
@@ -253,7 +230,7 @@ def _random_walk(
         )
 
         eqsyst = _generate_eqsystem(
-            int(chosen_reaction), temperature, pressure, reactions=reactions
+            reactions[int(chosen_reaction)], equilibrium_constants[chosen_reaction]
         )
         # if reaction was previous reaction then break
         path_available = [r for r in reaction_history if r is not None]
@@ -302,7 +279,8 @@ def _sample(
     ceiling: int,
     scale_highest: float,
     rng: np.random.Generator,
-    reactions: dict[int, Any],
+    reactions: list[Equilibrium],
+    equilibrium_constants: npt.NDArray[np.float64],
     table: Table,
     nproc: int,
     reaction_compounds: dict[int, set[str]],
@@ -320,6 +298,7 @@ def _sample(
         "scale_highest": scale_highest,
         "rng": rng,
         "reactions": reactions,
+        "equilibrium_constants": equilibrium_constants,
         "table": table,
         "reaction_compounds": reaction_compounds,
     }
@@ -370,7 +349,9 @@ def traverse(
     scale_highest: float = 0.1,
     rank_small_reactions_higher: bool = True,
     rng: np.random.Generator | None = None,
-    reactions: dict[int, Any] | None = None,
+    reactions: list[Equilibrium] | None = None,
+    equilibrium_constants: npt.NDArray[np.float64] | None = None,
+    reaction_compounds: dict[int, set[str]] | None = None,
     table: Table | None = None,
     nproc: int = 0,
 ) -> TraversalResult:
@@ -383,7 +364,11 @@ def traverse(
             rank_small_reactions_higher=rank_small_reactions_higher,
         )
     if reactions is None:
-        reactions = get_reactions(temperature, pressure)
+        reactions = get_reactions()
+    if equilibrium_constants is None:
+        equilibrium_constants = get_equilibrium_constants(temperature, pressure)
+    if reaction_compounds is None:
+        reaction_compounds = get_reaction_compounds()
 
     concstring = pd.Series({k: v for k, v in concs.items() if v > 0})
     if "CO2" in concstring:
@@ -404,9 +389,10 @@ def traverse(
         scale_highest=scale_highest,
         rng=rng,
         reactions=reactions,
+        equilibrium_constants=equilibrium_constants,
         table=table,
         nproc=nproc,
-        reaction_compounds=get_reaction_compounds(reactions),
+        reaction_compounds=reaction_compounds,
     )
 
     mean_concs = pd.DataFrame([s["data"] for s in results.values()]).mean()
