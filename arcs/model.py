@@ -16,6 +16,7 @@ MODEL_PATH = Path(__file__).parent.parent / "model"
 
 BOLTZMANN_CONSTANT = 8.617333262 * (10 ** (-5))  # Boltzmann constant k in eV
 
+TEMPERATURE_LIST = [200, 250, 300, 350, 400]
 PRESSURE_LIST = [
     1,
     2,
@@ -39,7 +40,6 @@ PRESSURE_LIST = [
     275,
     300,
 ]
-TEMPERATURE_LIST = [200, 250, 300, 350, 400]
 
 
 class ReactionType(TypedDict):
@@ -81,10 +81,13 @@ def get_table(
 def get_interpolated_reactions(
     temperature: float, pressure: float
 ) -> dict[int, ReactionType]:
-    pressure_boundary = _find_enclosing(pressure, PRESSURE_LIST)
     temperature_boundary = _find_enclosing(temperature, TEMPERATURE_LIST)
+    pressure_boundary = _find_enclosing(pressure, PRESSURE_LIST)
 
-    if len(pressure_boundary) == 1 and len(temperature_boundary) == 1:
+    const_temperature = temperature_boundary[0] == temperature_boundary[-1]
+    const_pressure = pressure_boundary[0] == pressure_boundary[-1]
+
+    if const_temperature and const_pressure:
         # no need to do interpolation
         return get_reactions(temperature, pressure)
 
@@ -92,8 +95,8 @@ def get_interpolated_reactions(
     tlogp_combinations = [
         [t, np.log(p)] for t in temperature_boundary for p in pressure_boundary
     ]
-    for p in pressure_boundary:
-        for t in temperature_boundary:
+    for t in temperature_boundary:
+        for p in pressure_boundary:
             reactions = get_reactions(t, p)
             for reaction_id in range(len(reactions)):
                 g_value = reactions[reaction_id]["g"]
@@ -101,19 +104,21 @@ def get_interpolated_reactions(
                     results[reaction_id] = []
                 results[reaction_id].append(g_value)
 
-    if len(pressure_boundary) == 1:
+    if const_pressure:
+        # interpolate along temperature axis
         t_vals = [t[0] for t in tlogp_combinations]
         gibbs_values = [
             np.interp(temperature, t_vals, results[i]) for i in range(len(results))
         ]
 
-    if len(temperature_boundary) == 1:
-        p_vals = [p[0] for p in tlogp_combinations]
+    if const_temperature:
+        # interpolate along pressure axis
+        p_vals = [p[1] for p in tlogp_combinations]
         gibbs_values = [
             np.interp(pressure, p_vals, results[i]) for i in range(len(results))
         ]
 
-    if len(tlogp_combinations) == 4:
+    if not const_temperature and not const_pressure:
         # interpolate both axis
         interpolators = [
             LinearNDInterpolator(tlogp_combinations, np.array(results[i]))
@@ -144,10 +149,10 @@ def _calculate_k(gibbs_energy: float, temperature: float) -> np.float64:
         return np.float64(0)
 
 
-def _find_enclosing(target: float, values: List[int]) -> tuple[int, ...]:
+def _find_enclosing(target: float, values: List[int]) -> tuple[int, int]:
     lower_boundary = max(max([x for x in values if x <= target]), values[0])
     upper_boundary = min(min([x for x in values if x >= target]), values[-1])
-    return tuple(sorted(set([lower_boundary, upper_boundary])))
+    return [lower_boundary, upper_boundary]
 
 
 def get_reaction_compounds(reactions: dict[int, ReactionType]) -> dict[int, set[str]]:
