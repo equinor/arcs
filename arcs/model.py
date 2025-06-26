@@ -152,7 +152,7 @@ def _calculate_k(gibbs_energy: float, temperature: float) -> np.float64:
 def _find_enclosing(target: float, values: List[int]) -> tuple[int, int]:
     lower_boundary = max(max([x for x in values if x <= target]), values[0])
     upper_boundary = min(min([x for x in values if x >= target]), values[-1])
-    return [lower_boundary, upper_boundary]
+    return lower_boundary, upper_boundary
 
 
 def get_reaction_compounds(reactions: dict[int, ReactionType]) -> dict[int, set[str]]:

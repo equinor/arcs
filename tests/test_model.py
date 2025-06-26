@@ -140,4 +140,4 @@ def test_calculate_k():
                 gibbs_energy = reactions_list[reaction_id]["g"]
                 true_k = reactions_list[reaction_id]["k"]
                 calculated_k = _calculate_k(gibbs_energy, temperature)
-                assert np.isclose(calculated_k, true_k, rtol=1e-4, atol=1e-4)
+                assert np.isclose(calculated_k, true_k)
