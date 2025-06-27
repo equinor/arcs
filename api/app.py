@@ -1,17 +1,34 @@
 from __future__ import annotations
 
+import os
 
 import pandas as pd
+from azure.monitor.opentelemetry import configure_azure_monitor
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry import trace
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.trace import get_tracer_provider
 from pydantic import BaseModel, Field
 
 from arcs.analysis import AnalyseSampling
 from arcs.traversal import traverse
-from dotenv import load_dotenv
+
+tracer = trace.get_tracer(__name__, tracer_provider=get_tracer_provider())
 
 load_dotenv()
 app = FastAPI()
+
+if os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"):
+    configure_azure_monitor(
+        connection_string=os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+    )
+
+HTTPXClientInstrumentor().instrument()
+FastAPIInstrumentor.instrument_app(app)
+
 
 origins = [
     "http://localhost:5173",
@@ -86,4 +103,4 @@ def run_simulation(form: SimulationRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host="localhost", port=8002)
