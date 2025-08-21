@@ -1,11 +1,12 @@
 import numpy as np
 
 from arcs.traversal import traverse
+from arcs.analysis import AnalyseSampling
 
 def test_sample_size_deviation():
     #sample_sizes = [500, 1000, 1500, 2000]
     #n = 100
-    sample_sizes = [10, 100, 500]
+    sample_sizes = [10, 15, 20]
 
     pressure = 10
     temperature = 300
@@ -21,7 +22,18 @@ def test_sample_size_deviation():
     result_stats = {}
 
     for s in sample_sizes:
-        result_stats[s] = run_arcs(pressure, temperature, concentrations, s)
+        results = traverse(
+            temperature,
+            pressure,
+            concentrations,
+            samples=s,
+        )
+        analysis = AnalyseSampling(results.data)
+        analysis.output_concentrations_std_mean()
+        std = analysis.final_concs_std
+        mean = analysis.final_concs_mean
+        print(s, std, mean)
+
 
     print(result_stats)
     test_plot_mean_std(result_stats, ["H2O", "H2SO4"])
