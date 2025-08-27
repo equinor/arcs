@@ -176,7 +176,6 @@ def _generate_eqsystem(
 def _equilibrium_concentrations(
     concs: dict[str, float], eq: EqSystem
 ) -> tuple[dict[str, float], str]:
-    # something is going wrong here...
     equilibrium_concentrations = defaultdict(lambda: 0.0, concs)
     try:
         root_concs, solution_data, sane = eq.root(equilibrium_concentrations)
@@ -409,7 +408,7 @@ def traverse(
         reaction_compounds=get_reaction_compounds(reactions),
     )
 
-    mean_concs = pd.DataFrame([s["data"] for s in results.values()]).mean()
+    mean_concs = pd.DataFrame([s["data"] for s in results.values()]).fillna(0.0).mean()
     df_summary = pd.DataFrame({"initial": concs, "final": mean_concs}) * 1e6
     df_summary = df_summary.dropna(how="all").fillna(0.0)
     df_summary["change"] = df_summary["final"] - df_summary["initial"]
