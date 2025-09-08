@@ -107,6 +107,8 @@ def _get_weighted_random_compounds(
 
 def _get_weighted_reaction_rankings(
     choices: list[str],
+    arcs_reactions: dict[int, Any],
+    current_concs: dict[str, float],
     *,
     max_rank: int,
     table: Table,
@@ -120,6 +122,12 @@ def _get_weighted_reaction_rankings(
     for index, reaction in enumerate(reactions):
         if len(new_weights) > max_rank:
             break
+
+        eq = arcs_reactions[reaction]["e"]
+
+        if not all(current_concs.get(s, 0.0) > 1e-8 for s in eq.reac) and not all(
+                current_concs.get(s, 0.0) > 1e-8 for s in eq.prod):
+            continue
 
         if len(choices) <= 2 or any(
             c in reaction_compounds[int(reaction)] for c in choices[2:]
@@ -237,6 +245,8 @@ def _random_walk(
             break
         rankings = _get_weighted_reaction_rankings(
             list(choices),
+            reactions,
+            previous_conc_step,
             max_rank=max_rank,
             table=table,
             reaction_compounds=reaction_compounds,
@@ -408,7 +418,7 @@ def traverse(
         reaction_compounds=get_reaction_compounds(reactions),
     )
 
-    mean_concs = pd.DataFrame([s["data"] for s in results.values()]).fillna(0.0).mean()
+    mean_concs = pd.DataFrame([s["data"] for s in results.values() if s["path_length"] > 1]).fillna(0.0).mean()
     df_summary = pd.DataFrame({"initial": concs, "final": mean_concs}) * 1e6
     df_summary = df_summary.dropna(how="all").fillna(0.0)
     df_summary["change"] = df_summary["final"] - df_summary["initial"]
