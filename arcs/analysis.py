@@ -96,7 +96,18 @@ class AnalyseSampling:
             
    
         self.stats = eqt
-    
+
+
+    def output_concentrations_std_mean(self):
+        df = (
+                pd.DataFrame({k: v["data"] for k, v in self.data[300.0][10.0].items()}).T.fillna(0) * 1e6
+        )
+        std = df.std()
+        mean = df.mean()
+        self.final_concs_std = std.to_dict()
+        self.final_concs_mean = mean.to_dict()
+
+
     def mean_sampling(self):
         t = list(self.data)[0]
         p = list(self.data[t])[0]
