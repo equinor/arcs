@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 class TraversalResult:
     initfinaldiff: Any
     final_concs: Any
+    std_concs: Any
     metadata: dict[str, Any]
     data: dict[int, Any]
 
@@ -125,8 +126,8 @@ def _get_weighted_reaction_rankings(
 
         eq = arcs_reactions[reaction]["e"]
 
-        if not all(current_concs.get(s, 0.0) > 1e-8 for s in eq.reac) and not all(
-                current_concs.get(s, 0.0) > 1e-8 for s in eq.prod):
+        if not all(current_concs.get(s, 0.0) > 0 for s in eq.reac) and not all(
+                current_concs.get(s, 0.0) > 0 for s in eq.prod):
             continue
 
         if len(choices) <= 2 or any(
@@ -418,7 +419,8 @@ def traverse(
         reaction_compounds=get_reaction_compounds(reactions),
     )
 
-    mean_concs = pd.DataFrame([s["data"] for s in results.values() if s["path_length"] > 1]).fillna(0.0).mean()
+    mean_concs = pd.DataFrame([s["data"] for s in results.values() if s["path_length"] > 0]).fillna(0.0).mean()
+    std_concs = pd.DataFrame([s["data"] for s in results.values() if s["path_length"] > 0]).fillna(0.0).std()
     df_summary = pd.DataFrame({"initial": concs, "final": mean_concs}) * 1e6
     df_summary = df_summary.dropna(how="all").fillna(0.0)
     df_summary["change"] = df_summary["final"] - df_summary["initial"]
@@ -454,6 +456,7 @@ def traverse(
     return TraversalResult(
         initfinaldiff=df_summary.to_dict(),
         final_concs=mean_concs.to_dict(),
+        std_concs = std_concs.to_dict(),
         data=results,
         metadata=metadata,
     )
