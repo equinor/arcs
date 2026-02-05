@@ -1,0 +1,25 @@
+apiVersion: radix.equinor.com/v1
+kind: RadixApplication
+metadata:
+  name: arcs
+spec:
+  environments:
+    - name: app
+      build:
+        from: main
+  dnsAlias:
+    - alias: arcs
+      component: server
+      environment: app
+  components:
+    - name: server
+      ports:
+        - name: http
+          port: 8050
+      publicPort: http
+      resources:
+        limits:
+          memory: 8000M
+        requests:
+          cpu: 500m
+          memory: 8000M
