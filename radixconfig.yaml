@@ -4,15 +4,18 @@ metadata:
   name: arcs
 spec:
   environments:
+    - name: dev
+      build:
+        from: main
     - name: app
       build:
         from: main
   dnsAlias:
     - alias: arcs
-      component: server
+      component: frontend
       environment: app
   components:
-    - name: server
+    - name: frontend
       ports:
         - name: http
           port: 8050
@@ -23,3 +26,41 @@ spec:
         requests:
           cpu: 500m
           memory: 8000M
+    - name: api
+      network:
+        ingress:
+          public:
+            proxyReadTimeout: 300
+            proxySendTimeout: 300
+      environmentConfig:
+        - environment: app
+          enabled: false
+        - environment: dev
+          variables:
+            CLIENT_ID: 848324c2-27b7-4804-8180-c7aa70be5af7
+            API_SCOPE: api://848324c2-27b7-4804-8180-c7aa70be5af7/Arcs.User
+            APPLICATIONINSIGHTS_CONNECTION_STRING:
+        - environment: prod
+          variables:
+            CLIENT_ID: ad6b45d3-06d7-492a-926a-60ef6b82d5f8
+            API_SCOPE: api://ad6b45d3-06d7-492a-926a-60ef6b82d5f8/Arcs.User
+            APPLICATIONINSIGHTS_CONNECTION_STRING:
+      dockerfileName: Dockerfile_api
+      ports:
+        - name: http
+          port: 5001
+      publicPort: http
+      horizontalScaling:
+        maxReplicas: 4
+        minReplicas: 1
+        triggers:
+          - name: memory
+            memory:
+              value: 80
+      resources:
+        requests:
+          memory: "16Gi"
+          cpu: "12000m"
+        limits:
+            memory: "32Gi"
+            cpu: "12000m"

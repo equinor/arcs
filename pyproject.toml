@@ -45,7 +45,14 @@ dependencies = [
         'loguru',#==0.7.2',
         'pywebview',
         'setproctitle',
-        'pytest'
+        'pytest',
+        'fastapi',
+        'uvicorn',
+        'pydantic', 
+        'python-dotenv',
+        'azure-monitor-opentelemetry',
+        'opentelemetry-instrumentation-httpx',
+        'opentelemetry-instrumentation-fastapi',
 ]
 
 [project.optional-dependencies]
