@@ -7,18 +7,18 @@ spec:
     - name: dev
       build:
         from: main
-    - name: dash_app
+    - name: dash-app
       build:
         from: main
     - name: prod
   dnsAlias:
     - alias: arcs
       component: server
-      environment: dash_app
+      environment: dash-app
   components:
     - name: server
       environmentConfig:
-        - environment: dash_app
+        - environment: dash-app
           enabled: true
         - environment: dev
           enabled: false
@@ -42,7 +42,7 @@ spec:
             proxyReadTimeout: 300
             proxySendTimeout: 300
       environmentConfig:
-        - environment: dash_app
+        - environment: dash-app
           enabled: false
         - environment: dev
           variables:
