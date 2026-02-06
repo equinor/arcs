@@ -32,8 +32,8 @@ spec:
         limits:
           memory: 8000M
         requests:
-          cpu: 500m
-          memory: 8000M
+          cpu: "12000m"
+          memory: "16Gi"
       dockerfileName: Dockerfile_dashapp
     - name: api
       network:
