@@ -14,9 +14,15 @@ from opentelemetry.trace import get_tracer_provider
 from pydantic import BaseModel, Field
 
 from arcs.analysis import AnalyseSampling
-from arcs.traversal import traverse
+from arcs.traversal import Traversal
+from arcs.generate import GenerateInitialConcentrations
+from arcs.generate import GraphGenerator
+import importlib.resources
 
 tracer = trace.get_tracer(__name__, tracer_provider=get_tracer_provider())
+
+DATA_DIR = importlib.resources.files("arcs").joinpath("data")
+DFT_FILENAME = DATA_DIR.joinpath("dft_data.json")
 
 load_dotenv()
 app = FastAPI()
@@ -73,29 +79,37 @@ class SimulationRequest(BaseModel):
 
 @app.post("/run_simulation")
 def run_simulation(form: SimulationRequest):
-    results = traverse(
-        form.temperature,
-        form.pressure,
-        form.concs,
-        samples=form.samples,
-        nproc=4,  # We hardcode to avoid exhausting too early. Should be a better solution
+    graph = GraphGenerator().from_file(
+        filename=DFT_FILENAME,
+        temperature=form.temperature,
+        pressure=form.pressure,
+        max_reaction_length=5,
     )
 
-    analysis = AnalyseSampling(results.data)
-    analysis.reaction_statistics()
-    analysis.mean_sampling()
-    analysis.reaction_paths()
+    gic = GenerateInitialConcentrations(graph=graph).update_ic(form.concs)
 
-    df_m_t = pd.DataFrame(analysis.mean_data).T
-    df_m_t = df_m_t[df_m_t["value"] != 0]
+    t = Traversal(graph=graph)
+
+    data = t.sample(initial_concentrations=gic, ncpus=4, nsamples=1000)
+    analysis = AnalyseSampling()
+
+    average_data = pd.DataFrame(analysis.average_sampling(data))
+    average_data = average_data.loc[~(average_data == 0).all(axis=1)]
+    average_data.sort_values(by="diff", inplace=True)
+
     result_stats = pd.DataFrame(
         {
-            "comps": list(df_m_t.T.keys()),
-            "values": df_m_t["value"].values,
-            "variance": df_m_t["variance"].values,
-            "variance_minus": -df_m_t["variance"].values,
+            "comps": list(average_data.index),
+            "values": average_data["mean"].values,
+            "variance": average_data["var"].values,
+            "variance_minus": -average_data["var"].values,
         }
     )
+    results = {
+        "result": {
+            "final_concs": average_data["mean"].to_dict(),
+        },
+    }
 
     return {"results": results, "analysis": analysis, "chart_data": result_stats}
 

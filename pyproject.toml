@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "arcs"
-version = "1.5.0"
+name = "api"
+version = "0.0.0"
 description = "Automated reactions for CO2 storage"
 authors = [
   "CCS Data & Digital Team <fg_CCS_Data_Digital@equinor.com>",
@@ -30,12 +30,6 @@ classifiers=[
 
 [tool.poetry.dependencies]
 python = "^3.10"
-ase = "^3.23.0"
-pymatgen = "^2024.10.3"
-scipy = "^1.14.1"
-numpy = "^2.1.2"
-chempy = "^0.9.0"
-tqdm = "^4.66.5"
 fastapi = "^0.115.2"
 uvicorn = "^0.32.0"
 pydantic = "^2.9.2"
@@ -43,6 +37,7 @@ python-dotenv = "^1.0.1"
 azure-monitor-opentelemetry = "^1.6"
 opentelemetry-instrumentation-httpx = "^0.55b1"
 opentelemetry-instrumentation-fastapi = "^0.55b1"
+arcs = { git = "https://github.com/badw/arcs.git", rev = "38306d5f86e605997fb694ff37a97e77ac11ce76" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
