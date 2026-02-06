@@ -30,7 +30,8 @@ spec:
       publicPort: http
       resources:
         limits:
-          memory: 8000M
+          cpu: "12000m"
+          memory: "16Gi"
         requests:
           cpu: "12000m"
           memory: "16Gi"
