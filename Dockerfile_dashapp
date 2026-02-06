@@ -1,0 +1,20 @@
+FROM python:3.12-slim
+
+WORKDIR /workspace
+
+# clone specific revision of arcs
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/badw/arcs
+WORKDIR /workspace/arcs
+RUN git checkout 38306d5f86e605997fb694ff37a97e77ac11ce76
+
+RUN pip install .
+
+EXPOSE 8050
+
+USER 1001
+
+WORKDIR /workspace/arcs/app
+
+ENV HOST=0.0.0.0
+CMD ["python", "arcs_app.py"]
