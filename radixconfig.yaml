@@ -7,18 +7,18 @@ spec:
     - name: dev
       build:
         from: main
-    - name: legacy-dash
+    - name: dash_app
       build:
-        from: old
+        from: main
     - name: prod
   dnsAlias:
     - alias: arcs
       component: server
-      environment: legacy-dash
+      environment: dash_app
   components:
     - name: server
       environmentConfig:
-        - environment: legacy-dash
+        - environment: dash_app
           enabled: true
         - environment: dev
           enabled: false
@@ -34,6 +34,7 @@ spec:
         requests:
           cpu: 500m
           memory: 8000M
+      dockerfileName: Dockerfile_dashapp
     - name: api
       network:
         ingress:
@@ -41,7 +42,7 @@ spec:
             proxyReadTimeout: 300
             proxySendTimeout: 300
       environmentConfig:
-        - environment: legacy-dash
+        - environment: dash_app
           enabled: false
         - environment: dev
           variables:
