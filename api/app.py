@@ -70,7 +70,7 @@ class SimulationRequest(BaseModel):
                         "H2S": 30e-6,
                         "H2O": 20e-6,
                     },
-                    "samples": 10,
+                    "samples": 200,
                 }
             ]
         }
@@ -90,28 +90,14 @@ def run_simulation(form: SimulationRequest):
 
     t = Traversal(graph=graph)
 
-    data = t.sample(initial_concentrations=gic, ncpus=4, nsamples=1000)
+    data = t.sample(initial_concentrations=gic, ncpus=4, nsamples=form.samples)
     analysis = AnalyseSampling()
 
     average_data = pd.DataFrame(analysis.average_sampling(data))
     average_data = average_data.loc[~(average_data == 0).all(axis=1)]
     average_data.sort_values(by="diff", inplace=True)
 
-    result_stats = pd.DataFrame(
-        {
-            "comps": list(average_data.index),
-            "values": average_data["mean"].values,
-            "variance": average_data["var"].values,
-            "variance_minus": -average_data["var"].values,
-        }
-    )
-    results = {
-        "result": {
-            "final_concs": average_data["mean"].to_dict(),
-        },
-    }
-
-    return {"results": results, "analysis": analysis, "chart_data": result_stats}
+    return {"results": average_data["mean"].to_dict()}
 
 
 if __name__ == "__main__":
