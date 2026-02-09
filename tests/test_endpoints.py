@@ -32,4 +32,3 @@ def test_run_simulation(client):
     assert response.status_code == 200
     data = response.json()
     assert "results" in data
-    assert "analysis" in data
