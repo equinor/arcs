@@ -11,6 +11,7 @@ spec:
       build:
         from: main
     - name: prod
+    - name: eq-fork
   dnsAlias:
     - alias: arcs
       component: server
@@ -23,6 +24,8 @@ spec:
         - environment: dev
           enabled: false
         - environment: prod
+          enabled: false
+        - environment: eq-fork
           enabled: false
       ports:
         - name: http
