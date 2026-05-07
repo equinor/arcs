@@ -22,7 +22,7 @@ import importlib.resources
 tracer = trace.get_tracer(__name__, tracer_provider=get_tracer_provider())
 
 DATA_DIR = importlib.resources.files("arcs").joinpath("data")
-DFT_FILENAME = DATA_DIR.joinpath("dft_data.json")
+DFT_FILENAME = DATA_DIR.joinpath("quantum_data.json.gz")
 
 load_dotenv()
 app = FastAPI()
@@ -80,7 +80,7 @@ class SimulationRequest(BaseModel):
 @app.post("/run_simulation")
 def run_simulation(form: SimulationRequest):
     graph = GraphGenerator().from_file(
-        filename=DFT_FILENAME,
+        filename=str(DFT_FILENAME),
         temperature=form.temperature,
         pressure=form.pressure,
         max_reaction_length=5,
