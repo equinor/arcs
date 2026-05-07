@@ -37,7 +37,7 @@ python-dotenv = "^1.0.1"
 azure-monitor-opentelemetry = "^1.6"
 opentelemetry-instrumentation-httpx = "^0.55b1"
 opentelemetry-instrumentation-fastapi = "^0.55b1"
-arcs = { git = "https://github.com/badw/arcs.git", rev = "38306d5f86e605997fb694ff37a97e77ac11ce76" }
+arcs = { git = "https://github.com/badw/arcs.git", rev = "13d4d589e2e86fbf79da7c333cd685761c9ba665" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
