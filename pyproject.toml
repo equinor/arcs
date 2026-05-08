@@ -1,55 +1,59 @@
-[tool.poetry]
+[project]
 name = "api"
 version = "0.0.0"
 description = "Automated reactions for CO2 storage"
 authors = [
-  "CCS Data & Digital Team <fg_CCS_Data_Digital@equinor.com>",
-  "Benjamin A. D. Williamson <benjamin.williamson@ntnu.no>",
+  { name = "CCS Data & Digital Team", email = "fg_CCS_Data_Digital@equinor.com" },
+  { name = "Benjamin A. D. Williamson", email = "benjamin.williamson@ntnu.no" },
 ]
 license = "MIT"
 readme = "README.md"
-classifiers=[
+requires-python = ">=3.10"
+classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "Development Status :: 3 - Beta",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "Intended Audience :: System Administrators",
-  "Intended Audience :: Industry",
   "Intended Audience :: Information Technology",
   "Operating System :: OS Independent",
   "Topic :: Other/Nonlisted Topic",
   "Topic :: Scientific/Engineering",
 ]
+dependencies = [
+  "fastapi>=0.115.2,<0.116",
+  "uvicorn>=0.32.0,<0.33",
+  "pydantic>=2.9.2,<3",
+  "python-dotenv>=1.0.1,<2",
+  "azure-monitor-opentelemetry>=1.6,<2",
+  "opentelemetry-instrumentation-httpx>=0.55b1,<0.56",
+  "opentelemetry-instrumentation-fastapi>=0.55b1,<0.56",
+  "arcs",
+]
 
-[tool.poetry.urls]
-"repository" = "https://github.com/equinor/arcs"
-"documentation" = "https://github.com/equinor/arcs"
+[project.urls]
+Repository = "https://github.com/equinor/arcs"
+Documentation = "https://github.com/equinor/arcs"
 "Bug Tracker" = "https://github.com/equinor/arcs/issues"
 
-[tool.poetry.dependencies]
-python = "^3.10"
-fastapi = "^0.115.2"
-uvicorn = "^0.32.0"
-pydantic = "^2.9.2"
-python-dotenv = "^1.0.1"
-azure-monitor-opentelemetry = "^1.6"
-opentelemetry-instrumentation-httpx = "^0.55b1"
-opentelemetry-instrumentation-fastapi = "^0.55b1"
+[dependency-groups]
+dev = [
+  "pytest>=8.3.3,<9",
+  "ruff>=0.7.1,<0.8",
+  "pytest-snapshot>=0.9.0,<0.10",
+  "mypy>=1.14.1,<2",
+  "types-tqdm>=4.67.0.20241221,<5",
+  "types-psutil>=6.1.0.20241221,<7",
+  "pandas-stubs>=2.2.3.241126,<3",
+]
+docs = [
+  "mkdocs>=1.6.1,<2",
+]
+
+[tool.uv.sources]
 arcs = { git = "https://github.com/badw/arcs.git", rev = "13d4d589e2e86fbf79da7c333cd685761c9ba665" }
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.3"
-ruff = "^0.7.1"
-pytest-snapshot = "^0.9.0"
-mypy = "^1.14.1"
-types-tqdm = "^4.67.0.20241221"
-types-psutil = "^6.1.0.20241221"
-pandas-stubs = "^2.2.3.241126"
-
-[tool.poetry.group.docs.dependencies]
-mkdocs = "^1.6.1"
 
 [tool.pytest.ini_options]
 addopts = [
@@ -68,5 +72,5 @@ module = [
 ignore_missing_imports = true
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
