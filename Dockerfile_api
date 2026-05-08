@@ -9,7 +9,8 @@ RUN apt-get install -y git && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY . .
-RUN python -m pip install .
+RUN python -m pip install uv
+RUN uv sync
 
 EXPOSE 5001
 USER 1000
