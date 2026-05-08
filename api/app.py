@@ -83,7 +83,7 @@ def run_simulation(form: SimulationRequest):
         filename=str(DFT_FILENAME),
         temperature=form.temperature,
         pressure=form.pressure,
-        max_reaction_length=5,
+        max_reaction_length=4,
     )
 
     gic = GenerateInitialConcentrations(graph=graph).update_ic(form.concs)
