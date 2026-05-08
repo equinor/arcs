@@ -22,6 +22,7 @@ COPY --from=builder --chown=1000:1000 /app /app
 
 USER 1000
 ENV UV_CACHE_DIR=/tmp/uv-cache
+ENV MPLCONFIGDIR=/tmp/matplotlib
 
 EXPOSE 5001
 
