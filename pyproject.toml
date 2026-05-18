@@ -41,7 +41,7 @@ Documentation = "https://github.com/equinor/arcs"
 
 [dependency-groups]
 dev = [
-  "pytest>=8.3.3,<9",
+  "pytest>=9.0.3,<10",
   "ruff>=0.7.1,<0.8",
   "pytest-snapshot>=0.9.0,<0.10",
   "mypy>=1.14.1,<2",
