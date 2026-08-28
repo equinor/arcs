@@ -1,11 +1,9 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
 import os
 import pickle
 import re
 from collections import defaultdict
-from multiprocessing import Pool
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
@@ -87,28 +85,6 @@ def _write_table(
     pickle.dump(table, stream)
 
 
-def _process_file(filepath: Path) -> None:
-    print(f"Processing: {filepath}   ", end="\r")
-    with filepath.open("rb") as f:
-        reactions: dict[int, ReactionType] = pickle.load(f)
-
-    match = re.match(r"T(\d+)_P\d+", filepath.parent.name)
-    assert (
-        match is not None
-    ), f"Couldn't get temperature information from '{filepath.parent.name}' model"
-
-    temperature = int(match[1])
-
-    pre_table: _PreTable = defaultdict(list)
-    for index, reaction in reactions.items():
-        _process_reaction(pre_table, temperature, index, reaction)
-
-    with (filepath.parent / "table.p").open("wb") as f:
-        _write_table(f, pre_table)
-    with (filepath.parent / "table-rank_small_reactions_higher.p").open("wb") as f:
-        _write_table(f, pre_table, value_column=2)
-
-
 def process_generic_inputs(
     reactions: dict[int, ReactionType],
     temperature: int,
@@ -134,13 +110,3 @@ def process_generic_inputs(
 
     with (directory_name / "table-rank_small_reactions_higher.p").open("wb") as f:
         _write_table(f, pre_table, value_column=2)
-
-
-def main() -> None:
-    with Pool() as pool:
-        _ = pool.map(_process_file, Path().glob("model/*/reactions.p"))
-    print("\nDone!")
-
-
-if __name__ == "__main__":
-    main()

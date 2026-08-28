@@ -10,9 +10,9 @@ import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import LinearNDInterpolator  # type: ignore
 
-from bin.generate_tables import process_generic_inputs
+from arcs.generate_tables import process_generic_inputs
 
-MODEL_PATH = Path(__file__).parent.parent / "model"
+MODEL_PATH = Path(__file__).parent / "data/model"
 
 BOLTZMANN_CONSTANT = 8.617333262 * (10 ** (-5))  # Boltzmann constant k in eV
 
