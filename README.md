@@ -5,33 +5,20 @@
 
 ## Installation
 
-To install ARCS using the standard `pip` Python package manager, follow these steps after cloning this repository:
+To install ARCS for standard usage:
 
 ```
-pip install .
+pip install git+https://github.com/equinor/arcs@eqmain
 ```
 
-ARCS uses the [Poetry](https://python-poetry.org) package and dependency manager. For development and testing, install `poetry` (using `brew install poetry`, `pipx install poetry` or using your preferred package manager), then:
-
-```
-poetry sync
-```
-
-Refer to the [Poetry documentation](https://python-poetry.org/docs/) for more information.
+ARCS uses the [Astral uv](https://docs.astral.sh/uv/) package manager. Follow
+their official instructions on setting up, then do `uv sync`
 
 ### Fetching Model Files
 
-To fetch the necessary large model files (pre-computed equations and Gibbs free energy), run:
-
-```
-git lfs pull
-```
-
-This command assumes you have `git lfs` installed. On macOS you can install it using Homebrew:
-```
-brew install git-lfs
-git lfs install
-```
+Model files are stored using [Git LFS](https://git-lfs.com/), which needs to be
+installed when cloning this repository. Install it, then do `git lfs pull` to
+fetch the data.
 
 ## History / Credits
 
