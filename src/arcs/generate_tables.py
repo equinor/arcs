@@ -26,7 +26,7 @@ def _cost_function(
     compounds: dict[str, int],
 ) -> float:
     num_atoms = sum(_num_atoms(k) * v for k, v in compounds.items())
-    return np.log(1 + (273 / temperature) * np.exp(gibbs / num_atoms))
+    return float(np.log(1 + (273 / temperature) * np.exp(gibbs / num_atoms)))
 
 
 def _compute_edge(
@@ -36,14 +36,12 @@ def _compute_edge(
     reac: dict[str, int],
     prod: dict[str, int],
 ) -> float:
-    assert (
-        start in reac or start in prod
-    ), f"{start} is neither in reactants ({reac}) or products ({prod})"
-
     if start in reac:
         return _cost_function(gibbs, temperature, reac)
     elif start in prod:
         return _cost_function(-gibbs, temperature, prod)
+
+    raise ValueError(f"{start} is neither in reactants ({reac}) or products ({prod})")
 
 
 _PreTable = dict[tuple[str, str], list[tuple[int, float, float]]]
@@ -90,7 +88,7 @@ def process_generic_inputs(
     temperature: int,
     pressure: int,
     path: Path,
-):
+) -> None:
     directory_name = path / f"T{temperature}_P{pressure}"
 
     try:
